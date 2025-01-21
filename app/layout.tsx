@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HRT Improved",
-  description: "Human Resources and Training Improved",
+  title: "Next HRT",
+  description: "The Next Human Resources and Training",
 };
 
 export default function RootLayout({

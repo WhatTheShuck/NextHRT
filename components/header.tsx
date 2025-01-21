@@ -16,9 +16,7 @@ const Header = () => {
             height={48}
             className="h-12 w-auto"
           />
-          <span className="text-xl font-bold text-foreground">
-            HRT Improved
-          </span>
+          <span className="text-xl font-bold text-foreground">Next HRT</span>
         </Link>
         <ModeToggle />
       </div>
