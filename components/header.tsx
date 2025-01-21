@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { companyDetails } from "@/lib/data";
+import { ModeToggle } from "./theme-toggle";
 
 const Header = () => {
   return (
@@ -19,6 +20,7 @@ const Header = () => {
             HRT Improved
           </span>
         </Link>
+        <ModeToggle />
       </div>
     </header>
   );
