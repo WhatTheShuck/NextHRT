@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Building2, Lock } from "lucide-react";
 import Link from "next/link";
+import { companyDetails } from "@/lib/data";
 
 const LoginPage = () => {
   const handleSubmit = (e) => {
@@ -21,15 +22,13 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background">
       <div className="w-full max-w-md px-4">
         {/* Logo and Company Name */}
         <div className="text-center mb-8">
           <Building2 className="mx-auto h-12 w-12 text-primary" />
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">HR Portal</h1>
-          <p className="mt-2 text-gray-600">
-            Welcome back! Please log in to continue.
-          </p>
+          <h1 className="mt-4 text-3xl font-bold ">HR Portal</h1>
+          <p className="mt-2">Welcome back! Please log in to continue.</p>
         </div>
 
         {/* Login Card */}
@@ -47,7 +46,7 @@ const LoginPage = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="name@company.com"
+                  placeholder={`name@${companyDetails.domain_extension}`}
                   required
                   className="w-full"
                 />
