@@ -66,3 +66,41 @@ export const landingPageNavigationItems: NavigationItem[] = [
     requiresAdmin: true,
   },
 ];
+
+export const reportsNavigationItems: NavigationItem[] = [
+  {
+    title: "Current Employee List",
+    description: "View the current employees. Useful for evacuation list",
+    icon: Users,
+    href: "/reports/employee/list",
+    requiresAdmin: false,
+  },
+  {
+    title: "Upcoming Employee Training",
+    description: "View upcoming employee training in a specified period",
+    icon: Users,
+    href: "/reports/training/upcoming",
+    requiresAdmin: false,
+  },
+  {
+    title: "Training Completion",
+    description: "See who has completed a specific type of training",
+    icon: ClipboardList,
+    href: "/reports/training/completed",
+    requiresAdmin: false,
+  },
+  {
+    title: "Upcoming Ticket Expiration",
+    description: "View upcoming expiring tickets for a specified period",
+    icon: Settings,
+    href: "/reports/tickets/upcoming",
+    requiresAdmin: false,
+  },
+  {
+    title: "Ticket Completion",
+    description: "See who holds a specific type of ticket",
+    icon: ShieldCheck,
+    href: "/reports/tickets/completed",
+    requiresAdmin: false,
+  },
+];

@@ -1,92 +1,38 @@
 "use client";
 import React from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Building2, Lock } from "lucide-react";
-import Link from "next/link";
+import { NavigationCard } from "@/components/navigation-card";
+import { reportsNavigationItems } from "@/lib/data";
 
-const LoginPage = () => {
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Add your login logic here
-  };
-
+const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50">
-      <div className="w-full max-w-md px-4">
-        {/* Logo and Company Name */}
-        <div className="text-center mb-8">
-          <Building2 className="mx-auto h-12 w-12 text-primary" />
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">HR Portal</h1>
-          <p className="mt-2 text-gray-600">
-            Welcome back! Please log in to continue.
-          </p>
+    <div className="min-h-screen bg-background p-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold">Reports</h1>
+            <p className="text-muted-foreground mt-2">
+              Generate a report for one of the following categories
+            </p>
+          </div>
         </div>
-
-        {/* Login Card */}
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle>Login</CardTitle>
-            <CardDescription>
-              Enter your credentials to access your account
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@company.com"
-                  required
-                  className="w-full"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  required
-                  className="w-full"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Input type="checkbox" id="remember" className="h-4 w-4" />
-                  <Label htmlFor="remember" className="text-sm">
-                    Remember me
-                  </Label>
-                </div>
-                <Button variant="link" className="text-sm text-primary">
-                  Forgot password?
-                </Button>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Link href={"/"} className="w-full">
-                <Button type="submit" className="w-full">
-                  <Lock className="mr-2 h-4 w-4" />
-                  Sign In
-                </Button>
-              </Link>
-            </CardFooter>
-          </form>
-        </Card>
       </div>
+
+      {/* Regular User Navigation */}
+      {reportsNavigationItems && (
+        <div className="space-y-6">
+          <br />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {reportsNavigationItems.map((item) => (
+              <NavigationCard key={item.href} {...item} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default LoginPage;
+export default LandingPage;
