@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id              Int               @id @default(autoincrement())
+  // email String  @unique
+  firstName       String
+  lastName        String
+  WorkAreaID      Int
+  Title           String
+  StartDate       DateTime?
+  FinishDate      DateTime?
+  IsActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  TrainingRecords TrainingRecords[]
+}
+
+model TrainingRecords {
+  id            Int       @id @default(autoincrement())
+  personTrained Employee  @relation(fields: [employeeId], references: [id])
+  employeeId    Int
+  dateCompleted DateTime
+  training      Training  @relation(fields: [trainingId], references: [id])
+  trainingId    Int
+  expiryDate    DateTime? // should probably be default dateCompleted + 1 year
+  trainer       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@unique([employeeId, trainingId, dateCompleted])
+}
+
+model Training {
+  id              Int               @id @default(autoincrement())
+  category        Category
+  title           String
+  RenewalPeriod   Int               @default(0) // in months
+  TrainingRecords TrainingRecords[]
+}
+
+enum Category {
+  Internal
+  External
+}
