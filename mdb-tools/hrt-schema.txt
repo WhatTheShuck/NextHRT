@@ -1,0 +1,444 @@
+-- ----------------------------------------------------------
+-- MDB Tools - A library for reading MS Access database files
+-- Copyright (C) 2000-2011 Brian Bruns and others.
+-- Files in libmdb are licensed under LGPL and the utilities under
+-- the GPL, see COPYING.LIB and COPYING files respectively.
+-- Check out http://mdbtools.sourceforge.net
+-- ----------------------------------------------------------
+
+-- That file uses encoding UTF-8
+
+CREATE TABLE [EmployeeHistory]
+ (
+	[EmpHistoryID]			Long Integer, 
+	[HEmployeeID]			Long Integer, 
+	[Payroll_No]			Text (50), 
+	[HLastName]			Text (50), 
+	[HFirstName]			Text (50), 
+	[StartDate]			DateTime, 
+	[EndDate]			DateTime, 
+	[Status]			Text (50), 
+	[Agency]			Text (50), 
+	[WorkAreaID]			Long Integer, 
+	[Section]			Text (50), 
+	[WorkArea]			Text (50), 
+	[Title]			Text (50), 
+	[Level]			Text (255), 
+	[EditedBy]			Text (50), 
+	[EditedDate]			DateTime, 
+	[ShiftTime]			Text (255)
+);
+
+CREATE TABLE [Employees]
+ (
+	[EmployeeID]			Long Integer, 
+	[Payroll_No]			Text (255), 
+	[FirstName]			Text (255), 
+	[LastName]			Text (255), 
+	[WorkAreaID]			Long Integer, 
+	[Title]			Text (255), 
+	[Agency]			Text (255), 
+	[StartDate]			DateTime, 
+	[FinishDate]			DateTime, 
+	[EmployeeStatus]			Text (255), 
+	[EBA]			Text (3), 
+	[IsActive]			Boolean NOT NULL, 
+	[AlternateRDO]			Boolean NOT NULL, 
+	[Level]			Text (25), 
+	[DateCreated]			DateTime, 
+	[DateEdited]			DateTime, 
+	[Createdby]			Text (255), 
+	[Editedby]			Text (255)
+);
+
+CREATE TABLE [Switchboard Items]
+ (
+	[SwitchboardID]			Long Integer, 
+	[ItemNumber]			Integer, 
+	[ItemText]			Text (255), 
+	[Command]			Integer, 
+	[Argument]			Text (255)
+);
+
+CREATE TABLE [tbl_AutoEmailRecipients]
+ (
+	[ID]			Long Integer, 
+	[Agency]			Text (255), 
+	[EmailAddress]			Text (255), 
+	[ChangeEmpDetails]			Text (2), 
+	[ChangePerDetails]			Text (2), 
+	[ChangeEmpStatus]			Text (2)
+);
+
+CREATE TABLE [tbl_InvalidAttempt_Control]
+ (
+	[id]			Long Integer, 
+	[UserName]			Text (50), 
+	[InvalidAttempText]			Text (50), 
+	[Date]			DateTime, 
+	[Time]			DateTime
+);
+
+CREATE TABLE [tbl_Listvalues_Operates]
+ (
+	[ID]			Long Integer, 
+	[Operate_ID]			Long Integer, 
+	[WorkAreaID]			Long Integer, 
+	[WorkArea]			Text (255), 
+	[Description]			Text (255), 
+	[IsActive]			Text (3), 
+	[WorkSection]			Text (50), 
+	[RenewalPeriod]			Long Integer
+);
+
+CREATE TABLE [tbl_ListValues_Section]
+ (
+	[WorkAreaID]			Long Integer, 
+	[WorkArea]			Text (30)
+);
+
+CREATE TABLE [tbl_ListValues_ShiftTime]
+ (
+	[ShiftTime_ID]			Long Integer, 
+	[ShiftTime]			Text (100)
+);
+
+CREATE TABLE [tbl_ListValues_WorkArea]
+ (
+	[WorkAreaID]			Long Integer, 
+	[WorkSection]			Text (30), 
+	[WorkArea]			Text (50), 
+	[IsActive]			Text (255)
+);
+
+CREATE TABLE [tblEmpCarDetails]
+ (
+	[ID]			Long Integer, 
+	[EmployeeID]			Long Integer, 
+	[Payroll_No]			Text (50), 
+	[Lastname]			Text (255), 
+	[Firstname]			Text (255), 
+	[CarRego]			Text (6), 
+	[CarMake]			Text (50), 
+	[CarModel]			Text (50), 
+	[DateEdited]			DateTime, 
+	[EditedBy]			Text (50)
+);
+
+CREATE TABLE [tblEmployees]
+ (
+	[ID]			Long Integer, 
+	[EmpClockNo]			Text (50) NOT NULL, 
+	[Lastname]			Text (255) NOT NULL, 
+	[Firstname]			Text (255) NOT NULL, 
+	[DateofJoining]			DateTime, 
+	[Address1]			Text (50), 
+	[Suburb]			Text (50), 
+	[State]			Text (50), 
+	[PostCode]			Long Integer, 
+	[Phone1]			Long Integer, 
+	[Mobile1]			Long Integer, 
+	[HiringAgency]			Text (50), 
+	[PhotoID]			OLE (255), 
+	[AdditionalQual]			Text (50), 
+	[Department]			Text (50), 
+	[WorkArea]			Text (50), 
+	[Position]			Text (50), 
+	[Status]			Text (50), 
+	[ShiftTime]			Text (50), 
+	[Supervisor]			Text (50), 
+	[Comments]			Memo/Hyperlink (255), 
+	[DateCreated]			DateTime, 
+	[DateEdited]			DateTime, 
+	[Createdby]			Text (50), 
+	[Editedby]			Text (50)
+);
+
+CREATE TABLE [tblEmpNotes]
+ (
+	[NotesID]			Long Integer, 
+	[EmployeeID]			Long Integer, 
+	[FirstName]			Text (50), 
+	[LastName]			Text (50), 
+	[NoteDate]			DateTime, 
+	[AddedBy]			Text (50), 
+	[Note]			Memo/Hyperlink (255)
+);
+
+CREATE TABLE [tblEmpPerInfo]
+ (
+	[MainEmployeeID]			Long Integer, 
+	[Payroll_No]			Text (255), 
+	[FirstName]			Text (255), 
+	[LastName]			Text (255), 
+	[Address1]			Text (50), 
+	[Suburb]			Text (50), 
+	[State]			Text (50), 
+	[PostCode]			Long Integer, 
+	[Phone1]			Text (50), 
+	[Mobile1]			Text (50), 
+	[ShiftTime]			Text (50), 
+	[Supervisor]			Text (50), 
+	[Contact]			Text (50), 
+	[EmrPhone]			Text (50), 
+	[EmrMobile]			Text (50), 
+	[EmrRelnship]			Text (50), 
+	[DateOfBirth]			DateTime, 
+	[DateCreated]			DateTime, 
+	[DateEdited]			DateTime, 
+	[AllergiesDisclosed]			Text (3), 
+	[Allergies]			Text (255), 
+	[CreatedBy]			Text (50), 
+	[EditedBy]			Text (50), 
+	[F24]			Text (255), 
+	[F25]			Text (255), 
+	[F26]			Text (255), 
+	[F27]			Text (255), 
+	[F28]			Text (255)
+);
+
+CREATE TABLE [tblEmpSpecialDuties]
+ (
+	[ID]			Long Integer, 
+	[MainEmployeeID]			Long Integer, 
+	[Payroll_No]			Text (50), 
+	[Lastname]			Text (255) NOT NULL, 
+	[Firstname]			Text (255) NOT NULL, 
+	[AdditionalQual]			Text (50), 
+	[DateCreated]			DateTime, 
+	[DateEdited]			DateTime, 
+	[Createdby]			Text (50), 
+	[Editedby]			Text (50)
+);
+
+CREATE TABLE [tblEmpTerminationDetails]
+ (
+	[Id]			Long Integer, 
+	[EmployeeID]			Long Integer, 
+	[Payroll_No]			Text (7), 
+	[FirstName]			Text (50), 
+	[LastName]			Text (50), 
+	[Reason]			Text (50), 
+	[Workmanship]			Integer, 
+	[GeneralAttitude]			Integer, 
+	[LearningAbility]			Integer, 
+	[Output]			Integer, 
+	[TeamWork]			Integer, 
+	[Tidiness]			Integer, 
+	[Flexibility]			Integer, 
+	[Attendance]			Integer, 
+	[Punctuality]			Integer, 
+	[ReEmployment]			Boolean NOT NULL, 
+	[LenghtofEmployment]			Text (20), 
+	[Comments]			Memo/Hyperlink (255), 
+	[Address]			Text (50), 
+	[WorkSection]			Text (255), 
+	[WrkArea]			Text (50), 
+	[Shift]			Text (50), 
+	[Position]			Text (50), 
+	[Status]			Text (50), 
+	[Agency]			Text (50), 
+	[Supervisor]			Text (50), 
+	[StDate]			DateTime, 
+	[FinDate]			DateTime, 
+	[ModifiedOn]			DateTime, 
+	[ModifiedBy]			Text (50), 
+	[Reviewed]			Boolean NOT NULL
+);
+
+CREATE TABLE [tblLogReport]
+ (
+	[UserId]			Text (50), 
+	[Date]			DateTime, 
+	[Time]			DateTime, 
+	[Type]			Text (50)
+);
+
+CREATE TABLE [tblOperatesTraining]
+ (
+	[OperatesTrainingID]			Long Integer, 
+	[OperateID]			Long Integer, 
+	[EmployeeID]			Long Integer, 
+	[FirstName]			Text (50), 
+	[LastName]			Text (50), 
+	[Section]			Text (50), 
+	[WorkArea]			Text (50), 
+	[Process]			Text (255), 
+	[Risk]			Text (50), 
+	[Description]			Text (255), 
+	[Commenced]			DateTime, 
+	[TaskSheetComplete]			DateTime, 
+	[PracticalComplete]			DateTime, 
+	[Complete]			Text (50), 
+	[DueDate]			Text (50), 
+	[Filed]			Text (50), 
+	[Result]			Text (255)
+);
+
+CREATE TABLE [tblSpecialDutiesDefinitions]
+ (
+	[ID]			Long Integer, 
+	[SpecialDuties]			Text (50)
+);
+
+CREATE TABLE [tblStatusDefinition]
+ (
+	[id]			Long Integer, 
+	[StatusType]			Text (50)
+);
+
+CREATE TABLE [tblSundryandCoEquip]
+ (
+	[ID]			Long Integer, 
+	[EmployeeID]			Long Integer, 
+	[Payroll_No]			Text (50), 
+	[Lastname]			Text (255) NOT NULL, 
+	[Firstname]			Text (255) NOT NULL, 
+	[ItemIssued]			Text (50), 
+	[ItemSize]			Text (50), 
+	[ItemQty]			Long Integer, 
+	[ItemSerial]			Text (50), 
+	[ItemNotes]			Memo/Hyperlink (255), 
+	[IssueDate]			DateTime, 
+	[ReturnDate]			DateTime, 
+	[DateCreated]			DateTime, 
+	[DateEdited]			DateTime, 
+	[Createdby]			Text (50), 
+	[Editedby]			Text (50)
+);
+
+CREATE TABLE [tblSundryItmsDefinition]
+ (
+	[ID]			Long Integer, 
+	[ItemName]			Text (50)
+);
+
+CREATE TABLE [tblTicketTypeDefinition]
+ (
+	[ID]			Long Integer, 
+	[TicketType]			Text (50), 
+	[TicketCode]			Text (50), 
+	[RenewalPeriod]			Long Integer, 
+	[Active]			Text (50)
+);
+
+CREATE TABLE [tblTrainingRecords]
+ (
+	[ID]			Long Integer, 
+	[MainEmployeeID]			Long Integer, 
+	[Payroll_No]			Text (50), 
+	[LASTNAME]			Text (255), 
+	[FIRSTNAME]			Text (255), 
+	[DateCompleted]			DateTime, 
+	[TrainingID]			Long Integer, 
+	[Catagory]			Text (255), 
+	[Subject]			Text (255), 
+	[Notes]			Text (255), 
+	[DateExpired]			DateTime, 
+	[IsCompulsory]			Boolean NOT NULL, 
+	[Archive]			Boolean NOT NULL, 
+	[DeliveredBy]			Text (255), 
+	[DateEdited]			DateTime, 
+	[EditedBy]			Text (50)
+);
+
+CREATE TABLE [tblTrainingRequired]
+ (
+	[TrainingRequiredID]			Long Integer, 
+	[EmployeeID]			Long Integer, 
+	[TrainingID]			Long Integer, 
+	[Category]			Text (20), 
+	[Section]			Text (50), 
+	[WorkArea]			Long Integer, 
+	[Description]			Text (255), 
+	[TrainingCategory]			Text (255), 
+	[StartBy]			DateTime, 
+	[CompleteBy]			DateTime, 
+	[RequirementExpires]			DateTime, 
+	[ExpiryOnLeave]			Long Integer
+);
+
+CREATE TABLE [tblTrngDefinitions]
+ (
+	[TrainingID]			Long Integer, 
+	[Catagory]			Text (50) NOT NULL, 
+	[Subject]			Text (100) NOT NULL, 
+	[RenewalPeriod]			Double, 
+	[Core]			Boolean NOT NULL, 
+	[Department]			Text (1), 
+	[Active]			Text (3), 
+	[IncludeTrainingPlan]			Text (2), 
+	[Attending]			Text (255), 
+	[Duration]			Text (255), 
+	[PreferredTrainer]			Text (255), 
+	[Scheduled]			DateTime, 
+	[Reschedule]			Text (255), 
+	[CurrentStatus]			Text (50), 
+	[Actual]			Text (255)
+);
+
+CREATE TABLE [tblUser]
+ (
+	[ID]			Long Integer, 
+	[UserName]			Text (50) NOT NULL, 
+	[EmpName]			Text (50) NOT NULL, 
+	[Password]			Text (50), 
+	[deactive]			Boolean NOT NULL, 
+	[IsConnected]			Boolean NOT NULL, 
+	[TimeOff]			Boolean NOT NULL, 
+	[PswdAttempts]			Integer, 
+	[Administrator]			Boolean NOT NULL, 
+	[HRT]			Boolean NOT NULL, 
+	[IMS]			Boolean NOT NULL, 
+	[HRTAdministrator]			Boolean NOT NULL, 
+	[ReadOnly]			Boolean NOT NULL, 
+	[Agency]			Boolean NOT NULL, 
+	[Coordinator]			Boolean NOT NULL, 
+	[EmployeeID]			Long Integer
+);
+
+CREATE TABLE [WI SOP]
+ (
+	[OperatesTrainingID]			Long Integer, 
+	[OperateID]			Long Integer, 
+	[EmployeeID]			Long Integer, 
+	[FirstName]			Text (255), 
+	[LastName]			Text (255), 
+	[Section]			Text (255), 
+	[WorkArea]			Long Integer, 
+	[Description]			Text (255), 
+	[Commenced]			Text (255), 
+	[TaskSheetComplete]			Text (255), 
+	[PracticalComplete]			Text (255), 
+	[Complete]			Text (255), 
+	[DueDate]			Text (255), 
+	[Filed]			Text (255), 
+	[Result]			Text (255)
+);
+
+CREATE TABLE [tbl_Version]
+ (
+	[ID]			Long Integer, 
+	[Version]			Long Integer
+);
+
+CREATE TABLE [tblEmpTicketsImg]
+ (
+	[ID]			Long Integer, 
+	[EmployeeID]			Long Integer, 
+	[Payroll_No]			Text (50), 
+	[Lastname]			Text (255) NOT NULL, 
+	[Firstname]			Text (255) NOT NULL, 
+	[TicketImgName]			Text (100), 
+	[TicketDescription]			Text (100), 
+	[TicketCode]			Text (50), 
+	[IssueDate]			DateTime, 
+	[ExpiryDate]			DateTime, 
+	[TicketNumber]			Text (50), 
+	[EnteredBy]			Text (50), 
+	[EnteredDate]			DateTime, 
+	[UpdatedBy]			Text (50), 
+	[UpdatedDate]			DateTime
+);
+
+
