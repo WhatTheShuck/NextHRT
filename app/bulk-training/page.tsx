@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -12,59 +12,113 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
-
-// Dummy data - replace with API calls
-const TRAINING_CATEGORIES = ["Internal", "External"];
-const TRAINING_NAMES = {
-  Internal: ["Health & Safety", "Company Policy", "Security Training"],
-  External: ["First Aid", "Leadership Development", "Technical Certification"],
-};
-const EMPLOYEES = [
-  { id: 1, name: "John Doe" },
-  { id: 2, name: "Jane Smith" },
-  { id: 3, name: "Alice Johnson" },
-  { id: 4, name: "Bob Wilson" },
-  { id: 5, name: "Carol Brown" },
-  { id: 6, name: "David Lee" },
-  { id: 7, name: "Emma Davis" },
-  { id: 8, name: "Frank Miller" },
-];
+import { Employee, Training } from "@prisma/client";
 
 const BulkTrainingForm = () => {
-  const [category, setCategory] = useState("");
-  const [trainingName, setTrainingName] = useState("");
+  // State for form data
+  const [trainingId, setTrainingId] = useState("");
   const [provider, setProvider] = useState("");
-  const [completionDate, setCompletionDate] = useState(new Date());
+  const [completionDate, setCompletionDate] = useState<Date>(new Date());
   const [openCalendar, setOpenCalendar] = useState(false);
-  const [openEmployees, setOpenEmployees] = useState(false);
-  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]); // Changed to string[] for value consistency
 
-  const handleSubmit = async (e) => {
+  // State for API data
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [trainings, setTrainings] = useState<Training[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Fetch employees and training courses on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [employeesRes, trainingsRes] = await Promise.all([
+          fetch("/api/employees"),
+          fetch("/api/training"),
+        ]);
+
+        if (!employeesRes.ok || !trainingsRes.ok) {
+          throw new Error("Failed to fetch data");
+        }
+
+        const employeesData = await employeesRes.json();
+        const trainingsData = await trainingsRes.json();
+
+        setEmployees(employeesData);
+        setTrainings(trainingsData);
+      } catch (err) {
+        setError("Failed to load data. Please refresh the page.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically make an API call with the form data
-    console.log({
-      category,
-      trainingName,
-      provider,
-      completionDate,
-      selectedEmployees,
-    });
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Create training records for each selected employee
+      const promises = selectedEmployees.map((employeeId) =>
+        fetch("/api/training-records", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            employeeId: parseInt(employeeId),
+            trainingId: parseInt(trainingId),
+            dateCompleted: completionDate.toISOString(),
+            trainer: provider,
+          }),
+        }),
+      );
+
+      await Promise.all(promises);
+
+      // Reset form
+      setTrainingId("");
+      setProvider("");
+      setCompletionDate(new Date());
+      setSelectedEmployees([]);
+    } catch (err) {
+      setError("Failed to create training records. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">Loading...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="p-6">
+          <div className="text-red-600">{error}</div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -73,41 +127,19 @@ const BulkTrainingForm = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Training Category */}
+          {/* Training Selection */}
           <div className="space-y-2">
-            <Label htmlFor="category">Training Category</Label>
-            <Select value={category} onValueChange={setCategory}>
+            <Label htmlFor="training">Training Course</Label>
+            <Select value={trainingId} onValueChange={setTrainingId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder="Select training course" />
               </SelectTrigger>
               <SelectContent>
-                {TRAINING_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {trainings.map((training) => (
+                  <SelectItem key={training.id} value={training.id.toString()}>
+                    {training.title} ({training.category})
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Training Name */}
-          <div className="space-y-2">
-            <Label htmlFor="trainingName">Training Name</Label>
-            <Select
-              value={trainingName}
-              onValueChange={setTrainingName}
-              disabled={!category}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select training" />
-              </SelectTrigger>
-              <SelectContent>
-                {category &&
-                  TRAINING_NAMES[category].map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -143,8 +175,10 @@ const BulkTrainingForm = () => {
                   mode="single"
                   selected={completionDate}
                   onSelect={(date) => {
-                    setCompletionDate(date);
-                    setOpenCalendar(false);
+                    if (date) {
+                      setCompletionDate(date);
+                      setOpenCalendar(false);
+                    }
                   }}
                   initialFocus
                 />
@@ -152,53 +186,45 @@ const BulkTrainingForm = () => {
             </Popover>
           </div>
 
-          {/* Employee Selection */}
+          {/* Employee Multi-Selection */}
           <div className="space-y-2">
             <Label>Employees</Label>
-            <Popover open={openEmployees} onOpenChange={setOpenEmployees}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between"
-                >
+            <Select
+              value={selectedEmployees.join(",")}
+              onValueChange={(value) => {
+                const employeeId = value.split(",").pop() || "";
+                if (selectedEmployees.includes(employeeId)) {
+                  setSelectedEmployees(
+                    selectedEmployees.filter((id) => id !== employeeId),
+                  );
+                } else {
+                  setSelectedEmployees([...selectedEmployees, employeeId]);
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select employees">
                   {selectedEmployees.length > 0
-                    ? `${selectedEmployees.length} employees selected`
+                    ? `${selectedEmployees.length} employee(s) selected`
                     : "Select employees"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0">
-                <Command>
-                  <CommandInput placeholder="Search employees..." />
-                  <CommandEmpty>No employees found.</CommandEmpty>
-                  <CommandGroup className="max-h-64 overflow-auto">
-                    {EMPLOYEES.map((employee) => (
-                      <CommandItem
-                        key={employee.id}
-                        onSelect={() => {
-                          setSelectedEmployees((current) =>
-                            current.includes(employee.id)
-                              ? current.filter((id) => id !== employee.id)
-                              : [...current, employee.id],
-                          );
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedEmployees.includes(employee.id)
-                              ? "opacity-100"
-                              : "opacity-0",
-                          )}
-                        />
-                        {employee.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((employee) => (
+                  <SelectItem
+                    key={employee.id}
+                    value={employee.id.toString()}
+                    className={
+                      selectedEmployees.includes(employee.id.toString())
+                        ? "bg-accent"
+                        : ""
+                    }
+                  >
+                    {employee.firstName} {employee.lastName} - {employee.Title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Submit Button */}
@@ -206,13 +232,13 @@ const BulkTrainingForm = () => {
             type="submit"
             className="w-full"
             disabled={
-              !category ||
-              !trainingName ||
+              isLoading ||
+              !trainingId ||
               !provider ||
               selectedEmployees.length === 0
             }
           >
-            Allocate Training
+            {isLoading ? "Creating Records..." : "Allocate Training"}
           </Button>
         </form>
       </CardContent>

@@ -33,7 +33,7 @@ export const landingPageNavigationItems: NavigationItem[] = [
     title: "User Profile",
     description: "View and edit user information",
     icon: Users,
-    href: "/users",
+    href: "/employees",
     requiresAdmin: false,
   },
   {
