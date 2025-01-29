@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, FileText } from "lucide-react";
+import { Sheet, FileText } from "lucide-react";
 import { TableColumn, exportToPDF, exportToExcel } from "@/lib/export-utils";
 
 interface ExportButtonsProps<T> {
@@ -29,15 +29,15 @@ export function ExportButtons<T extends Record<string, any>>({
       <Button
         variant="outline"
         onClick={handleExcelExport}
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 bg-[#10793F]"
       >
-        <FileSpreadsheet className="h-4 w-4" />
+        <Sheet className="h-4 w-4" />
         Export to Excel
       </Button>
       <Button
         variant="outline"
         onClick={handlePDFExport}
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 bg-[#FA0F00]"
       >
         <FileText className="h-4 w-4" />
         Export to PDF
