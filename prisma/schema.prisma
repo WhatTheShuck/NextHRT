@@ -19,6 +19,8 @@ model Employee {
   Title           String
   StartDate       DateTime?
   FinishDate      DateTime?
+  Department      String
+  Location        String
   IsActive        Boolean           @default(true)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt

@@ -25,13 +25,11 @@ const columns: TableColumn[] = [
   },
   {
     header: "Location",
-    accessor: "location",
-    format: () => "-", // Placeholder until implemented
+    accessor: "Location",
   },
   {
     header: "Department",
-    accessor: "department",
-    format: () => "-", // Placeholder until implemented
+    accessor: "Department",
   },
 ];
 

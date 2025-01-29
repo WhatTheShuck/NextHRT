@@ -30,6 +30,8 @@ export async function POST(request: Request) {
         Title: json.Title,
         StartDate: json.StartDate ? new Date(json.StartDate) : null,
         FinishDate: json.FinishDate ? new Date(json.FinishDate) : null,
+        Department: json.Department,
+        Location: json.Location,
         IsActive: json.IsActive ?? true,
       },
     });

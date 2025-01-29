@@ -51,6 +51,8 @@ export async function PUT(
         lastName: json.lastName,
         WorkAreaID: json.WorkAreaID,
         Title: json.Title,
+        Department: json.Department,
+        Location: json.Location,
         StartDate: json.StartDate ? new Date(json.StartDate) : null,
         FinishDate: json.FinishDate ? new Date(json.FinishDate) : null,
         IsActive: json.IsActive,
