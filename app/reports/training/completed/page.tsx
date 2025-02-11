@@ -55,17 +55,6 @@ export default function CompletedTrainingPage() {
             ))}
           </SelectContent>
         </Select>
-
-        {selectedTrainingId && (
-          <Button
-            variant="outline"
-            onClick={handleOpenInNewTab}
-            className="flex items-center gap-2"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Open in New Tab
-          </Button>
-        )}
       </div>
 
       {selectedTrainingId && (
