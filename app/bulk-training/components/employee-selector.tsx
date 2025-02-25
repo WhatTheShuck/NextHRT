@@ -1,10 +1,16 @@
 "use client";
-import React, { useState, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+} from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, X } from "lucide-react";
+import { Search, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Employee } from "@prisma/client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { CheckIcon } from "lucide-react";
@@ -21,7 +27,85 @@ export function EmployeeSelector({
   onSelectionChange,
 }: EmployeeSelectorProps) {
   const [searchInput, setSearchInput] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(0);
   const debouncedSearchTerm = useDebounce(searchInput, 300);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const badgeRowRef = useRef<HTMLDivElement>(null);
+
+  // Calculate how many badges can fit in a single row
+  const calculateVisibleCount = useCallback(() => {
+    if (
+      !badgeRowRef.current ||
+      !containerRef.current ||
+      selectedEmployees.length === 0
+    ) {
+      return 0;
+    }
+
+    const containerWidth = containerRef.current.clientWidth;
+    const padding = 16; // Account for container padding
+    const badgeGap = 8; // Gap between badges
+    const moreButtonWidth = 80; // Estimated width for "+X more" button
+    const toggleButtonWidth = 100; // Estimated width for "Show all" button
+
+    let availableWidth = containerWidth - padding - toggleButtonWidth;
+    if (selectedEmployees.length > 1) {
+      availableWidth -= moreButtonWidth;
+    }
+
+    let totalWidth = 0;
+    let count = 0;
+
+    // Create a temporary element to measure badge widths
+    const tempDiv = document.createElement("div");
+    tempDiv.style.position = "absolute";
+    tempDiv.style.visibility = "hidden";
+    tempDiv.style.display = "inline-block";
+    document.body.appendChild(tempDiv);
+
+    for (let i = 0; i < selectedEmployees.length; i++) {
+      const employee = selectedEmployees[i];
+      // Estimate badge width based on text content
+      tempDiv.textContent = `${employee.firstName} ${employee.lastName}`;
+      const badgeWidth = tempDiv.offsetWidth + 40; // Add padding and close button width
+
+      if (
+        totalWidth + badgeWidth + (count > 0 ? badgeGap : 0) >
+        availableWidth
+      ) {
+        break;
+      }
+
+      totalWidth += badgeWidth + (count > 0 ? badgeGap : 0);
+      count++;
+    }
+
+    document.body.removeChild(tempDiv);
+    return Math.max(1, count); // Show at least one badge
+  }, [selectedEmployees]);
+
+  // Recalculate visible badges on resize or selection change
+  useEffect(() => {
+    const handleResize = () => {
+      const newVisibleCount = calculateVisibleCount();
+      setVisibleCount(newVisibleCount);
+    };
+
+    // Initial calculation
+    handleResize();
+
+    // Add resize listener
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [calculateVisibleCount, selectedEmployees]);
+
+  // Toggle dropdown expanded state
+  const toggleExpanded = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent form submission
+    e.preventDefault(); // Prevent default action (form submission)
+    setIsExpanded((prev) => !prev);
+  }, []);
 
   // Toggle employee selection
   const toggleEmployeeSelection = useCallback(
@@ -39,7 +123,10 @@ export function EmployeeSelector({
 
   // Remove a single employee
   const removeEmployee = useCallback(
-    (employeeId: number) => {
+    (employeeId: number, event?: React.MouseEvent) => {
+      if (event) {
+        event.stopPropagation();
+      }
       onSelectionChange(selectedEmployees.filter((e) => e.id !== employeeId));
     },
     [selectedEmployees, onSelectionChange],
@@ -80,6 +167,14 @@ export function EmployeeSelector({
     });
   }, [employees, debouncedSearchTerm]);
 
+  // Determine visible employees based on expanded state
+  const visibleEmployees = useMemo(() => {
+    if (isExpanded) return selectedEmployees;
+    return selectedEmployees.slice(0, visibleCount);
+  }, [selectedEmployees, isExpanded, visibleCount]);
+
+  const hiddenCount = selectedEmployees.length - visibleEmployees.length;
+
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
@@ -96,29 +191,77 @@ export function EmployeeSelector({
         )}
       </div>
 
-      <div className="border rounded-md p-2">
+      <div className="border rounded-md p-2" ref={containerRef}>
         {/* Selected employees display */}
-        {selectedEmployees.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {selectedEmployees.map((employee) => (
-              <Badge
-                key={employee.id}
-                variant="secondary"
-                className="flex items-center gap-1"
-              >
-                {employee.firstName} {employee.lastName}
+        <div className="mb-3" ref={badgeRowRef}>
+          <div className="flex flex-wrap gap-2 min-h-10 items-center">
+            {/* Badge container with conditional height limit */}
+            <div
+              className={`flex flex-wrap gap-2 items-center ${
+                !isExpanded ? "max-h-10 overflow-hidden" : ""
+              }`}
+            >
+              {selectedEmployees.length === 0 ? (
+                <span className="text-sm text-muted-foreground italic">
+                  No employees selected
+                </span>
+              ) : (
+                <>
+                  {visibleEmployees.map((employee) => (
+                    <Badge
+                      key={employee.id}
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      {employee.firstName} {employee.lastName}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0"
+                        onClick={(e) => removeEmployee(employee.id, e)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+
+                  {/* Show count of hidden employees when collapsed */}
+                  {!isExpanded && hiddenCount > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer"
+                      onClick={toggleExpanded}
+                    >
+                      +{hiddenCount} more
+                    </Badge>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Toggle button - on the same row */}
+            {selectedEmployees.length > 0 &&
+              (hiddenCount > 0 || isExpanded) && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-4 w-4 p-0"
-                  onClick={() => removeEmployee(employee.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setIsExpanded((prev) => !prev);
+                  }}
+                  className="h-6 px-2 text-xs flex items-center gap-1 ml-auto"
                 >
-                  <X className="h-3 w-3" />
+                  {isExpanded ? "Collapse" : "Show all"}
+                  {isExpanded ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
                 </Button>
-              </Badge>
-            ))}
+              )}
           </div>
-        )}
+        </div>
 
         {/* Search input */}
         <div className="relative">
@@ -143,6 +286,7 @@ export function EmployeeSelector({
               className="h-6 px-2 text-xs"
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 selectAllFiltered(filteredEmployees);
               }}
             >
