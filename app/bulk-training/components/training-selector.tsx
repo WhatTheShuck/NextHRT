@@ -50,6 +50,7 @@ export function TrainingSelector({
       <Select value={selectedTrainingId} onValueChange={onTrainingSelect}>
         <SelectTrigger>
           <SelectValue placeholder="Select training course" />
+          {/* add search in here somewhere  */}
         </SelectTrigger>
         <SelectContent>
           {trainings.map((training) => (

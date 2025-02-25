@@ -141,7 +141,10 @@ export function EmployeeSelector({
               variant="ghost"
               size="sm"
               className="h-6 px-2 text-xs"
-              onClick={() => selectAllFiltered(filteredEmployees)}
+              onClick={(e) => {
+                e.preventDefault();
+                selectAllFiltered(filteredEmployees);
+              }}
             >
               Select all
             </Button>
@@ -162,6 +165,7 @@ export function EmployeeSelector({
                   className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md"
                 >
                   <Checkbox
+                    // This guy is messing up the page for some reason
                     id={`employee-${employee.id}`}
                     checked={selectedEmployees.some(
                       (e) => e.id === employee.id,

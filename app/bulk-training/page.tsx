@@ -10,6 +10,7 @@ import { TrainingSelector } from "./components/training-selector";
 import { EmployeeSelector } from "./components/employee-selector";
 import { DateSelector } from "./components/date-selector";
 import { AlertBox } from "@/components/ui/alert-box";
+import api from "@/lib/axios";
 
 export default function BulkTrainingPage() {
   // Form state
@@ -32,20 +33,14 @@ export default function BulkTrainingPage() {
       setIsLoading(true);
       try {
         const [employeesRes, trainingsRes] = await Promise.all([
-          fetch("/api/employees"),
-          fetch("/api/training"),
+          api.get("/api/employees"),
+          api.get("/api/training"),
         ]);
 
-        if (!employeesRes.ok || !trainingsRes.ok) {
-          throw new Error("Failed to fetch data");
-        }
-
-        const employeesData = await employeesRes.json();
-        const trainingsData = await trainingsRes.json();
-
-        setEmployees(employeesData);
-        setTrainings(trainingsData);
+        setEmployees(employeesRes.data);
+        setTrainings(trainingsRes.data);
       } catch (err) {
+        console.error("API error:", err);
         setError("Failed to load data. Please refresh the page.");
       } finally {
         setIsLoading(false);
@@ -81,17 +76,11 @@ export default function BulkTrainingPage() {
     try {
       // Create training records for each selected employee
       const promises = selectedEmployees.map((employee) =>
-        fetch("/api/training-records", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            employeeId: employee.id,
-            trainingId: parseInt(trainingId),
-            dateCompleted: completionDate.toISOString(),
-            trainer: provider,
-          }),
+        api.post("/api/training-records", {
+          employeeId: employee.id,
+          trainingId: parseInt(trainingId),
+          dateCompleted: completionDate.toISOString(),
+          trainer: provider,
         }),
       );
 

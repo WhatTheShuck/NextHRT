@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Training, Category } from "@prisma/client";
+import api from "@/lib/axios";
 
 type NewTrainingDialogProps = {
   isOpen: boolean;
@@ -59,24 +60,13 @@ export function NewTrainingDialog({
     setError("");
 
     try {
-      const res = await fetch("/api/training", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          category,
-          RenewalPeriod: parseInt(renewalPeriod) || 0,
-        }),
+      const res = await api.post("/api/training", {
+        title: title.trim(),
+        category,
+        RenewalPeriod: parseInt(renewalPeriod) || 0,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to create training");
-      }
-
-      const newTraining = await res.json();
+      const newTraining = await res.data;
       onTrainingCreated(newTraining);
       handleOpenChange(false);
     } catch (err: any) {
