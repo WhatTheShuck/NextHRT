@@ -1,155 +1,229 @@
 import { PrismaClient, Category } from "@prisma/client";
+import { faker } from "@faker-js/faker";
+
 const prisma = new PrismaClient();
 
+// Configuration
+const NUM_EMPLOYEES = 1000;
+const NUM_TRAININGS = 15;
+const LOCATIONS = [
+  "Bundamba",
+  "Springfield",
+  "Hope Valley",
+  "Ipswich",
+  "Brisbane",
+];
+const DEPARTMENTS = [
+  "Engineering",
+  "IT",
+  "Projects",
+  "Operations",
+  "HR",
+  "Finance",
+  "Quality",
+  "Safety",
+  "Production",
+];
+const WORK_AREAS = [1, 2, 3, 4, 5]; // WorkAreaIDs
+const TITLES = [
+  "Engineer",
+  "Senior Engineer",
+  "Lead Engineer",
+  "Project Manager",
+  "Technical Lead",
+  "Software Developer",
+  "Senior Developer",
+  "QA Engineer",
+  "Safety Officer",
+  "Operations Supervisor",
+  "HR Specialist",
+  "Financial Analyst",
+  "Production Worker",
+  "Team Lead",
+  "Department Manager",
+  "Executive Assistant",
+  "Business Analyst",
+  "Technical Specialist",
+  "Director",
+  "Junior Developer",
+];
+
+// Training category options
+const INTERNAL_TRAININGS = [
+  "Workplace Safety Fundamentals",
+  "Cyber Security Awareness",
+  "Code of Conduct",
+  "Emergency Response Procedures",
+  "Leadership Skills",
+  "Project Management Basics",
+  "Quality Management System",
+  "Environmental Awareness",
+  "Workplace Harassment Prevention",
+  "Data Privacy and GDPR",
+];
+
+const EXTERNAL_TRAININGS = [
+  "First Aid Certification",
+  "OSHA Safety Training",
+  "ISO 9001 Internal Auditor",
+  "Certified Scrum Master",
+  "AWS Cloud Practitioner",
+  "Microsoft Office Specialist",
+  "Six Sigma Green Belt",
+  "PMP Certification",
+  "Forklift Operation License",
+  "Hazardous Materials Handling",
+];
+
+// Trainer names
+const INTERNAL_TRAINERS = [
+  "David Wilson",
+  "Alice Parker",
+  "Michael Chen",
+  "Sarah Johnson",
+  "Robert Davis",
+];
+
+const EXTERNAL_TRAINERS = [
+  "Red Cross Instructor",
+  "OSHA Certified Trainer",
+  "ISO Training Institute",
+  "Scrum Alliance Coach",
+  "AWS Certified Instructor",
+];
+
 async function main() {
+  console.log("Starting database seed...");
+
   // First, clear existing data
   await prisma.trainingRecords.deleteMany({});
   await prisma.employee.deleteMany({});
   await prisma.training.deleteMany({});
 
+  console.log("Creating training courses...");
+
   // Create training courses
-  const internalSafety = await prisma.training.create({
-    data: {
-      category: Category.Internal,
-      title: "Workplace Safety Fundamentals",
-      RenewalPeriod: 12, // 12 months
-    },
-  });
+  const trainings = [];
 
-  const firstAid = await prisma.training.create({
-    data: {
-      category: Category.External,
-      title: "First Aid Certification",
-      RenewalPeriod: 24, // 24 months
-    },
-  });
-
-  const cyberSecurity = await prisma.training.create({
-    data: {
-      category: Category.Internal,
-      title: "Cyber Security Awareness",
-      RenewalPeriod: 12,
-    },
-  });
-
-  // Create employees
-  const john = await prisma.employee.create({
-    data: {
-      firstName: "John",
-      lastName: "Smith",
-      WorkAreaID: 1,
-      Title: "Senior Engineer",
-      Department: "Engineering",
-      Location: "Bundamba",
-      StartDate: new Date("2023-01-15"),
-      IsActive: true,
-    },
-  });
-
-  const sarah = await prisma.employee.create({
-    data: {
-      firstName: "Sarah",
-      lastName: "Johnson",
-      WorkAreaID: 2,
-      Department: "Projects",
-      Location: "Springfield",
-      Title: "Project Manager",
-      StartDate: new Date("2022-06-01"),
-      IsActive: true,
-    },
-  });
-
-  const michael = await prisma.employee.create({
-    data: {
-      firstName: "Michael",
-      lastName: "Brown",
-      WorkAreaID: 1,
-      Department: "IT",
-      Location: "Springfield",
-      Title: "Technical Lead",
-      StartDate: new Date("2021-03-10"),
-      IsActive: true,
-    },
-  });
-
-  const emma = await prisma.employee.create({
-    data: {
-      firstName: "Emma",
-      lastName: "Davis",
-      WorkAreaID: 3,
-      Title: "Software Developer",
-      Department: "IT",
-      Location: "Hope Valley",
-      StartDate: new Date("2023-09-01"),
-      IsActive: true,
-    },
-  });
-
-  // Create training records
-  const trainingRecords = await Promise.all([
-    // John's training records
-    prisma.trainingRecords.create({
+  // Create internal trainings
+  for (let i = 0; i < INTERNAL_TRAININGS.length; i++) {
+    const training = await prisma.training.create({
       data: {
-        employeeId: john.id,
-        trainingId: internalSafety.id,
-        dateCompleted: new Date("2023-02-15"),
-        expiryDate: new Date("2024-02-15"),
-        trainer: "David Wilson",
+        category: Category.Internal,
+        title: INTERNAL_TRAININGS[i],
+        RenewalPeriod: faker.helpers.arrayElement([6, 12, 24, 36]), // 6, 12, 24 or 36 months
       },
-    }),
-    prisma.trainingRecords.create({
-      data: {
-        employeeId: john.id,
-        trainingId: cyberSecurity.id,
-        dateCompleted: new Date("2023-03-01"),
-        expiryDate: new Date("2024-03-01"),
-        trainer: "Alice Parker",
-      },
-    }),
+    });
+    trainings.push(training);
+  }
 
-    // Sarah's training records
-    prisma.trainingRecords.create({
+  // Create external trainings
+  for (let i = 0; i < EXTERNAL_TRAININGS.length; i++) {
+    const training = await prisma.training.create({
       data: {
-        employeeId: sarah.id,
-        trainingId: firstAid.id,
-        dateCompleted: new Date("2022-07-01"),
-        expiryDate: new Date("2024-07-01"),
-        trainer: "Red Cross Instructor",
+        category: Category.External,
+        title: EXTERNAL_TRAININGS[i],
+        RenewalPeriod: faker.helpers.arrayElement([12, 24, 36, 48]), // External trainings usually have longer periods
       },
-    }),
+    });
+    trainings.push(training);
+  }
 
-    // Michael's training records
-    prisma.trainingRecords.create({
-      data: {
-        employeeId: michael.id,
-        trainingId: internalSafety.id,
-        dateCompleted: new Date("2023-01-10"),
-        expiryDate: new Date("2024-01-10"),
-        trainer: "David Wilson",
-      },
-    }),
-    prisma.trainingRecords.create({
-      data: {
-        employeeId: michael.id,
-        trainingId: firstAid.id,
-        dateCompleted: new Date("2023-04-15"),
-        expiryDate: new Date("2025-04-15"),
-        trainer: "Red Cross Instructor",
-      },
-    }),
+  console.log(`Created ${trainings.length} training courses`);
 
-    // Emma's training records
-    prisma.trainingRecords.create({
-      data: {
-        employeeId: emma.id,
-        trainingId: cyberSecurity.id,
-        dateCompleted: new Date("2023-09-15"),
-        expiryDate: new Date("2024-09-15"),
-        trainer: "Alice Parker",
-      },
-    }),
-  ]);
+  console.log("Creating employees and their training records...");
 
+  // Create employees with their training records
+  const employees = [];
+
+  for (let i = 0; i < NUM_EMPLOYEES; i++) {
+    // Generate employee data
+    const firstName = faker.person.firstName();
+    const lastName = faker.person.lastName();
+    const department = faker.helpers.arrayElement(DEPARTMENTS);
+    const location = faker.helpers.arrayElement(LOCATIONS);
+    const workAreaId = faker.helpers.arrayElement(WORK_AREAS);
+    const title = faker.helpers.arrayElement(TITLES);
+
+    // Set realistic start date (between 5 years ago and now)
+    const startDate = faker.date.past({ years: 5 });
+
+    // Determine if employee is active (90% chance)
+    const isActive = faker.helpers.weightedArrayElement([
+      { weight: 9, value: true },
+      { weight: 1, value: false },
+    ]);
+
+    // Set finish date only for inactive employees
+    const finishDate = isActive
+      ? null
+      : faker.date.between({
+          from: startDate,
+          to: new Date(),
+        });
+
+    // Create the employee
+    const employee = await prisma.employee.create({
+      data: {
+        firstName,
+        lastName,
+        WorkAreaID: workAreaId,
+        Title: title,
+        Department: department,
+        Location: location,
+        StartDate: startDate,
+        FinishDate: finishDate,
+        IsActive: isActive,
+      },
+    });
+
+    employees.push(employee);
+
+    // Generate 1-5 training records for each employee
+    const numTrainings = faker.number.int({ min: 1, max: 5 });
+    const assignedTrainings = new Set();
+
+    for (let j = 0; j < numTrainings; j++) {
+      // Select a random training
+      let training;
+      do {
+        training = faker.helpers.arrayElement(trainings);
+      } while (assignedTrainings.has(training.id));
+
+      assignedTrainings.add(training.id);
+
+      // Set completion date between start date and now (or finish date for inactive employees)
+      const completionDate = faker.date.between({
+        from: startDate,
+        to: finishDate || new Date(),
+      });
+
+      // Calculate expiry date based on training renewal period
+      const expiryDate = new Date(completionDate);
+      expiryDate.setMonth(expiryDate.getMonth() + training.RenewalPeriod);
+
+      // Select appropriate trainer based on training category
+      const trainer =
+        training.category === Category.Internal
+          ? faker.helpers.arrayElement(INTERNAL_TRAINERS)
+          : faker.helpers.arrayElement(EXTERNAL_TRAINERS);
+
+      // Create training record
+      await prisma.trainingRecords.create({
+        data: {
+          employeeId: employee.id,
+          trainingId: training.id,
+          dateCompleted: completionDate,
+          expiryDate: expiryDate,
+          trainer: trainer,
+        },
+      });
+    }
+  }
+
+  console.log(
+    `Created ${employees.length} employees with their training records`,
+  );
   console.log("Database has been seeded with test data!");
 }
 
