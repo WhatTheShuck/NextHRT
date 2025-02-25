@@ -3,11 +3,11 @@ import React, { useState, useCallback, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Search, X } from "lucide-react";
 import { Employee } from "@prisma/client";
 import { useDebounce } from "@/hooks/use-debounce";
+import { CheckIcon } from "lucide-react";
 
 type EmployeeSelectorProps = {
   employees: Employee[];
@@ -152,32 +152,31 @@ export function EmployeeSelector({
         )}
 
         {/* Employee list with checkboxes */}
-        <div className="mt-1 max-h-48 overflow-y-auto">
+        <div className="mt-1 h-48 overflow-y-auto border-t border-b">
           {filteredEmployees.length === 0 ? (
             <p className="text-sm text-muted-foreground p-2">
               No employees found
             </p>
           ) : (
-            <div className="space-y-1">
+            <div className="py-1">
               {filteredEmployees.map((employee) => (
                 <div
                   key={employee.id}
-                  className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md"
+                  className={`flex items-center p-2 rounded-md cursor-pointer ${
+                    selectedEmployees.some((e) => e.id === employee.id)
+                      ? "bg-primary/10 font-medium"
+                      : "hover:bg-accent"
+                  }`}
+                  onClick={() => toggleEmployeeSelection(employee)}
                 >
-                  <Checkbox
-                    // This guy is messing up the page for some reason
-                    id={`employee-${employee.id}`}
-                    checked={selectedEmployees.some(
-                      (e) => e.id === employee.id,
+                  <div className="flex-shrink-0 w-5 mr-2 flex items-center justify-center">
+                    {selectedEmployees.some((e) => e.id === employee.id) && (
+                      <CheckIcon className="h-4 w-4 text-primary" />
                     )}
-                    onCheckedChange={() => toggleEmployeeSelection(employee)}
-                  />
-                  <Label
-                    htmlFor={`employee-${employee.id}`}
-                    className="flex-1 cursor-pointer text-sm"
-                  >
+                  </div>
+                  <span className="flex-1 text-sm">
                     {employee.firstName} {employee.lastName} - {employee.Title}
-                  </Label>
+                  </span>
                 </div>
               ))}
             </div>
