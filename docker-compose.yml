@@ -1,0 +1,13 @@
+services:
+  next-app:
+    container_name: Next-HRT
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    ports:
+      - "5844:5844"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    restart: unless-stopped
