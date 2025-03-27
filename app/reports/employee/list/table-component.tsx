@@ -14,22 +14,22 @@ import { ExportButtons } from "@/components/ExportButtons";
 
 // Define columns configuration
 const columns: TableColumn[] = [
-  { header: "First Name", accessor: "firstName" },
-  { header: "Last Name", accessor: "lastName" },
-  { header: "Title", accessor: "Title" },
+  { header: "First Name", accessor: "firstName" as keyof Employee },
+  { header: "Last Name", accessor: "lastName" as keyof Employee },
+  { header: "Title", accessor: "Title" as keyof Employee },
   {
     header: "Work Area",
-    accessor: "WorkAreaID",
+    accessor: "WorkAreaID" as keyof Employee,
     // Optional: Add format function if you want to transform the WorkAreaID
     format: (value: number) => `Area ${value}`,
   },
   {
     header: "Location",
-    accessor: "Location",
+    accessor: "Location" as keyof Employee,
   },
   {
     header: "Department",
-    accessor: "Department",
+    accessor: "Department" as keyof Employee,
   },
 ];
 
@@ -66,13 +66,16 @@ export default function EmployeeTable() {
   }
 
   return (
-    <div>
-      <ExportButtons
-        data={employees}
-        columns={columns}
-        filename="active-employees"
-        title="Active Employees Report"
-      />
+    <div className="items-center">
+      <div className="flex justify-between items-center mb-4">
+        <ExportButtons
+          data={employees}
+          columns={columns}
+          filename="active-employees"
+          title="Active Employees Report"
+        />
+        <p className="font-medium"> Employee Count: {employees.length} </p>
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -88,8 +91,15 @@ export default function EmployeeTable() {
                 {columns.map((column) => (
                   <TableCell key={`${employee.id}-${column.accessor}`}>
                     {column.format
-                      ? column.format(employee[column.accessor])
-                      : employee[column.accessor]}
+                      ? column.format(
+                          employee[column.accessor as keyof Employee],
+                        )
+                      : employee[column.accessor as keyof Employee] instanceof
+                          Date
+                        ? (
+                            employee[column.accessor as keyof Employee] as Date
+                          ).toLocaleDateString()
+                        : String(employee[column.accessor as keyof Employee])}
                   </TableCell>
                 ))}
               </TableRow>

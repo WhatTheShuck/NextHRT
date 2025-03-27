@@ -1,14 +1,14 @@
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Employee } from "@prisma/client";
 
 // Generic interface for table data
 export interface TableColumn {
   header: string;
-  accessor: string;
-  format?: (value: any) => string;
+  accessor: keyof Employee;
+  format?: (value: any) => string | number;
 }
-
 // Excel export function
 export const exportToExcel = <T extends Record<string, any>>(
   data: T[],
