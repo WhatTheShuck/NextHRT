@@ -4,11 +4,12 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import api from "@/lib/axios";
 
-export default async function EmployeeDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function EmployeeDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const { data: initialEmployeeData } = await api.get(
     `/api/employees/${params.id}`,
   );
