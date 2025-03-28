@@ -1,32 +1,75 @@
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Employee } from "@prisma/client";
+import { ColumnDef } from "@tanstack/react-table";
 
-// Generic interface for table data
-export interface TableColumn {
-  header: string;
-  accessor: keyof Employee;
-  format?: (value: any) => string | number;
+// Helper function to safely get accessor key from a column definition
+function getAccessorKey(column: any): string | null {
+  // Check if accessorKey exists (newer API)
+  if ("accessorKey" in column && typeof column.accessorKey === "string") {
+    return column.accessorKey;
+  }
+
+  // Check if accessor exists and is a string (older API)
+  if ("accessor" in column && typeof column.accessor === "string") {
+    return column.accessor;
+  }
+
+  // No valid accessor found
+  return null;
 }
-// Excel export function
-export const exportToExcel = <T extends Record<string, any>>(
-  data: T[],
-  columns: TableColumn[],
-  filename: string,
-) => {
-  // Transform data into rows with only the specified columns
-  const rows = data.map((item) => {
-    const row: Record<string, any> = {};
-    columns.forEach((column) => {
-      const value = item[column.accessor];
-      row[column.header] = column.format ? column.format(value) : value;
+
+// Helper function to safely get header from a column definition
+function getHeader(column: any): string {
+  if (typeof column.header === "string") {
+    return column.header;
+  }
+
+  // For non-string headers, try to convert or provide a default
+  return String(column.header || "");
+}
+
+// Utility function to extract export-ready data from table data and columns
+function prepareExportData<T>(data: T[], columns: ColumnDef<T, any>[]) {
+  // Extract headers
+  const headers = columns.map((col) => getHeader(col));
+
+  // Extract data rows
+  const rows = data.map((row) => {
+    return columns.map((col) => {
+      const key = getAccessorKey(col);
+      if (!key) return "";
+
+      // Get value and handle special data types
+      const value = row[key as keyof T];
+
+      // Handle dates
+      if (value instanceof Date) return value.toISOString().split("T")[0];
+
+      // Handle null/undefined
+      if (value === null || value === undefined) return "";
+
+      // Return as string
+      return String(value);
     });
-    return row;
   });
 
+  return { headers, rows };
+}
+
+// Excel export function
+export function exportToExcel<T>(
+  data: T[],
+  columns: ColumnDef<T, any>[],
+  filename: string,
+) {
+  const { headers, rows } = prepareExportData(data, columns);
+
+  // Add headers as first row
+  const excelData = [headers, ...rows];
+
   // Create worksheet
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const worksheet = XLSX.utils.aoa_to_sheet(excelData);
 
   // Create workbook
   const workbook = XLSX.utils.book_new();
@@ -34,15 +77,17 @@ export const exportToExcel = <T extends Record<string, any>>(
 
   // Generate Excel file
   XLSX.writeFile(workbook, `${filename}.xlsx`);
-};
+}
 
 // PDF export function
-export const exportToPDF = <T extends Record<string, any>>(
+export function exportToPDF<T>(
   data: T[],
-  columns: TableColumn[],
+  columns: ColumnDef<T, any>[],
   filename: string,
   title?: string,
-) => {
+) {
+  const { headers, rows } = prepareExportData(data, columns);
+
   // Initialize PDF document
   const doc = new jsPDF();
 
@@ -51,15 +96,6 @@ export const exportToPDF = <T extends Record<string, any>>(
     doc.setFontSize(16);
     doc.text(title, 14, 15);
   }
-
-  // Prepare data for autoTable
-  const headers = columns.map((col) => col.header);
-  const rows = data.map((item) =>
-    columns.map((column) => {
-      const value = item[column.accessor];
-      return column.format ? column.format(value) : value;
-    }),
-  );
 
   // Generate table
   autoTable(doc, {
@@ -73,4 +109,4 @@ export const exportToPDF = <T extends Record<string, any>>(
 
   // Save PDF
   doc.save(`${filename}.pdf`);
-};
+}

@@ -1,11 +1,12 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, FileText } from "lucide-react";
-import { TableColumn, exportToPDF, exportToExcel } from "@/lib/export-utils";
+import { exportToPDF, exportToExcel } from "@/lib/export-utils";
+import { ColumnDef } from "@tanstack/react-table";
 
 interface ExportButtonsProps<T> {
   data: T[];
-  columns: TableColumn[];
+  columns: ColumnDef<T, any>[];
   filename: string;
   title?: string;
 }
