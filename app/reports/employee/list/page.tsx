@@ -4,11 +4,21 @@ import { columns } from "./columns";
 import { Employee } from "@prisma/client";
 import { ExportButtons } from "@/components/ExportButtons";
 import React, { useEffect, useState } from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
 
 export default function Page() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const [locations, setLocations] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -18,7 +28,15 @@ export default function Page() {
           throw new Error("Failed to fetch employees");
         }
         const data = await response.json();
-        setEmployees(data.filter((emp: Employee) => emp.IsActive));
+        const activeEmployees = data.filter((emp: Employee) => emp.IsActive);
+        setEmployees(activeEmployees);
+        setFilteredEmployees(activeEmployees);
+        // Extract unique locations
+        const uniqueLocations = Array.from(
+          new Set(activeEmployees.map((emp: Employee) => emp.Location)),
+        ).filter(Boolean) as string[]; // Filter out null/undefined values
+
+        setLocations(uniqueLocations);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
@@ -28,6 +46,21 @@ export default function Page() {
 
     fetchEmployees();
   }, []);
+
+  // Filter employees by location
+  const filterByLocation = (location: string | null) => {
+    setSelectedLocation(location);
+
+    if (location === null) {
+      // Reset filter
+      setFilteredEmployees(employees);
+    } else {
+      // Apply filter
+      setFilteredEmployees(
+        employees.filter((emp) => emp.Location === location),
+      );
+    }
+  };
 
   if (loading) {
     return <div className="text-center py-4">Loading employees...</div>;
@@ -40,14 +73,55 @@ export default function Page() {
     <div className="container py-10 mx-auto">
       <div className="flex justify-between items-center mb-4">
         <ExportButtons
-          data={employees}
+          data={filteredEmployees}
           columns={columns}
           filename="active-employees"
           title="Active Employees Report"
         />
-        <p className="font-medium"> Employee Count: {employees.length} </p>
+        <p className="font-medium">
+          {" "}
+          Employee Count: {filteredEmployees.length}{" "}
+        </p>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline">
+              {selectedLocation
+                ? `Location: ${selectedLocation}`
+                : "Filter Location"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56">
+            <div className="grid gap-2">
+              <div className="font-medium">Filter by location</div>
+              <ul className="max-h-60 overflow-auto">
+                {/* Show All option */}
+                <li
+                  className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                  onClick={() => filterByLocation(null)}
+                >
+                  <span>All Locations</span>
+                  {selectedLocation === null && <Check className="h-4 w-4" />}
+                </li>
+
+                {/* Location items */}
+                {locations.map((location) => (
+                  <li
+                    key={location}
+                    className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                    onClick={() => filterByLocation(location)}
+                  >
+                    <span>{location}</span>
+                    {selectedLocation === location && (
+                      <Check className="h-4 w-4" />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
-      <DataTable columns={columns} data={employees} />
+      <DataTable columns={columns} data={filteredEmployees} />
     </div>
   );
 }
