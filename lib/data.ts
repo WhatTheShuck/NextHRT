@@ -18,7 +18,7 @@ export const contactDetails: ContactDetails = {
   name: "Brandon Wiedman",
   phoneNumber: "+61417734155",
   emailAdress: "Brandon.Wiedman@ksb.com.au",
-  role: "IT Support Officer",
+  role: "IT Supervisor",
 };
 
 export const landingPageNavigationItems: NavigationItem[] = [
