@@ -18,6 +18,9 @@ export const columns: ColumnDef<Employee>[] = [
       );
     },
     accessorKey: "firstName",
+    meta: {
+      headerText: "First Name",
+    },
   },
   {
     header: ({ column }) => {
@@ -31,6 +34,9 @@ export const columns: ColumnDef<Employee>[] = [
       );
     },
     accessorKey: "lastName",
+    meta: {
+      headerText: "Last Name",
+    },
   },
   { header: "Title", accessorKey: "Title" },
   {
@@ -51,6 +57,9 @@ export const columns: ColumnDef<Employee>[] = [
       );
     },
     accessorKey: "Location",
+    meta: {
+      headerText: "Location",
+    },
   },
   {
     header: ({ column }) => {
@@ -65,5 +74,8 @@ export const columns: ColumnDef<Employee>[] = [
       );
     },
     accessorKey: "Department",
+    meta: {
+      headerText: "Department",
+    },
   },
 ];

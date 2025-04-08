@@ -20,19 +20,23 @@ function getAccessorKey(column: any): string | null {
 }
 
 // Helper function to safely get header from a column definition
-function getHeader(column: any): string {
+function getHeaderText(column: any): string {
+  if (column.meta && typeof column.meta.headerText === "string") {
+    return column.meta.headerText;
+  }
+
+  // If the header is a string, return it directly
   if (typeof column.header === "string") {
     return column.header;
   }
-
   // For non-string headers, try to convert or provide a default
-  return String(column.header || "");
+  return String(column.meta.headerText || "Column");
 }
 
 // Utility function to extract export-ready data from table data and columns
 function prepareExportData<T>(data: T[], columns: ColumnDef<T, any>[]) {
   // Extract headers
-  const headers = columns.map((col) => getHeader(col));
+  const headers = columns.map((col) => getHeaderText(col));
 
   // Extract data rows
   const rows = data.map((row) => {
