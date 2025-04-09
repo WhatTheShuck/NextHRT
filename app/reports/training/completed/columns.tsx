@@ -13,16 +13,32 @@ export const columns: ColumnDef<TrainingRecords>[] = [
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Employee Name <ArrowUpDown className="ml-2 h-4 w-4" />
+          First Name <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
-    accessorKey: "employeeName",
+    accessorKey: "personTrained.firstName",
     meta: {
-      headerText: "Employee Name",
+      headerText: "First Name",
     },
   },
-  { header: "Title", accessorKey: "Title" },
+  {
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Last Name <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    accessorKey: "personTrained.lastName",
+    meta: {
+      headerText: "Last Name",
+    },
+  },
+  { header: "Title", accessorKey: "personTrained.Title" },
   {
     header: ({ column }) => {
       return (
@@ -34,7 +50,7 @@ export const columns: ColumnDef<TrainingRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "location",
+    accessorKey: "personTrained.Location",
     meta: {
       headerText: "Location",
     },
@@ -51,12 +67,13 @@ export const columns: ColumnDef<TrainingRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "department",
+    accessorKey: "personTrained.Department",
     meta: {
       headerText: "Department",
     },
   },
   {
+    id: "dateCompleted",
     header: ({ column }) => {
       return (
         <Button
@@ -68,12 +85,18 @@ export const columns: ColumnDef<TrainingRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "dateCompleted",
+    accessorFn: (row) => {
+      const date = row.createdAt;
+      return date instanceof Date
+        ? date.toLocaleDateString()
+        : new Date(date).toLocaleDateString();
+    },
     meta: {
       headerText: "Date Completed",
     },
   },
   {
+    id: "expiryDate",
     header: ({ column }) => {
       return (
         <Button
@@ -85,7 +108,13 @@ export const columns: ColumnDef<TrainingRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "expiryDate",
+    accessorFn: (row) => {
+      const date = row.expiryDate;
+      if (!date) return "N/A";
+      return date instanceof Date
+        ? date.toLocaleDateString()
+        : new Date(date).toLocaleDateString();
+    },
     meta: {
       headerText: "Expiry Date",
     },

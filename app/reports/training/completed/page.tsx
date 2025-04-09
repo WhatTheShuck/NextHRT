@@ -26,14 +26,15 @@ export default function CompletedTrainingPage() {
     null,
   );
   const [trainingRecord, setTrainingRecord] = useState<TrainingRecords[]>([]);
-  const fetchRecords = async (trainingID: any) => {
+  const fetchRecords = async (trainingID: number) => {
     const response = await fetch(`/api/training/${trainingID}`);
     if (!response.ok) {
       throw new Error("Failed to fetch training data");
     }
 
     const data = await response.json();
-    setTrainingRecord(data);
+
+    setTrainingRecord(data.TrainingRecords);
     setSelectedTrainingId(Number(trainingID));
   };
   useEffect(() => {
@@ -44,15 +45,6 @@ export default function CompletedTrainingPage() {
     };
     fetchTrainings();
   }, []);
-
-  const handleOpenInNewTab = () => {
-    if (selectedTrainingId) {
-      window.open(
-        `/reports/training/completed/${selectedTrainingId}`,
-        "_blank",
-      );
-    }
-  };
 
   return (
     <div className="container mx-auto py-8">
@@ -78,7 +70,20 @@ export default function CompletedTrainingPage() {
       </div>
 
       {selectedTrainingId && (
-        <DataTable columns={columns} data={trainingRecord} />
+        <div>
+          <div>
+            <ExportButtons
+              data={trainingRecord}
+              columns={columns}
+              filename="completed-training"
+              title="Completed Training Report"
+              // Ideally use these as the values at some point
+              // filename={`${trainingData.title}-completions`}
+              // title={`${trainingData.title} - Completion Records`}
+            />
+          </div>
+          <DataTable columns={columns} data={trainingRecord} />
+        </div>
       )}
     </div>
   );

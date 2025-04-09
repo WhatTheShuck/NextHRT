@@ -3,20 +3,31 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ColumnDef } from "@tanstack/react-table";
 
-// Helper function to safely get accessor key from a column definition
-function getAccessorKey(column: any): string | null {
-  // Check if accessorKey exists (newer API)
-  if ("accessorKey" in column && typeof column.accessorKey === "string") {
-    return column.accessorKey;
+// Helper function to safely get value from a column definition
+
+function getValueFromRow<T>(row: T, column: ColumnDef<T, any>): any {
+  // Case 1: Column has an accessorFn
+  if ("accessorFn" in column && typeof column.accessorFn === "function") {
+    return (column.accessorFn as (row: T) => any)(row);
   }
 
-  // Check if accessor exists and is a string (older API)
-  if ("accessor" in column && typeof column.accessor === "string") {
-    return column.accessor;
+  // Case 2: Column has an accessorKey (string path)
+  if ("accessorKey" in column && typeof column.accessorKey === "string") {
+    // Handle nested paths like "personTrained.firstName"
+    const path = column.accessorKey.split(".");
+    let value = row as any;
+
+    // Navigate through the nested path
+    for (const key of path) {
+      if (value === null || value === undefined) return "";
+      value = value[key];
+    }
+
+    return value;
   }
 
   // No valid accessor found
-  return null;
+  return "";
 }
 
 // Helper function to safely get header from a column definition
@@ -32,7 +43,26 @@ function getHeaderText(column: any): string {
   // For non-string headers, try to convert or provide a default
   return String(column.meta.headerText || "Column");
 }
+// Format a value for export (handling dates, etc.)
+function formatValueForExport(value: any): string {
+  // Handle dates
+  if (value instanceof Date) {
+    return value.toLocaleDateString();
+  }
 
+  // If the value is already formatted as a date string by accessorFn
+  if (typeof value === "string" && (value.includes("/") || value === "N/A")) {
+    return value;
+  }
+
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  // Return as string
+  return String(value);
+}
 // Utility function to extract export-ready data from table data and columns
 function prepareExportData<T>(data: T[], columns: ColumnDef<T, any>[]) {
   // Extract headers
@@ -41,20 +71,11 @@ function prepareExportData<T>(data: T[], columns: ColumnDef<T, any>[]) {
   // Extract data rows
   const rows = data.map((row) => {
     return columns.map((col) => {
-      const key = getAccessorKey(col);
-      if (!key) return "";
+      // Get value using the column definition
+      const value = getValueFromRow(row, col);
 
-      // Get value and handle special data types
-      const value = row[key as keyof T];
-
-      // Handle dates
-      if (value instanceof Date) return value.toISOString().split("T")[0];
-
-      // Handle null/undefined
-      if (value === null || value === undefined) return "";
-
-      // Return as string
-      return String(value);
+      // Format the value for export
+      return formatValueForExport(value);
     });
   });
 
