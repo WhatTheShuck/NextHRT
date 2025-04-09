@@ -21,6 +21,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { TrainingAddForm } from "../training-add-form";
 
 export function TrainingTab() {
   const { trainingRecords } = useEmployee();
@@ -55,10 +63,20 @@ export function TrainingTab() {
               {trainingRecords.length !== 1 ? "s" : ""}
             </CardDescription>
           </div>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Training
-          </Button>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Training
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Add Training</SheetTitle>
+              </SheetHeader>
+              <TrainingAddForm />
+            </SheetContent>
+          </Sheet>
         </div>
       </CardHeader>
       <CardContent>
