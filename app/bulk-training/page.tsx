@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { format } from "date-fns";
 import { Employee, Training } from "@prisma/client";
 import { TrainingSelector } from "./components/training-selector";
 import { EmployeeSelector } from "./components/employee-selector";

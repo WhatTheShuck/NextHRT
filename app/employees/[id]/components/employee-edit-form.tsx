@@ -22,7 +22,6 @@ export function EmployeeEditForm() {
   if (!employee) return null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);

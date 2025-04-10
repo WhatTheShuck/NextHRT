@@ -1,38 +1,43 @@
-// app/employees/[id]/components/employee-edit-form.tsx
 "use client";
 
 import { useEmployee } from "./employee-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Training, Employee } from "@prisma/client";
 import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
 import { DateSelector } from "@/app/bulk-training/components/date-selector";
+import api from "@/lib/axios";
 
 export function TrainingAddForm() {
-  const { employee, setEmployee, employeeId } = useEmployee();
+  const { employee } = useEmployee();
   // Form state
   const [trainingId, setTrainingId] = useState("");
   const [provider, setProvider] = useState("");
   const [completionDate, setCompletionDate] = useState<Date>(new Date());
-  const [selectedEmployees, setSelectedEmployees] = useState<Employee[]>([]);
 
   // Data fetching state
-  // const [employees, setEmployees] = useState<Employee[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const { data: trainingsRes } = await api.get("/api/training");
+        setTrainings(trainingsRes);
+      } catch (err) {
+        console.error("API error:", err);
+        setError("Failed to load data. Please refresh the page.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
+    fetchData();
+  }, []);
   const addTraining = (newTraining: Training) => {
     setTrainings([...trainings, newTraining]);
     setTrainingId(newTraining.id.toString());
@@ -40,37 +45,20 @@ export function TrainingAddForm() {
   if (!employee) return null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
     setIsLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      firstName: formData.get("firstName"),
-      lastName: formData.get("lastName"),
-      WorkAreaID: parseInt(formData.get("workAreaId") as string),
-      Title: formData.get("title"),
-      Department: formData.get("department"),
-      Location: formData.get("location"),
-      StartDate: formData.get("startDate"),
-      FinishDate: formData.get("finishDate") || null,
-      IsActive: formData.get("isActive") === "true",
-    };
-
     try {
-      const response = await fetch(`/api/employees/${employeeId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const response = await api.post(`/api/training-records`, {
+        employeeId: employee.id,
+        trainingId: parseInt(trainingId),
+        dateCompleted: completionDate.toISOString(),
+        trainer: provider,
       });
-
-      if (!response.ok) throw new Error("Failed to update employee");
-
-      const updatedEmployee = await response.json();
-      setEmployee(updatedEmployee);
-    } catch (error) {
-      console.error("Error updating employee:", error);
+      response;
+    } catch (err) {
+      setError("Failed to create training records. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -102,7 +90,11 @@ export function TrainingAddForm() {
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={isLoading || isSubmitting || !trainingId || !provider}
+      >
         {isLoading ? "Saving..." : "Save Changes"}
       </Button>
     </form>
