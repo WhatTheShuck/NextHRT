@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -9,16 +9,25 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Building2, Lock } from "lucide-react";
-import Link from "next/link";
+import { Building2 } from "lucide-react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { companyDetails } from "@/lib/data";
 
 const LoginPage = () => {
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Add your login logic here
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // Redirect to homepage if already authenticated
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      router.push("/");
+    }
+  }, [session, status, router]);
+
+  // Handle Microsoft sign-in
+  const handleMicrosoftSignIn = () => {
+    signIn("azure-ad", { callbackUrl: "/" });
   };
 
   return (
@@ -27,61 +36,47 @@ const LoginPage = () => {
         {/* Logo and Company Name */}
         <div className="text-center mb-8">
           <Building2 className="mx-auto h-12 w-12 text-primary" />
-          <h1 className="mt-4 text-3xl font-bold ">HR Portal</h1>
-          <p className="mt-2">Welcome back! Please log in to continue.</p>
+          <h1 className="mt-4 text-3xl font-bold">
+            {companyDetails.name || "HR Portal"}
+          </h1>
+          <p className="mt-2">
+            Welcome! Please sign in with your company account.
+          </p>
         </div>
 
         {/* Login Card */}
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Login</CardTitle>
+            <CardTitle>Sign In</CardTitle>
             <CardDescription>
-              Enter your credentials to access your account
+              Access the portal using your Microsoft account
             </CardDescription>
           </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder={`name@${companyDetails.domain_extension}`}
-                  required
-                  className="w-full"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  required
-                  className="w-full"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Input type="checkbox" id="remember" className="h-4 w-4" />
-                  <Label htmlFor="remember" className="text-sm">
-                    Remember me
-                  </Label>
-                </div>
-                <Button variant="link" className="text-sm text-primary">
-                  Forgot password?
-                </Button>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Link href={"/"} className="w-full">
-                <Button type="submit" className="w-full">
-                  <Lock className="mr-2 h-4 w-4" />
-                  Sign In
-                </Button>
-              </Link>
-            </CardFooter>
-          </form>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-center text-muted-foreground">
+              Click the button below to sign in with your company Microsoft
+              account
+            </p>
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            <Button
+              onClick={handleMicrosoftSignIn}
+              className="w-full flex items-center justify-center"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                viewBox="0 0 23 23"
+              >
+                <path fill="#f3f3f3" d="M0 0h23v23H0z" />
+                <path fill="#f35325" d="M1 1h10v10H1z" />
+                <path fill="#81bc06" d="M12 1h10v10H12z" />
+                <path fill="#05a6f0" d="M1 12h10v10H1z" />
+                <path fill="#ffba08" d="M12 12h10v10H12z" />
+              </svg>
+              Sign in with Microsoft
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     </div>
