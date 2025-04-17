@@ -9,25 +9,22 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2 } from "lucide-react";
-import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { Building2, GithubIcon } from "lucide-react";
+import { signIn } from "next-auth/react";
 import { companyDetails } from "@/lib/data";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-const LoginPage = () => {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-
-  // Redirect to homepage if already authenticated
-  useEffect(() => {
-    if (status === "authenticated" && session) {
-      router.push("/");
-    }
-  }, [session, status, router]);
+const LoginPage = async () => {
+  const session = await auth();
+  if (session) redirect("/");
 
   // Handle Microsoft sign-in
   const handleMicrosoftSignIn = () => {
     signIn("azure-ad", { callbackUrl: "/" });
+  };
+  const handleGitHubSignIn = () => {
+    signIn("github", { callbackUrl: "/" });
   };
 
   return (
@@ -58,7 +55,7 @@ const LoginPage = () => {
               account
             </p>
           </CardContent>
-          <CardFooter className="flex justify-center">
+          <CardFooter className="grid grid-cols-1 justify-center gap-y-2">
             <Button
               onClick={handleMicrosoftSignIn}
               className="w-full flex items-center justify-center"
@@ -75,6 +72,13 @@ const LoginPage = () => {
                 <path fill="#ffba08" d="M12 12h10v10H12z" />
               </svg>
               Sign in with Microsoft
+            </Button>
+            <Button
+              onClick={handleGitHubSignIn}
+              className="w-full flex items-center justify-center"
+            >
+              <GithubIcon />
+              Sign in with Github
             </Button>
           </CardFooter>
         </Card>

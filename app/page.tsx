@@ -2,15 +2,20 @@
 import React from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useAdminMode } from "@/hooks/useAdminMode";
+// import { useAdminMode } from "@/hooks/useAdminMode";
 import { NavigationCard } from "@/components/navigation-card";
 import { landingPageNavigationItems } from "@/lib/data";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-const LandingPage: React.FC = () => {
-  const { isAdmin, setIsAdmin } = useAdminMode();
+const LandingPage: React.FC = async () => {
+  const session = await auth();
+  if (!session) redirect("/auth");
+
+  // const { isAdmin, setIsAdmin } = useAdminMode();
 
   const visibleItems = landingPageNavigationItems.filter(
-    (item) => !item.requiresAdmin || (item.requiresAdmin && isAdmin),
+    (item) => !item.requiresAdmin || item.requiresAdmin /* && isAdmin */,
   );
 
   const regularItems = visibleItems.filter((item) => !item.requiresAdmin);
@@ -28,11 +33,11 @@ const LandingPage: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Switch
+            {/* <Switch
               checked={isAdmin}
               onCheckedChange={setIsAdmin}
               id="admin-mode"
-            />
+            /> */}
             <Label htmlFor="admin-mode">Admin Mode</Label>
           </div>
         </div>
@@ -50,7 +55,7 @@ const LandingPage: React.FC = () => {
         )}
 
         {/* Admin Navigation */}
-        {adminItems.length > 0 && isAdmin && (
+        {adminItems.length > 0 /* && isAdmin */ && (
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Administrative Tools</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
