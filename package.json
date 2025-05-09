@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:deploy": "pnpmx prisma migrate deploy && pnpx prisma generate"
+    "db:deploy": "pnpx prisma migrate deploy && pnpx prisma generate"
   },
   "prisma": {
     "seed": "pnpx tsx prisma/seed.ts"
