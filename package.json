@@ -6,10 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:deploy": "pnpmx prisma migrate deploy && pnpx prisma generate"
   },
   "prisma": {
-    "seed": "ts-node prisma\\seed.ts"
+    "seed": "pnpx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.2.1",

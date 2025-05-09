@@ -1,6 +1,5 @@
-import { PrismaClient, Category } from "@prisma/client";
+import { PrismaClient, Category, Prisma } from "../generated/prisma_client";
 import { faker } from "@faker-js/faker";
-
 const prisma = new PrismaClient();
 
 // Configuration
