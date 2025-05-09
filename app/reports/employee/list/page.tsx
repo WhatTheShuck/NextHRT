@@ -1,7 +1,7 @@
 "use client";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
-import { Employee } from "@prisma/client";
+import { Employee } from "@/generated/prisma_client";
 import { ExportButtons } from "@/components/ExportButtons";
 import React, { useEffect, useState } from "react";
 import {

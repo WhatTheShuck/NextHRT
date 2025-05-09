@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState } from "react";
-import { Employee, Training, TrainingRecords } from "@prisma/client";
+import { Employee, Training, TrainingRecords } from "@/generated/prisma_client";
 import api from "@/lib/axios";
 
 type EmployeeContextType = {

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, X, ChevronDown, ChevronUp } from "lucide-react";
-import { Employee } from "@prisma/client";
+import { Employee } from "@/generated/prisma_client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { CheckIcon } from "lucide-react";
 

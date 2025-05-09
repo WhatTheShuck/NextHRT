@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Employee } from "@prisma/client";
+import { Employee } from "@/generated/prisma_client";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

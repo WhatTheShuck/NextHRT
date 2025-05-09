@@ -1,6 +1,6 @@
 "use client";
 
-import { Employee, Training, TrainingRecords } from "@prisma/client";
+import { Employee, Training, TrainingRecords } from "@/generated/prisma_client";
 import { EmployeeProvider } from "./employee-context";
 import { EmployeeHeader } from "./employee-header";
 import { EmployeeTabs } from "./employee-tabs";

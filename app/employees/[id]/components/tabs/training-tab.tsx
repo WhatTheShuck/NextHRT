@@ -29,7 +29,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { TrainingAddForm } from "../training-add-form";
-import { TrainingRecords } from "@prisma/client";
+import { TrainingRecords } from "@/generated/prisma_client";
 
 export function TrainingTab() {
   const { trainingRecords } = useEmployee();

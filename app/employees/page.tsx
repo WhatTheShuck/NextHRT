@@ -18,7 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Search } from "lucide-react";
-import { Employee } from "@prisma/client";
+import { Employee } from "@/generated/prisma_client";
 
 const EmployeeSelector = () => {
   const router = useRouter();

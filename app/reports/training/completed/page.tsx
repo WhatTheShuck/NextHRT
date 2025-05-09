@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TrainingRecords, type Training } from "@prisma/client";
+import { TrainingRecords, type Training } from "@/generated/prisma_client";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
 import { ExportButtons } from "@/components/ExportButtons";

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { Training } from "@prisma/client";
+import { Training } from "@/generated/prisma_client";
 import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
 import { DateSelector } from "@/app/bulk-training/components/date-selector";
 import api from "@/lib/axios";
