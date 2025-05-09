@@ -10,6 +10,7 @@ import { EmployeeSelector } from "./components/employee-selector";
 import { DateSelector } from "./components/date-selector";
 import { AlertBox } from "@/components/ui/alert-box";
 import api from "@/lib/axios";
+import { AxiosError } from "axios";
 
 export default function BulkTrainingPage() {
   // Form state
@@ -95,8 +96,17 @@ export default function BulkTrainingPage() {
       setProvider("");
       setCompletionDate(new Date());
       setSelectedEmployees([]);
-    } catch (err) {
-      setError("Failed to create training records. Please try again.");
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        // Access Axios-specific error properties
+        setError(
+          err.response?.data?.message || err.message || "API error occurred",
+        );
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to create training. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }

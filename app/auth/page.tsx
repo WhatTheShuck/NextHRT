@@ -16,11 +16,6 @@ import Link from "next/link";
 import { companyDetails } from "@/lib/data";
 
 const LoginPage = () => {
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Add your login logic here
-  };
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background">
       <div className="w-full max-w-md px-4">
@@ -39,7 +34,7 @@ const LoginPage = () => {
               Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
-          <form onSubmit={handleSubmit}>
+          <form>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

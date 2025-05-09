@@ -29,11 +29,12 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { TrainingAddForm } from "../training-add-form";
+import { TrainingRecords } from "@prisma/client";
 
 export function TrainingTab() {
   const { trainingRecords } = useEmployee();
 
-  const getTrainingStatus = (record: any) => {
+  const getTrainingStatus = (record: TrainingRecords) => {
     if (!record.expiryDate) return "No Expiry";
     const now = new Date();
     const expiryDate = new Date(record.expiryDate);

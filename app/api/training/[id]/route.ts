@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // GET single training course
-export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function GET(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -27,14 +30,20 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     return NextResponse.json(training);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error fetching training course" },
+      {
+        error: "Error fetching training course",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
 }
 
 // PUT update training course
-export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function PUT(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -52,14 +61,20 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
     return NextResponse.json(updatedTraining);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error updating training course" },
+      {
+        error: "Error updating training course",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
 }
 
 // DELETE training course
-export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -72,7 +87,10 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
     });
   } catch (error) {
     return NextResponse.json(
-      { error: "Error deleting training course" },
+      {
+        error: "Error deleting training course",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }

@@ -8,17 +8,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { TrainingRecords, type Training } from "@prisma/client";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
 import { ExportButtons } from "@/components/ExportButtons";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Check } from "lucide-react";
 
 export default function CompletedTrainingPage() {
   const [trainingSelection, setTrainingSelection] = useState<Training[]>([]);

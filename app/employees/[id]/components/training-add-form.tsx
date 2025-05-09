@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { Training, Employee } from "@prisma/client";
+import { Training } from "@prisma/client";
 import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
 import { DateSelector } from "@/app/bulk-training/components/date-selector";
 import api from "@/lib/axios";
@@ -20,7 +20,6 @@ export function TrainingAddForm() {
   // Data fetching state
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   useEffect(() => {
     const fetchData = async () => {
@@ -30,7 +29,6 @@ export function TrainingAddForm() {
         setTrainings(trainingsRes);
       } catch (err) {
         console.error("API error:", err);
-        setError("Failed to load data. Please refresh the page.");
       } finally {
         setIsLoading(false);
       }
@@ -44,19 +42,17 @@ export function TrainingAddForm() {
   };
   if (!employee) return null;
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    setIsLoading(true);
-
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
     try {
-      const response = await api.post(`/api/training-records`, {
+      await api.post(`/api/training-records`, {
         employeeId: employee.id,
         trainingId: parseInt(trainingId),
         dateCompleted: completionDate.toISOString(),
         trainer: provider,
       });
-      response;
     } catch (err) {
-      setError("Failed to create training records. Please try again.");
+      console.error("API error:", err);
     } finally {
       setIsSubmitting(false);
     }

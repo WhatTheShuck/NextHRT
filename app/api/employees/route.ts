@@ -12,7 +12,10 @@ export async function GET() {
     return NextResponse.json(employees);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error fetching employees" },
+      {
+        error: "Error fetching employees",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
@@ -38,7 +41,10 @@ export async function POST(request: Request) {
     return NextResponse.json(employee);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error creating employee" },
+      {
+        error: "Error creating employee",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }

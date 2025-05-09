@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // GET single training record
-export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function GET(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -24,14 +27,20 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     return NextResponse.json(trainingRecord);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error fetching training record" },
+      {
+        error: "Error fetching training record",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
 }
 
 // PUT update training record
-export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function PUT(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -68,14 +77,20 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
     return NextResponse.json(updatedTrainingRecord);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error updating training record" },
+      {
+        error: "Error updating training record",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
 }
 
 // DELETE training record
-export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -88,7 +103,10 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
     });
   } catch (error) {
     return NextResponse.json(
-      { error: "Error deleting training record" },
+      {
+        error: "Error deleting training record",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }

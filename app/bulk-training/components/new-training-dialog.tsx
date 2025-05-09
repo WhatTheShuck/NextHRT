@@ -14,6 +14,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Training, Category } from "@prisma/client";
 import api from "@/lib/axios";
+import { AxiosError } from "axios";
 
 type NewTrainingDialogProps = {
   isOpen: boolean;
@@ -69,10 +70,17 @@ export function NewTrainingDialog({
       const newTraining = await res.data;
       onTrainingCreated(newTraining);
       handleOpenChange(false);
-    } catch (err: any) {
-      setError(err.message || "Failed to create training. Please try again.");
-    } finally {
-      setIsCreating(false);
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        // Access Axios-specific error properties
+        setError(
+          err.response?.data?.message || err.message || "API error occurred",
+        );
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to create training. Please try again.");
+      }
     }
   };
 

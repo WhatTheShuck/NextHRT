@@ -13,7 +13,10 @@ export async function GET() {
     return NextResponse.json(trainingRecords);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error fetching training records" },
+      {
+        error: "Error fetching training records",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
@@ -54,7 +57,10 @@ export async function POST(request: Request) {
     return NextResponse.json(trainingRecord);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error creating training record" },
+      {
+        error: "Error creating training record",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }

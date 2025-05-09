@@ -12,7 +12,10 @@ export async function GET() {
     return NextResponse.json(trainings);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error fetching training courses" },
+      {
+        error: "Error fetching training courses",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
@@ -32,7 +35,10 @@ export async function POST(request: Request) {
     return NextResponse.json(training);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error creating training course" },
+      {
+        error: "Error creating training course",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }

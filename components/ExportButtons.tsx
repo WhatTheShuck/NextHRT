@@ -6,12 +6,12 @@ import { ColumnDef } from "@tanstack/react-table";
 
 interface ExportButtonsProps<T> {
   data: T[];
-  columns: ColumnDef<T, any>[];
+  columns: ColumnDef<T, unknown>[];
   filename: string;
   title?: string;
 }
 
-export function ExportButtons<T extends Record<string, any>>({
+export function ExportButtons<T extends Record<string, unknown>>({
   data,
   columns,
   filename,

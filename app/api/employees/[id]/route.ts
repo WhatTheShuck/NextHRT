@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // GET single employee
-export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function GET(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -27,14 +30,20 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     return NextResponse.json(employee);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error fetching employee" },
+      {
+        error: "Error fetching employee",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
 }
 
 // PUT update employee
-export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function PUT(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -58,14 +67,20 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
     return NextResponse.json(updatedEmployee);
   } catch (error) {
     return NextResponse.json(
-      { error: "Error updating employee" },
+      {
+        error: "Error updating employee",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
 }
 
 // DELETE employee
-export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  request: Request,
+  props: { params: Promise<{ id: string }> },
+) {
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -76,7 +91,10 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
     return NextResponse.json({ message: "Employee deleted successfully" });
   } catch (error) {
     return NextResponse.json(
-      { error: "Error deleting employee" },
+      {
+        error: "Error deleting employee",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
