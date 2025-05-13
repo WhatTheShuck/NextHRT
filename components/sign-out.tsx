@@ -1,6 +1,6 @@
 "use client";
 import { useTransition } from "react";
-import { signOut } from "@/lib/auth";
+import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 
 export function SignOut() {
