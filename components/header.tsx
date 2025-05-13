@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { companyDetails } from "@/lib/data";
 import { ModeToggle } from "./theme-toggle";
-import { ProfileButton } from "./profileButton";
+import { ProfileButton } from "./ProfileButton";
 
 const Header = async () => {
   return (
