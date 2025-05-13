@@ -9,7 +9,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, GithubIcon } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { companyDetails } from "@/lib/data";
 
@@ -17,9 +17,6 @@ export function LoginPageContent() {
   // Handle Microsoft sign-in
   const handleMicrosoftSignIn = async () => {
     await signIn("microsoft-entra-id");
-  };
-  const handleGitHubSignIn = () => {
-    signIn("github");
   };
 
   return (
@@ -41,15 +38,9 @@ export function LoginPageContent() {
           <CardHeader>
             <CardTitle>Sign In</CardTitle>
             <CardDescription>
-              Access the portal using your Microsoft account
+              Access the portal using your company Microsoft account
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-center text-muted-foreground">
-              Click the button below to sign in with your company Microsoft
-              account
-            </p>
-          </CardContent>
           <CardFooter className="grid grid-cols-1 justify-center gap-y-2">
             <Button
               onClick={handleMicrosoftSignIn}
@@ -67,13 +58,6 @@ export function LoginPageContent() {
                 <path fill="#ffba08" d="M12 12h10v10H12z" />
               </svg>
               Sign in with Microsoft
-            </Button>
-            <Button
-              onClick={handleGitHubSignIn}
-              className="w-full flex items-center justify-center"
-            >
-              <GithubIcon />
-              Sign in with Github
             </Button>
           </CardFooter>
         </Card>

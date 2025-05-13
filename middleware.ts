@@ -43,7 +43,7 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder files
      */
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public|logo).*)",
   ],
 };
 //   // Get the session token
