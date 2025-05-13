@@ -1,19 +1,19 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { signOut } from "next-auth/react";
+import { useTransition } from "react";
+import { signOut } from "@/lib/auth";
+import { LogOut } from "lucide-react";
 
-const SignOut = () => {
-  const handleSignOut = async () => {
-    await signOut();
-  };
+export function SignOut() {
+  const [isPending, startTransition] = useTransition();
 
   return (
-    <div className="flex justify-center">
-      <Button variant="destructive" onClick={handleSignOut}>
-        Sign Out
-      </Button>
-    </div>
+    <button
+      className="flex w-full items-center text-sm"
+      onClick={() => startTransition(() => signOut())}
+      disabled={isPending}
+    >
+      <LogOut className="mr-2 h-4 w-4" />
+      {isPending ? "Signing out..." : "Sign out"}
+    </button>
   );
-};
-
-export { SignOut };
+}
