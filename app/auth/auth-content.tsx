@@ -15,11 +15,11 @@ import { companyDetails } from "@/lib/data";
 
 export function LoginPageContent() {
   // Handle Microsoft sign-in
-  const handleMicrosoftSignIn = () => {
-    signIn("azure-ad", { callbackUrl: "/" });
+  const handleMicrosoftSignIn = async () => {
+    await signIn("microsoft-entra-id");
   };
   const handleGitHubSignIn = () => {
-    signIn("github", { callbackUrl: "/" });
+    signIn("github");
   };
 
   return (
