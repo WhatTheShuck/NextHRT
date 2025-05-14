@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth";
-import Image from "next/image";
 import Link from "next/link";
 import { SignOut } from "@/components/sign-out";
 import { UserIcon, Settings, User } from "lucide-react";
