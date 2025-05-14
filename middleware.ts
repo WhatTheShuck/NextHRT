@@ -18,16 +18,25 @@ export default auth((request) => {
     path.includes("_next") ||
     path.includes("static");
 
+  // Helper function to create properly formed URLs with the correct domain
+  const createRedirectUrl = (pathname: string) => {
+    return new URL(
+      pathname,
+      process.env.NEXTAUTH_URL ||
+        `${request.nextUrl.protocol}//${request.headers.get("host") || request.nextUrl.host}`,
+    );
+  };
+
   if (isApiAuthRoute) {
     return NextResponse.next();
   }
 
   if (!isPublicPath && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/auth", request.nextUrl));
+    return NextResponse.redirect(createRedirectUrl("/auth"));
   }
 
   if (isLoggedIn && isAuthPageRoute) {
-    return NextResponse.redirect(new URL("/", request.nextUrl));
+    return NextResponse.redirect(createRedirectUrl("/"));
   }
 
   return NextResponse.next();
