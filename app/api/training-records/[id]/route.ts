@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 // GET single training record
-export async function GET(
-  request: Request,
+export const GET = auth(async function GET(
+  request,
   props: { params: Promise<{ id: string }> },
 ) {
+  if (!request.auth) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -34,13 +38,16 @@ export async function GET(
       { status: 500 },
     );
   }
-}
+});
 
 // PUT update training record
-export async function PUT(
-  request: Request,
+export const PUT = auth(async function PUT(
+  request,
   props: { params: Promise<{ id: string }> },
 ) {
+  if (!request.auth) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -84,13 +91,16 @@ export async function PUT(
       { status: 500 },
     );
   }
-}
+});
 
 // DELETE training record
-export async function DELETE(
-  request: Request,
+export const DELETE = auth(async function DELETE(
+  request,
   props: { params: Promise<{ id: string }> },
 ) {
+  if (!request.auth) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
   const params = await props.params;
   try {
     const id = parseInt(params.id);
@@ -110,4 +120,4 @@ export async function DELETE(
       { status: 500 },
     );
   }
-}
+});

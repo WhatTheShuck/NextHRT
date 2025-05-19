@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 // GET all training courses
-export async function GET() {
+export const GET = auth(async function GET(request) {
+  // Check if the user is authenticated
+  if (!request.auth) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
   try {
     const trainings = await prisma.training.findMany({
       include: {
@@ -19,10 +24,13 @@ export async function GET() {
       { status: 500 },
     );
   }
-}
+});
 
 // POST new training course
-export async function POST(request: Request) {
+export const POST = auth(async function POST(request) {
+  if (!request.auth) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
   try {
     const json = await request.json();
     const training = await prisma.training.create({
@@ -42,4 +50,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});

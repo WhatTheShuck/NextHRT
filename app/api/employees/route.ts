@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // GET all employees
-export async function GET() {
+export const GET = auth(async function GET(req) {
+  // Check if the user is authenticated
+  if (!req.auth) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
+
+  // If authenticated, proceed with the original functionality
   try {
     const employees = await prisma.employee.findMany({
       orderBy: {
@@ -19,10 +26,14 @@ export async function GET() {
       { status: 500 },
     );
   }
-}
+});
 
 // POST new employee
-export async function POST(request: Request) {
+export const POST = auth(async function POST(request) {
+  // Check if the user is authenticated
+  if (!request.auth) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
   try {
     const json = await request.json();
     const employee = await prisma.employee.create({
@@ -48,4 +59,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});
