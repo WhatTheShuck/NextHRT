@@ -1,9 +1,11 @@
 import { auth } from "@/lib/auth";
 import { SignOut } from "@/components/sign-out";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 
 async function Profile() {
   const session = await auth();
+  if (!session) redirect("/auth");
   return (
     <div className="flex items-center justify-center min-h-[90vh]">
       <div className="p-5  shadow-2xl rounded-md min-w-[30%] max-w-[50%] flex gap-5 flex-col items-center">
