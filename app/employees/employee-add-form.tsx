@@ -24,13 +24,24 @@ import {
 import { CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { AddDepartmentDialog } from "@/components/add-department-dialog";
-import { AddLocationDialog } from "@/components/add-location-dialog";
+import { AddDepartmentDialog } from "@/components/dialogs/add-department-dialog";
+import { AddLocationDialog } from "@/components/dialogs/add-location-dialog";
+import { AxiosError } from "axios";
+import { EmployeeWithRelations } from "@/lib/types";
+import { DuplicateEmployeeDialog } from "@/components/dialogs/duplicate-employee-dialog";
 
 interface EmployeeAddFormProps {
   onSuccess?: () => void;
 }
-
+interface DuplicateResponse {
+  error: string;
+  code: string;
+  matches: Array<EmployeeWithRelations>;
+  suggestions: {
+    rehire: boolean;
+    duplicate: boolean;
+  };
+}
 export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
   // Form state
   const [firstName, setFirstName] = useState("");
@@ -53,6 +64,12 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
   const [isDepartmentDialogOpen, setIsDepartmentDialogOpen] = useState(false);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
 
+  // Duplicate handling state
+  const [duplicateData, setDuplicateData] = useState<DuplicateResponse | null>(
+    null,
+  );
+  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -72,10 +89,21 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
 
     fetchData();
   }, []);
-
+  const createEmployeeData = () => ({
+    firstName,
+    lastName,
+    title,
+    departmentId: parseInt(departmentId),
+    locationId: parseInt(locationId),
+    businessArea,
+    job,
+    notes: notes || null,
+    usi: usi || null,
+    isActive,
+    startDate: startDate?.toISOString() || null,
+  });
   const handleSubmit = async (e: React.FormEvent) => {
-    // e.preventDefault();
-
+    e.preventDefault();
     if (
       !firstName ||
       !lastName ||
@@ -107,11 +135,23 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
 
       onSuccess?.();
     } catch (err) {
-      console.error("Error creating employee:", err);
-      alert("Failed to create employee. Please try again.");
+      if (err instanceof AxiosError && err.response?.status === 409) {
+        // Handle duplicate employee case
+        const duplicateResponse = err.response.data as DuplicateResponse;
+        setDuplicateData(duplicateResponse);
+        setIsDuplicateDialogOpen(true);
+      } else {
+        alert("Failed to create employee. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
+  };
+  const handleDuplicateSuccess = () => {
+    // Reset form and close dialog
+    setIsDuplicateDialogOpen(false);
+    setDuplicateData(null);
+    onSuccess?.();
   };
 
   return (
@@ -310,6 +350,16 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
           setLocationId(loc.id.toString());
         }}
       />
+      {/* Duplicate Employee Dialog */}
+      {duplicateData && (
+        <DuplicateEmployeeDialog
+          open={isDuplicateDialogOpen}
+          onOpenChange={setIsDuplicateDialogOpen}
+          duplicateData={duplicateData}
+          employeeFormData={createEmployeeData()}
+          onSuccess={handleDuplicateSuccess}
+        />
+      )}
     </form>
   );
 }

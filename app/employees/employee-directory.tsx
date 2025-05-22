@@ -31,6 +31,7 @@ import { EmployeeAddForm } from "./employee-add-form";
 import { EmployeeWithRelations } from "@/lib/types";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { AxiosError } from "axios";
 
 const EmployeeDirectory = () => {
   const router = useRouter();
@@ -39,6 +40,7 @@ const EmployeeDirectory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const isAdmin = session?.data?.user?.role === "Admin";
 
   useEffect(() => {
@@ -52,17 +54,17 @@ const EmployeeDirectory = () => {
         setEmployees(response.data);
       } catch (error) {
         console.error("Error fetching employees:", error);
-        // if (axios.isAxiosError(error)) {
-        //   if (error.response?.status === 401) {
-        //     setError("You are not authenticated. Please log in.");
-        //   } else if (error.response?.status === 403) {
-        //     setError("You do not have permission to view this data.");
-        //   } else {
-        //     setError("Failed to fetch employees. Please try again later.");
-        //   }
-        // } else {
-        setError("An unexpected error occurred.");
-        // }
+        if (error instanceof AxiosError) {
+          if (error.response?.status === 401) {
+            setError("You are not authenticated. Please log in.");
+          } else if (error.response?.status === 403) {
+            setError("You do not have permission to view this data.");
+          } else {
+            setError("Failed to fetch employees. Please try again later.");
+          }
+        } else {
+          setError("An unexpected error occurred.");
+        }
       } finally {
         setLoading(false);
       }
@@ -86,6 +88,10 @@ const EmployeeDirectory = () => {
     router.push(`/employees/${employeeId}`);
   };
 
+  const handleSheetClose = () => {
+    setIsSheetOpen(false);
+    window.location.reload();
+  };
   if (error) {
     return (
       <Card className="w-full max-w-4xl mx-auto">
@@ -110,7 +116,7 @@ const EmployeeDirectory = () => {
             </CardDescription>
           </div>
           {isAdmin && (
-            <Sheet>
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
               <SheetTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
@@ -121,7 +127,7 @@ const EmployeeDirectory = () => {
                 <SheetHeader>
                   <SheetTitle>Add New Employee</SheetTitle>
                 </SheetHeader>
-                <EmployeeAddForm />
+                <EmployeeAddForm onSuccess={handleSheetClose} />
               </SheetContent>
             </Sheet>
           )}

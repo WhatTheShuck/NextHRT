@@ -107,6 +107,58 @@ export const POST = auth(async function POST(req) {
 
   try {
     const json = await req.json();
+
+    // Check for duplicate detection unless confirmDuplicate flag is set
+    if (!json.confirmDuplicate) {
+      // Look for potential duplicates based on first and last name
+      const potentialDuplicates = await prisma.employee.findMany({
+        where: {
+          firstName: {
+            equals: json.firstName,
+          },
+          lastName: {
+            equals: json.lastName,
+          },
+        },
+        include: {
+          department: true,
+          location: true,
+        },
+        orderBy: {
+          finishDate: "desc", // Show most recent records first
+        },
+      });
+
+      // If duplicates found, return 409 with details
+      if (potentialDuplicates.length > 0) {
+        const suggestions = {
+          rehire: potentialDuplicates.some((emp) => !emp.isActive), // True if any inactive employees found
+          duplicate: true,
+        };
+
+        return NextResponse.json(
+          {
+            error: "Potential duplicate employee found",
+            code: "DUPLICATE_EMPLOYEE",
+            matches: potentialDuplicates.map((emp) => ({
+              id: emp.id,
+              firstName: emp.firstName,
+              lastName: emp.lastName,
+              title: emp.title,
+              department: emp.department?.name || "Unknown",
+              location: emp.location?.name || "Unknown",
+              isActive: emp.isActive,
+              startDate: emp.startDate,
+              finishDate: emp.finishDate,
+            })),
+            suggestions,
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    // Create the employee (either no duplicates found or confirmDuplicate is true)
     const employee = await prisma.employee.create({
       data: {
         firstName: json.firstName,
