@@ -12,48 +12,136 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { Loader2, Plus } from "lucide-react";
+import { AddDepartmentDialog } from "@/components/dialogs/add-department-dialog";
+import { AddLocationDialog } from "@/components/dialogs/add-location-dialog";
+import api from "@/lib/axios";
+import { Department, Location } from "@/generated/prisma_client";
+import { Textarea } from "@/components/ui/textarea";
 
-export function EmployeeEditForm() {
-  const { employee, setEmployee, employeeId } = useEmployee();
+interface EmployeeEditFormProps {
+  onSuccess?: () => void;
+}
+
+export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
+  const { employee, refreshData, employeeId } = useEmployee();
   const [isLoading, setIsLoading] = useState(false);
+  const [isDepartmentDialogOpen, setIsDepartmentDialogOpen] = useState(false);
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+
+  // Form state
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [title, setTitle] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [businessArea, setBusinessArea] = useState("");
+  const [job, setJob] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [finishDate, setFinishDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [usi, setUsi] = useState("");
+  const [isActive, setIsActive] = useState(true);
+
+  // Options data
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+
+  // Initialize form with employee data
+  useEffect(() => {
+    if (employee) {
+      setFirstName(employee.firstName || "");
+      setLastName(employee.lastName || "");
+      setTitle(employee.title || "");
+      setDepartmentId(employee.departmentId?.toString() || "");
+      setLocationId(employee.locationId?.toString() || "");
+      setBusinessArea(employee.businessArea || "");
+      setJob(employee.job || "");
+      setNotes(employee.notes || "");
+      setUsi(employee.usi || "");
+      setIsActive(employee.isActive ?? true);
+
+      // Format dates for input fields
+      setStartDate(
+        employee.startDate
+          ? format(new Date(employee.startDate), "yyyy-MM-dd")
+          : "",
+      );
+      setFinishDate(
+        employee.finishDate
+          ? format(new Date(employee.finishDate), "yyyy-MM-dd")
+          : "",
+      );
+    }
+  }, [employee]);
+
+  // Fetch departments and locations
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        setIsLoadingOptions(true);
+        const [deptResponse, locResponse] = await Promise.all([
+          api.get<Department[]>("/api/departments"),
+          api.get<Location[]>("/api/locations"),
+        ]);
+
+        setDepartments(deptResponse.data);
+        setLocations(locResponse.data);
+      } catch (error) {
+        console.error("Error fetching options:", error);
+      } finally {
+        setIsLoadingOptions(false);
+      }
+    };
+
+    fetchOptions();
+  }, []);
 
   if (!employee) return null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setIsLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      firstName: formData.get("firstName"),
-      lastName: formData.get("lastName"),
-      WorkAreaID: parseInt(formData.get("workAreaId") as string),
-      Title: formData.get("title"),
-      Department: formData.get("department"),
-      Location: formData.get("location"),
-      StartDate: formData.get("startDate"),
-      FinishDate: formData.get("finishDate") || null,
-      IsActive: formData.get("isActive") === "true",
+    const updateData = {
+      firstName,
+      lastName,
+      title,
+      departmentId: departmentId ? parseInt(departmentId) : null,
+      locationId: locationId ? parseInt(locationId) : null,
+      businessArea,
+      job,
+      startDate: startDate || null,
+      finishDate: finishDate || null,
+      notes,
+      usi,
+      isActive,
     };
 
     try {
-      const response = await fetch(`/api/employees/${employeeId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      await api.put(`/api/employees/${employeeId}`, updateData);
 
-      if (!response.ok) throw new Error("Failed to update employee");
-
-      const updatedEmployee = await response.json();
-      setEmployee(updatedEmployee);
+      // Refresh the employee data to get the latest info
+      await refreshData();
+      onSuccess?.();
     } catch (error) {
       console.error("Error updating employee:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isLoadingOptions) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <span className="ml-2">Loading form...</span>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pt-6">
@@ -63,7 +151,7 @@ export function EmployeeEditForm() {
           <Input
             id="firstName"
             name="firstName"
-            defaultValue={employee.firstName}
+            defaultValue={firstName}
             required
           />
         </div>
@@ -72,7 +160,7 @@ export function EmployeeEditForm() {
           <Input
             id="lastName"
             name="lastName"
-            defaultValue={employee.lastName}
+            defaultValue={lastName}
             required
           />
         </div>
@@ -80,37 +168,93 @@ export function EmployeeEditForm() {
 
       <div className="space-y-2">
         <Label htmlFor="title">Title</Label>
-        <Input id="title" name="title" defaultValue={employee.Title} required />
+        <Input id="title" name="title" defaultValue={title} required />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="department">Department</Label>
+          <div className="flex gap-2">
+            <Select value={departmentId} onValueChange={setDepartmentId}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id.toString()}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={() => setIsDepartmentDialogOpen(true)}
+              title="Add new department"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="location">Location</Label>
+          <div className="flex gap-2">
+            <Select value={locationId} onValueChange={setLocationId}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Select location" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((loc) => (
+                  <SelectItem key={loc.id} value={loc.id.toString()}>
+                    {loc.name}, {loc.state}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={() => setIsLocationDialogOpen(true)}
+              title="Add new location"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="businessArea">Business Area</Label>
+          <Input
+            id="businessArea"
+            value={businessArea}
+            onChange={(e) => setBusinessArea(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="job">Job *</Label>
+          <Input
+            id="job"
+            value={job}
+            onChange={(e) => setJob(e.target.value)}
+            required
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="workAreaId">Work Area ID</Label>
+        <Label htmlFor="usi">USI</Label>
         <Input
-          id="workAreaId"
-          name="workAreaId"
-          type="number"
-          defaultValue={employee.WorkAreaID}
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="department">Department</Label>
-        <Input
-          id="department"
-          name="department"
-          defaultValue={employee.Department}
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="location">Location</Label>
-        <Input
-          id="location"
-          name="location"
-          defaultValue={employee.Location}
-          required
+          id="usi"
+          value={usi}
+          onChange={(e) => setUsi(e.target.value)}
+          placeholder="Unique Student Identifier"
         />
       </div>
 
@@ -119,33 +263,28 @@ export function EmployeeEditForm() {
           <Label htmlFor="startDate">Start Date</Label>
           <Input
             id="startDate"
-            name="startDate"
             type="date"
-            defaultValue={
-              employee.StartDate
-                ? format(new Date(employee.StartDate), "yyyy-MM-dd")
-                : ""
-            }
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="finishDate">Finish Date</Label>
           <Input
             id="finishDate"
-            name="finishDate"
             type="date"
-            defaultValue={
-              employee.FinishDate
-                ? format(new Date(employee.FinishDate), "yyyy-MM-dd")
-                : ""
-            }
+            value={finishDate}
+            onChange={(e) => setFinishDate(e.target.value)}
           />
         </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="isActive">Status</Label>
-        <Select name="isActive" defaultValue={employee.IsActive.toString()}>
+        <Select
+          value={isActive.toString()}
+          onValueChange={(value) => setIsActive(value === "true")}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
@@ -156,9 +295,38 @@ export function EmployeeEditForm() {
         </Select>
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="notes">Notes</Label>
+        <Textarea
+          id="notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Additional notes about the employee..."
+          rows={3}
+        />
+      </div>
+
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? "Saving..." : "Save Changes"}
       </Button>
+      {/* Dialogs */}
+      <AddDepartmentDialog
+        open={isDepartmentDialogOpen}
+        onOpenChange={setIsDepartmentDialogOpen}
+        onDepartmentAdded={(dept) => {
+          setDepartments([...departments, dept]);
+          setDepartmentId(dept.id.toString());
+        }}
+      />
+
+      <AddLocationDialog
+        open={isLocationDialogOpen}
+        onOpenChange={setIsLocationDialogOpen}
+        onLocationAdded={(loc) => {
+          setLocations([...locations, loc]);
+          setLocationId(loc.id.toString());
+        }}
+      />
     </form>
   );
 }

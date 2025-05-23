@@ -1,65 +1,85 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
-import { Employee, Training, TrainingRecords } from "@/generated/prisma_client";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
+import { Training, TrainingRecords } from "@/generated/prisma_client";
 import api from "@/lib/axios";
+import { EmployeeWithRelations } from "@/lib/types";
+import { AxiosError } from "axios";
 
 type EmployeeContextType = {
-  employee: Employee | null;
-  trainingRecords: (TrainingRecords & { training: Training })[];
-  setEmployee: (employee: Employee | null) => void;
-  setTrainingRecords: (
-    records: (TrainingRecords & { training: Training })[],
-  ) => void;
+  employee: EmployeeWithRelations | null;
+  setEmployee: (employee: EmployeeWithRelations | null) => void;
   refreshData: () => Promise<void>;
   employeeId: number;
+  isLoading: boolean;
+  error: string | null;
 };
 
 const EmployeeContext = createContext<EmployeeContextType | null>(null);
 
 export function EmployeeProvider({
   children,
-  initialEmployee,
-  initialTrainingRecords,
   employeeId,
 }: {
   children: React.ReactNode;
-  initialEmployee: Employee;
-  initialTrainingRecords: (TrainingRecords & { training: Training })[];
   employeeId: number;
 }) {
-  const [employee, setEmployee] = useState<Employee | null>(initialEmployee);
-  const [trainingRecords, setTrainingRecords] = useState(
-    initialTrainingRecords,
-  );
+  const [employee, setEmployee] = useState<EmployeeWithRelations | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const refreshData = async () => {
+  const fetchEmployeeData = useCallback(async () => {
     try {
-      const { data: employeeData } = await api.get(
-        `/api/employees/${employeeId}`,
-      );
-      const { data: trainingData } = await api.get("/api/training-records");
+      setIsLoading(true);
+      setError(null);
 
-      setEmployee(employeeData);
-      setTrainingRecords(
-        trainingData.filter(
-          (record: TrainingRecords) => record.employeeId === employeeId,
-        ),
-      );
+      const response = await api.get(`/api/employees/${employeeId}`);
+      setEmployee(response.data);
     } catch (error) {
-      console.error("Error refreshing data:", error);
+      console.error("Error fetching employee:", error);
+
+      if (error instanceof AxiosError) {
+        if (error.response?.status === 401) {
+          setError("You are not authenticated. Please log in.");
+        } else if (error.response?.status === 403) {
+          setError("You do not have permission to view this employee.");
+        } else if (error.response?.status === 404) {
+          setError("Employee not found.");
+        } else {
+          setError("Failed to fetch employee data. Please try again later.");
+        }
+      } else {
+        setError("An unexpected error occurred.");
+      }
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [employeeId]);
+
+  const refreshData = useCallback(async () => {
+    await fetchEmployeeData();
+  }, [fetchEmployeeData]);
+
+  // Fetch data on mount and when employeeId changes
+  useEffect(() => {
+    fetchEmployeeData();
+  }, [fetchEmployeeData]);
 
   return (
     <EmployeeContext.Provider
       value={{
         employee,
-        trainingRecords,
         setEmployee,
-        setTrainingRecords,
         refreshData,
         employeeId,
+        isLoading,
+        error,
       }}
     >
       {children}
@@ -73,4 +93,15 @@ export const useEmployee = () => {
     throw new Error("useEmployee must be used within an EmployeeProvider");
   }
   return context;
+};
+
+// Convenience hooks for specific data
+export const useEmployeeTrainingRecords = () => {
+  const { employee } = useEmployee();
+  return employee?.trainingRecords || [];
+};
+
+export const useEmployeeTicketRecords = () => {
+  const { employee } = useEmployee();
+  return employee?.ticketRecords || [];
 };

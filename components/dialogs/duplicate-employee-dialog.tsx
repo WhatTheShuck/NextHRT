@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, User, Calendar, MapPin, Building } from "lucide-react";
 import { format } from "date-fns";
 import { EmployeeWithRelations } from "@/lib/types";
+import { Employee } from "@/generated/prisma_client";
 
 interface DuplicateResponse {
   error: string;
@@ -30,7 +31,7 @@ interface DuplicateEmployeeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   duplicateData: DuplicateResponse;
-  employeeFormData: EmployeeWithRelations;
+  employeeFormData: Employee;
   onSuccess: () => void;
 }
 

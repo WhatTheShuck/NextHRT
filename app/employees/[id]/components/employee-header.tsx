@@ -13,9 +13,12 @@ import {
 } from "@/components/ui/sheet";
 import { useEmployee } from "./employee-context";
 import { EmployeeEditForm } from "./employee-edit-form";
+import { useState } from "react";
 
 export function EmployeeHeader() {
   const { employee } = useEmployee();
+
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   if (!employee) return null;
 
@@ -36,13 +39,13 @@ export function EmployeeHeader() {
                 {employee.firstName} {employee.lastName}
               </h1>
               <div className="flex items-center gap-2 text-muted-foreground">
-                <span>{employee.Title}</span>
+                <span>{employee.title}</span>
                 <span>•</span>
-                <span>{employee.WorkAreaID}</span>
+                <span>{employee.businessArea}</span>
               </div>
             </div>
           </div>
-          <Sheet>
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
               <Button>
                 <Edit className="h-4 w-4 mr-2" />
@@ -53,7 +56,7 @@ export function EmployeeHeader() {
               <SheetHeader>
                 <SheetTitle>Edit Profile</SheetTitle>
               </SheetHeader>
-              <EmployeeEditForm />
+              <EmployeeEditForm onSuccess={() => setIsSheetOpen(false)} />
             </SheetContent>
           </Sheet>
         </div>
