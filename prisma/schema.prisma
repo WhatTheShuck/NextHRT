@@ -53,6 +53,7 @@ model TrainingRecords {
   personTrained Employee @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateCompleted DateTime
+  expiryDate    DateTime?
   training      Training @relation(fields: [trainingId], references: [id])
   trainingId    Int
   trainer       String

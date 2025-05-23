@@ -106,6 +106,25 @@ export const PUT = auth(async function PUT(
 
     const dateCompleted = new Date(json.dateCompleted);
 
+    // Get training details to calculate expiry date
+    const training = await prisma.training.findUnique({
+      where: { id: json.trainingId },
+    });
+
+    if (!training) {
+      return NextResponse.json(
+        { error: "Training course not found" },
+        { status: 404 },
+      );
+    }
+
+    // Calculate expiry date based on renewal period
+    let expiryDate = null;
+    if (training.renewalPeriod > 0) {
+      expiryDate = new Date(dateCompleted);
+      expiryDate.setMonth(expiryDate.getMonth() + training.renewalPeriod);
+    }
+
     // Check for duplicate record (excluding current record)
     const existingRecord = await prisma.trainingRecords.findFirst({
       where: {
@@ -135,6 +154,7 @@ export const PUT = auth(async function PUT(
         employeeId: json.employeeId,
         trainingId: json.trainingId,
         dateCompleted: dateCompleted,
+        expiryDate: expiryDate,
         trainer: json.trainer,
       },
       include: {
