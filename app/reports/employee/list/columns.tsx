@@ -38,10 +38,10 @@ export const columns: ColumnDef<Employee>[] = [
       headerText: "Last Name",
     },
   },
-  { header: "Title", accessorKey: "Title" },
+  { header: "Title", accessorKey: "title" },
   {
-    header: "Work Area",
-    accessorKey: "WorkAreaID",
+    header: "Business Area",
+    accessorKey: "businessArea",
     // Optional: Add format function if you want to transform the WorkAreaID
     // format: (value: number) => `Area ${value}`,
   },
@@ -56,7 +56,7 @@ export const columns: ColumnDef<Employee>[] = [
         </Button>
       );
     },
-    accessorKey: "Location",
+    accessorKey: "location.name",
     meta: {
       headerText: "Location",
     },
@@ -73,7 +73,7 @@ export const columns: ColumnDef<Employee>[] = [
         </Button>
       );
     },
-    accessorKey: "Department",
+    accessorKey: "department.name",
     meta: {
       headerText: "Department",
     },
