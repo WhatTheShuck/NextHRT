@@ -7,11 +7,20 @@ export const GET = auth(async function GET(request) {
   if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+
   try {
     const trainingRecords = await prisma.trainingRecords.findMany({
       include: {
-        personTrained: true,
+        personTrained: {
+          include: {
+            department: true,
+            location: true,
+          },
+        },
         training: true,
+      },
+      orderBy: {
+        dateCompleted: "desc",
       },
     });
     return NextResponse.json(trainingRecords);
@@ -31,20 +40,46 @@ export const POST = auth(async function POST(request) {
   if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+
   try {
     const json = await request.json();
 
-    // Get the training details to calculate expiry date
-    const training = await prisma.training.findUnique({
-      where: { id: json.trainingId },
-    });
+    // Validate required fields
+    if (
+      !json.employeeId ||
+      !json.trainingId ||
+      !json.dateCompleted ||
+      !json.trainer
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing required fields: employeeId, trainingId, dateCompleted, trainer",
+        },
+        { status: 400 },
+      );
+    }
 
     const dateCompleted = new Date(json.dateCompleted);
-    let expiryDate = null;
 
-    if (training && training.RenewalPeriod > 0) {
-      expiryDate = new Date(dateCompleted);
-      expiryDate.setMonth(expiryDate.getMonth() + training.RenewalPeriod);
+    // Check for existing record with same employee, training, and date (unique constraint)
+    const existingRecord = await prisma.trainingRecords.findFirst({
+      where: {
+        employeeId: json.employeeId,
+        trainingId: json.trainingId,
+        dateCompleted: dateCompleted,
+      },
+    });
+
+    if (existingRecord) {
+      return NextResponse.json(
+        {
+          error: "Training record already exists",
+          details:
+            "A training record with the same employee, training course, and completion date already exists.",
+        },
+        { status: 409 },
+      );
     }
 
     const trainingRecord = await prisma.trainingRecords.create({
@@ -52,12 +87,27 @@ export const POST = auth(async function POST(request) {
         employeeId: json.employeeId,
         trainingId: json.trainingId,
         dateCompleted: dateCompleted,
-        expiryDate: expiryDate,
         trainer: json.trainer,
       },
       include: {
-        personTrained: true,
+        personTrained: {
+          include: {
+            department: true,
+            location: true,
+          },
+        },
         training: true,
+      },
+    });
+
+    // Create history record
+    await prisma.history.create({
+      data: {
+        tableName: "TrainingRecords",
+        recordId: trainingRecord.id,
+        action: "CREATE",
+        newValues: JSON.stringify(trainingRecord),
+        userId: request.auth.user?.id,
       },
     });
 
