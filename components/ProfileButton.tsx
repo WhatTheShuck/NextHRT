@@ -19,7 +19,7 @@ export async function ProfileButton() {
   if (!session?.user) {
     return (
       <Button variant="outline" asChild>
-        <Link href="/login">
+        <Link href="/auth">
           <UserIcon className="h-4 w-4 mr-2" />
           Login
         </Link>

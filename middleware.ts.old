@@ -1,0 +1,64 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+
+const authPageRoutes = ["/auth"];
+const protectedRoutes = ["/reports"];
+const apiAuthPrefix = "/api/auth";
+
+export async function middleware(request: NextRequest) {
+  const { nextUrl } = request;
+  const path = nextUrl.pathname;
+  const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
+  const isProtectedRoute = protectedRoutes.includes(path);
+  const isAuthPageRoute = authPageRoutes.includes(path);
+  const isPublicAsset =
+    path.startsWith("/_next") ||
+    path.startsWith("/static") ||
+    path.includes("favicon.ico") ||
+    path.startsWith("/public") ||
+    path.startsWith("/logo");
+
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+  });
+
+  const isLoggedIn = !!token;
+
+  // Helper function to create properly formed URLs with the correct domain
+  const createRedirectUrl = (pathname: string) => {
+    return new URL(
+      pathname,
+      process.env.NEXTAUTH_URL ||
+        `${request.nextUrl.protocol}//${request.headers.get("host") || request.nextUrl.host}`,
+    );
+  };
+
+  if (isApiAuthRoute || isPublicAsset) {
+    return NextResponse.next();
+  }
+
+  // if (!isLoggedIn && !authPageRoutes.includes(path)) {
+  //   return NextResponse.redirect(createRedirectUrl("/auth"));
+  // }
+
+  if (isLoggedIn && isAuthPageRoute) {
+    return NextResponse.redirect(createRedirectUrl("/"));
+  }
+
+  return NextResponse.next();
+}
+
+// // Configure which paths the middleware should run on
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder files
+     */
+    "/((?!_next/static|_next/image|favicon.ico|public|logo).*)",
+  ],
+};

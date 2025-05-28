@@ -1,4 +1,11 @@
 import { LucideIcon } from "lucide-react";
+import {
+  Employee,
+  Department,
+  Location,
+  TrainingRecords,
+  TicketRecords,
+} from "@/generated/prisma_client";
 
 export type CompanyDetails = {
   name: string;
@@ -19,4 +26,11 @@ export interface NavigationItem {
   icon: LucideIcon;
   href: string;
   requiresAdmin: boolean;
+}
+
+export interface EmployeeWithRelations extends Employee {
+  department: Department;
+  location: Location;
+  trainingRecords?: TrainingRecords[];
+  ticketRecords?: TicketRecords[];
 }

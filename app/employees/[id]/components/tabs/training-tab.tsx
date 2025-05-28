@@ -1,7 +1,7 @@
 // app/employees/[id]/components/tabs/training-tab.tsx
 "use client";
 
-import { useEmployee } from "../employee-context";
+import { useEmployee, useEmployeeTrainingRecords } from "../employee-context";
 import {
   Card,
   CardHeader,
@@ -32,12 +32,12 @@ import { TrainingAddForm } from "../training-add-form";
 import { TrainingRecords } from "@/generated/prisma_client";
 
 export function TrainingTab() {
-  const { trainingRecords } = useEmployee();
+  const trainingRecords = useEmployeeTrainingRecords();
 
   const getTrainingStatus = (record: TrainingRecords) => {
-    if (!record.expiryDate) return "No Expiry";
+    // if (!record.expiryDate) return "No Expiry";
     const now = new Date();
-    const expiryDate = new Date(record.expiryDate);
+    const expiryDate = new Date(record.dateCompleted);
 
     if (expiryDate < now) {
       return "Expired";

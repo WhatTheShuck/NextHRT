@@ -1,7 +1,6 @@
 "use client";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
-import { Employee } from "@/generated/prisma_client";
 import { ExportButtons } from "@/components/ExportButtons";
 import React, { useEffect, useState } from "react";
 import {
@@ -11,10 +10,14 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { EmployeeWithRelations } from "@/lib/types";
+import api from "@/lib/axios";
 
 export default function Page() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<
+    EmployeeWithRelations[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
@@ -23,17 +26,21 @@ export default function Page() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await fetch("/api/employees");
-        if (!response.ok) {
-          throw new Error("Failed to fetch employees");
-        }
-        const data = await response.json();
-        const activeEmployees = data.filter((emp: Employee) => emp.IsActive);
+        const response =
+          await api.get<EmployeeWithRelations[]>("/api/employees");
+        const data = response.data;
+        const activeEmployees = data.filter(
+          (emp: EmployeeWithRelations) => emp.isActive,
+        );
         setEmployees(activeEmployees);
         setFilteredEmployees(activeEmployees);
         // Extract unique locations
         const uniqueLocations = Array.from(
-          new Set(activeEmployees.map((emp: Employee) => emp.Location)),
+          new Set(
+            activeEmployees.map(
+              (emp: EmployeeWithRelations) => emp.location.name,
+            ),
+          ),
         ).filter(Boolean) as string[]; // Filter out null/undefined values
 
         setLocations(uniqueLocations);
@@ -57,7 +64,7 @@ export default function Page() {
     } else {
       // Apply filter
       setFilteredEmployees(
-        employees.filter((emp) => emp.Location === location),
+        employees.filter((emp) => emp.location.name === location),
       );
     }
   };

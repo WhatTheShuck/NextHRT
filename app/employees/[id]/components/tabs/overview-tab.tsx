@@ -1,6 +1,5 @@
 // may need to add more info here depending if personal information should be included. Could also be fetched from external data source?
 "use client";
-
 import { useEmployee } from "../employee-context";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,33 +26,33 @@ export function OverviewTab() {
           <div className="flex items-center gap-2">
             <Briefcase className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Title</span>
-            <span className="ml-auto">{employee.Title}</span>
+            <span className="ml-auto">{employee.title}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Department</span>
-            <span className="ml-auto">{employee.Department}</span>
+            <span className="ml-auto">{employee.department.name}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Location</span>
-            <span className="ml-auto">{employee.Location}</span>
+            <span className="ml-auto">{employee.location.name}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Work Area ID</span>
-            <span className="ml-auto">{employee.WorkAreaID}</span>
+            <span className="text-sm text-muted-foreground">Business Area</span>
+            <span className="ml-auto">{employee.businessArea}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Status</span>
             <Badge
-              variant={employee.IsActive ? "default" : "secondary"}
+              variant={employee.isActive ? "default" : "secondary"}
               className="ml-auto"
             >
-              {employee.IsActive ? "Active" : "Inactive"}
+              {employee.isActive ? "Active" : "Inactive"}
             </Badge>
           </div>
         </CardContent>
@@ -67,18 +66,18 @@ export function OverviewTab() {
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Start Date</span>
-            <span className="ml-auto">{formatDate(employee.StartDate)}</span>
+            <span className="ml-auto">{formatDate(employee.startDate)}</span>
           </div>
 
-          {employee.FinishDate && (
+          {employee.finishDate && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Finish Date</span>
-              <span className="ml-auto">{formatDate(employee.FinishDate)}</span>
+              <span className="ml-auto">{formatDate(employee.finishDate)}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Created</span>
             <span className="ml-auto">
               {format(new Date(employee.createdAt), "PP")}
@@ -90,7 +89,7 @@ export function OverviewTab() {
             <span className="ml-auto">
               {format(new Date(employee.updatedAt), "PP")}
             </span>
-          </div>
+          </div> */}
         </CardContent>
       </Card>
     </div>

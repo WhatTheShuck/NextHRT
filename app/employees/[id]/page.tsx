@@ -1,18 +1,24 @@
-// app/employees/[id]/page.tsx
 import { EmployeeProfile } from "./components/employee-profile";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
-import api from "@/lib/axios";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+interface EmployeeDetailPageProps {
+  params: Promise<{ id: string }>;
+}
 
-export default async function EmployeeDetailPage(
-  props: {
-    params: Promise<{ id: string }>;
+export default async function EmployeeDetailPage({
+  params,
+}: EmployeeDetailPageProps) {
+  const session = await auth();
+  if (!session) redirect("/auth");
+  const resolvedParams = await params;
+  const employeeId = parseInt(resolvedParams.id);
+
+  // Validate that the ID is a valid number
+  if (isNaN(employeeId)) {
+    notFound();
   }
-) {
-  const params = await props.params;
-  const { data: initialEmployeeData } = await api.get(
-    `/api/employees/${params.id}`,
-  );
 
   return (
     <Suspense
@@ -22,11 +28,7 @@ export default async function EmployeeDetailPage(
         </div>
       }
     >
-      <EmployeeProfile
-        initialEmployee={initialEmployeeData}
-        initialTrainingRecords={initialEmployeeData.TrainingRecords}
-        employeeId={parseInt(params.id)}
-      />
+      <EmployeeProfile employeeId={employeeId} />
     </Suspense>
   );
 }
