@@ -7,6 +7,9 @@ services:
       target: runner
     ports:
       - "5844:5844"
+    volumes:
+      - /hrt/uploads:/app/uploads
+      - /hrt/db.db:/app/prisma/dev.db
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
