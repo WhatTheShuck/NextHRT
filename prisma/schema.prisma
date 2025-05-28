@@ -57,6 +57,8 @@ model TrainingRecords {
   training      Training @relation(fields: [trainingId], references: [id])
   trainingId    Int
   trainer       String
+  imagePath     String?
+  imageType     String?
 
   @@unique([employeeId, trainingId, dateCompleted])
 }
