@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth";
-import { SignOut } from "@/components/sign-out";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 
@@ -27,7 +26,6 @@ async function Profile() {
           <p>{session?.user?.name}</p>
           <p>{session?.user?.email}</p>
         </div>
-        <SignOut />
       </div>
     </div>
   );
