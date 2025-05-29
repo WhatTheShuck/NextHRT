@@ -9,7 +9,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, FileImage } from "lucide-react";
+import { Plus, Eye, FileImage, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -28,25 +28,40 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { TrainingAddForm } from "../training-add-form";
+import { TrainingEditForm } from "../training-edit-form";
 import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-record-details-dialog";
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
 
 export function TrainingTab() {
   const trainingRecords = useEmployeeTrainingRecords();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] =
     useState<TrainingRecordsWithRelations | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [editingRecord, setEditingRecord] =
+    useState<TrainingRecordsWithRelations | null>(null);
 
-  const handleSheetClose = () => {
-    setIsSheetOpen(false);
+  const handleAddSheetClose = () => {
+    setIsAddSheetOpen(false);
+    window.location.reload();
+  };
+
+  const handleEditSheetClose = () => {
+    setIsEditSheetOpen(false);
+    setEditingRecord(null);
     window.location.reload();
   };
 
   const handleViewDetails = (record: TrainingRecordsWithRelations) => {
     setSelectedRecord(record);
     setIsDetailsOpen(true);
+  };
+
+  const handleEditRecord = (record: TrainingRecordsWithRelations) => {
+    setEditingRecord(record);
+    setIsEditSheetOpen(true);
   };
 
   const getTrainingStatus = (record: TrainingRecordsWithRelations) => {
@@ -93,7 +108,7 @@ export function TrainingTab() {
                 {trainingRecords.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
               <SheetTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
@@ -104,7 +119,7 @@ export function TrainingTab() {
                 <SheetHeader>
                   <SheetTitle>Add Training</SheetTitle>
                 </SheetHeader>
-                <TrainingAddForm onSuccess={handleSheetClose} />
+                <TrainingAddForm onSuccess={handleAddSheetClose} />
               </SheetContent>
             </Sheet>
           </div>
@@ -134,14 +149,14 @@ export function TrainingTab() {
                   </TableCell>
                 </TableRow>
               ) : (
-                trainingRecords.map((record) => {
+                trainingRecords.map((record: TrainingRecordsWithRelations) => {
                   const status = getTrainingStatus(record);
                   return (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">
-                        {record.training.title}
+                        {record.training?.title}
                       </TableCell>
-                      <TableCell>{record.training.category}</TableCell>
+                      <TableCell>{record.training?.category}</TableCell>
                       <TableCell>
                         {format(new Date(record.dateCompleted), "PP")}
                       </TableCell>
@@ -166,14 +181,24 @@ export function TrainingTab() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewDetails(record)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(record)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditRecord(record)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -184,7 +209,32 @@ export function TrainingTab() {
         </CardContent>
       </Card>
 
-      {/* Extracted Training Record Details Dialog */}
+      {/* Add Training Sheet */}
+      <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Add Training</SheetTitle>
+          </SheetHeader>
+          <TrainingAddForm onSuccess={handleAddSheetClose} />
+        </SheetContent>
+      </Sheet>
+
+      {/* Edit Training Sheet */}
+      <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Edit Training Record</SheetTitle>
+          </SheetHeader>
+          {editingRecord && (
+            <TrainingEditForm
+              trainingRecord={editingRecord}
+              onSuccess={handleEditSheetClose}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Training Record Details Dialog */}
       <TrainingRecordDetailsDialog
         record={selectedRecord}
         open={isDetailsOpen}

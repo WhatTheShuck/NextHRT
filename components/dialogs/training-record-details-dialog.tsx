@@ -77,15 +77,15 @@ export function TrainingRecordDetailsDialog({
                 <div className="mt-2 space-y-2">
                   <div>
                     <span className="font-medium">Course:</span>{" "}
-                    {record.training.title}
+                    {record.training?.title}
                   </div>
                   <div>
                     <span className="font-medium">Category:</span>{" "}
-                    {record.training.category}
+                    {record.training?.category}
                   </div>
                   <div>
                     <span className="font-medium">Renewal Period:</span>{" "}
-                    {record.training.renewalPeriod} months
+                    {record.training?.renewalPeriod} months
                   </div>
                 </div>
               </div>
@@ -162,7 +162,7 @@ export function TrainingRecordDetailsDialog({
                                 );
                               }}
                             />
-                            <div className="hidden flex flex-col items-center justify-center h-64 p-6">
+                            <div className="hidden flex-col items-center justify-center h-64 p-6">
                               <ImageIcon className="h-16 w-16 text-gray-400 mb-4" />
                               <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Image could not be loaded
