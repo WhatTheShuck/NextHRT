@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { writeFile, mkdir, unlink } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
+import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
 // GET single training record
 export const GET = auth(async function GET(
@@ -74,25 +79,7 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    const json = await request.json();
-
-    // Validate required fields
-    if (
-      !json.employeeId ||
-      !json.trainingId ||
-      !json.dateCompleted ||
-      !json.trainer
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Missing required fields: employeeId, trainingId, dateCompleted, trainer",
-        },
-        { status: 400 },
-      );
-    }
-
-    // Get current record for history
+    // Get current record for history and file cleanup
     const currentRecord = await prisma.trainingRecords.findUnique({
       where: { id },
     });
@@ -104,11 +91,32 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    const dateCompleted = new Date(json.dateCompleted);
+    const formData = await request.formData();
+
+    // Extract form fields
+    const employeeId = parseInt(formData.get("employeeId") as string);
+    const trainingId = parseInt(formData.get("trainingId") as string);
+    const dateCompleted = formData.get("dateCompleted") as string;
+    const trainer = formData.get("trainer") as string;
+    const imageFile = formData.get("image") as File | null;
+    const removeImage = formData.get("removeImage") === "true"; // Flag to remove existing image
+
+    // Validate required fields
+    if (!employeeId || !trainingId || !dateCompleted || !trainer) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing required fields: employeeId, trainingId, dateCompleted, trainer",
+        },
+        { status: 400 },
+      );
+    }
+
+    const completedDate = new Date(dateCompleted);
 
     // Get training details to calculate expiry date
     const training = await prisma.training.findUnique({
-      where: { id: json.trainingId },
+      where: { id: trainingId },
     });
 
     if (!training) {
@@ -118,19 +126,12 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    // Calculate expiry date based on renewal period
-    let expiryDate = null;
-    if (training.renewalPeriod > 0) {
-      expiryDate = new Date(dateCompleted);
-      expiryDate.setMonth(expiryDate.getMonth() + training.renewalPeriod);
-    }
-
     // Check for duplicate record (excluding current record)
     const existingRecord = await prisma.trainingRecords.findFirst({
       where: {
-        employeeId: json.employeeId,
-        trainingId: json.trainingId,
-        dateCompleted: dateCompleted,
+        employeeId: employeeId,
+        trainingId: trainingId,
+        dateCompleted: completedDate,
         NOT: {
           id: id,
         },
@@ -148,14 +149,90 @@ export const PUT = auth(async function PUT(
       );
     }
 
+    // Handle file operations
+    let imagePath: string | null = currentRecord.imagePath;
+    let imageType: string | null = currentRecord.imageType;
+    let oldImagePath: string | null = null;
+
+    // If removing image or uploading new one, prepare to delete old file
+    if (removeImage || (imageFile && imageFile.size > 0)) {
+      oldImagePath = currentRecord.imagePath;
+      imagePath = null;
+      imageType = null;
+    }
+
+    // Process new file upload if present
+    if (imageFile && imageFile.size > 0) {
+      // Validate file
+      if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
+        return NextResponse.json(
+          {
+            error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
+        return NextResponse.json(
+          {
+            error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      try {
+        // Create upload directory if it doesn't exist
+        const uploadDir = path.join(process.cwd(), "uploads", "training");
+        if (!existsSync(uploadDir)) {
+          await mkdir(uploadDir, { recursive: true });
+        }
+
+        // Generate unique filename
+        const fileExtension = path.extname(imageFile.name);
+        const uniqueFilename = `${uuidv4()}${fileExtension}`;
+        const filePath = path.join(uploadDir, uniqueFilename);
+
+        // Convert file to buffer and save
+        const bytes = await imageFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        await writeFile(filePath, buffer);
+
+        // Store relative path for database
+        imagePath = `training/${uniqueFilename}`;
+        imageType = imageFile.type;
+      } catch (fileError) {
+        return NextResponse.json(
+          {
+            error: "Error saving file",
+            details:
+              fileError instanceof Error
+                ? fileError.message
+                : String(fileError),
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    // Calculate expiry date based on renewal period
+    let expiryDate = null;
+    if (training.renewalPeriod > 0) {
+      expiryDate = new Date(completedDate);
+      expiryDate.setMonth(expiryDate.getMonth() + training.renewalPeriod);
+    }
+
     const updatedTrainingRecord = await prisma.trainingRecords.update({
       where: { id },
       data: {
-        employeeId: json.employeeId,
-        trainingId: json.trainingId,
-        dateCompleted: dateCompleted,
+        employeeId: employeeId,
+        trainingId: trainingId,
+        dateCompleted: completedDate,
         expiryDate: expiryDate,
-        trainer: json.trainer,
+        trainer: trainer,
+        imagePath: imagePath,
+        imageType: imageType,
       },
       include: {
         personTrained: {
@@ -167,6 +244,19 @@ export const PUT = auth(async function PUT(
         training: true,
       },
     });
+
+    // Clean up old file if it was replaced or removed
+    if (oldImagePath) {
+      try {
+        const oldFullPath = path.join(process.cwd(), "uploads", oldImagePath);
+        if (existsSync(oldFullPath)) {
+          await unlink(oldFullPath);
+        }
+      } catch (cleanupError) {
+        // Log error but don't fail the request
+        console.error("Error cleaning up old file:", cleanupError);
+      }
+    }
 
     // Create history record
     await prisma.history.create({
@@ -227,6 +317,23 @@ export const DELETE = auth(async function DELETE(
     await prisma.trainingRecords.delete({
       where: { id },
     });
+
+    // Clean up associated file if it exists
+    if (currentRecord.imagePath) {
+      try {
+        const filePath = path.join(
+          process.cwd(),
+          "uploads",
+          currentRecord.imagePath,
+        );
+        if (existsSync(filePath)) {
+          await unlink(filePath);
+        }
+      } catch (cleanupError) {
+        // Log error but don't fail the request since record is already deleted
+        console.error("Error cleaning up file during deletion:", cleanupError);
+      }
+    }
 
     // Create history record
     await prisma.history.create({

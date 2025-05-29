@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { writeFile, mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
+import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
 // GET all training records
 export const GET = auth(async function GET(request) {
@@ -42,15 +47,17 @@ export const POST = auth(async function POST(request) {
   }
 
   try {
-    const json = await request.json();
+    const formData = await request.formData();
+
+    // Extract form fields
+    const employeeId = parseInt(formData.get("employeeId") as string);
+    const trainingId = parseInt(formData.get("trainingId") as string);
+    const dateCompleted = formData.get("dateCompleted") as string;
+    const trainer = formData.get("trainer") as string;
+    const imageFile = formData.get("image") as File | null;
 
     // Validate required fields
-    if (
-      !json.employeeId ||
-      !json.trainingId ||
-      !json.dateCompleted ||
-      !json.trainer
-    ) {
+    if (!employeeId || !trainingId || !dateCompleted || !trainer) {
       return NextResponse.json(
         {
           error:
@@ -60,14 +67,14 @@ export const POST = auth(async function POST(request) {
       );
     }
 
-    const dateCompleted = new Date(json.dateCompleted);
+    const completedDate = new Date(dateCompleted);
 
     // Check for existing record with same employee, training, and date (unique constraint)
     const existingRecord = await prisma.trainingRecords.findFirst({
       where: {
-        employeeId: json.employeeId,
-        trainingId: json.trainingId,
-        dateCompleted: dateCompleted,
+        employeeId: employeeId,
+        trainingId: trainingId,
+        dateCompleted: completedDate,
       },
     });
 
@@ -84,7 +91,7 @@ export const POST = auth(async function POST(request) {
 
     // Get training details to calculate expiry date
     const training = await prisma.training.findUnique({
-      where: { id: json.trainingId },
+      where: { id: trainingId },
     });
 
     if (!training) {
@@ -94,20 +101,80 @@ export const POST = auth(async function POST(request) {
       );
     }
 
+    // Process file upload if present
+    let imagePath: string | null = null;
+    let imageType: string | null = null;
+
+    if (imageFile && imageFile.size > 0) {
+      // Validate file
+      if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
+        return NextResponse.json(
+          {
+            error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
+        return NextResponse.json(
+          {
+            error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      try {
+        // Create upload directory if it doesn't exist
+        const uploadDir = path.join(process.cwd(), "uploads", "training");
+        if (!existsSync(uploadDir)) {
+          await mkdir(uploadDir, { recursive: true });
+        }
+
+        // Generate unique filename
+        const fileExtension = path.extname(imageFile.name);
+        const uniqueFilename = `${uuidv4()}${fileExtension}`;
+        const filePath = path.join(uploadDir, uniqueFilename);
+
+        // Convert file to buffer and save
+        const bytes = await imageFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        await writeFile(filePath, buffer);
+
+        // Store relative path for database
+        imagePath = `training/${uniqueFilename}`;
+        imageType = imageFile.type;
+      } catch (fileError) {
+        return NextResponse.json(
+          {
+            error: "Error saving file",
+            details:
+              fileError instanceof Error
+                ? fileError.message
+                : String(fileError),
+          },
+          { status: 500 },
+        );
+      }
+    }
+
     // Calculate expiry date based on renewal period
     let expiryDate = null;
     if (training.renewalPeriod > 0) {
-      expiryDate = new Date(dateCompleted);
+      expiryDate = new Date(completedDate);
       expiryDate.setMonth(expiryDate.getMonth() + training.renewalPeriod);
     }
 
     const trainingRecord = await prisma.trainingRecords.create({
       data: {
-        employeeId: json.employeeId,
-        trainingId: json.trainingId,
-        dateCompleted: dateCompleted,
+        employeeId: employeeId,
+        trainingId: trainingId,
+        dateCompleted: completedDate,
         expiryDate: expiryDate,
-        trainer: json.trainer,
+        trainer: trainer,
+        imagePath: imagePath,
+        imageType: imageType,
       },
       include: {
         personTrained: {
