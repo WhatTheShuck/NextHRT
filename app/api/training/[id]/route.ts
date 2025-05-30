@@ -99,7 +99,6 @@ export const PUT = auth(async function PUT(
       data: {
         category: json.category,
         title: json.title,
-        renewalPeriod: json.renewalPeriod,
       },
     });
 

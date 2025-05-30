@@ -23,41 +23,7 @@ export function TrainingRecordDetailsDialog({
   open,
   onOpenChange,
 }: TrainingRecordDetailsDialogProps) {
-  const getTrainingStatus = (record: TrainingRecordsWithRelations) => {
-    if (!record.expiryDate) return "No Expiry";
-    const now = new Date();
-    const expiryDate = new Date(record.expiryDate);
-
-    if (expiryDate < now) {
-      return "Expired";
-    }
-
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    if (expiryDate <= thirtyDaysFromNow) {
-      return "Expiring Soon";
-    }
-
-    return "Valid";
-  };
-
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case "Valid":
-        return "default";
-      case "Expiring Soon":
-        return "secondary";
-      case "Expired":
-        return "destructive";
-      default:
-        return "outline";
-    }
-  };
-
   if (!record) return null;
-
-  const status = getTrainingStatus(record);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -83,10 +49,6 @@ export function TrainingRecordDetailsDialog({
                     <span className="font-medium">Category:</span>{" "}
                     {record.training?.category}
                   </div>
-                  <div>
-                    <span className="font-medium">Renewal Period:</span>{" "}
-                    {record.training?.renewalPeriod} months
-                  </div>
                 </div>
               </div>
 
@@ -100,18 +62,8 @@ export function TrainingRecordDetailsDialog({
                     {format(new Date(record.dateCompleted), "PPP")}
                   </div>
                   <div>
-                    <span className="font-medium">Expires:</span>{" "}
-                    {record.expiryDate
-                      ? format(new Date(record.expiryDate), "PPP")
-                      : "No expiry"}
-                  </div>
-                  <div>
                     <span className="font-medium">Trainer:</span>{" "}
                     {record.trainer}
-                  </div>
-                  <div>
-                    <span className="font-medium">Status:</span>{" "}
-                    <Badge variant={getStatusVariant(status)}>{status}</Badge>
                   </div>
                 </div>
               </div>

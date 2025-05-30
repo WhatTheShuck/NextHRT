@@ -42,7 +42,6 @@ export const POST = auth(async function POST(request) {
       data: {
         category: json.category,
         title: json.title,
-        renewalPeriod: json.renewalPeriod || 12,
       },
     });
 

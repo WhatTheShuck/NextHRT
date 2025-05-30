@@ -30,7 +30,6 @@ export function NewTrainingDialog({
   // Form state
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Internal");
-  const [renewalPeriod, setRenewalPeriod] = useState("12");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,7 +40,6 @@ export function NewTrainingDialog({
       setTimeout(() => {
         setTitle("");
         setCategory("Internal");
-        setRenewalPeriod("12");
         setError("");
       }, 300);
     }
@@ -64,7 +62,6 @@ export function NewTrainingDialog({
       const res = await api.post("/api/training", {
         title: title.trim(),
         category,
-        renewalPeriod: parseInt(renewalPeriod) || 0,
       });
 
       const newTraining = await res.data;
@@ -128,18 +125,6 @@ export function NewTrainingDialog({
                 <Label htmlFor="external">External</Label>
               </div>
             </RadioGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="renewal">Renewal Period (months)</Label>
-            <Input
-              id="renewal"
-              type="number"
-              min="0"
-              value={renewalPeriod}
-              defaultValue={"12"}
-              onChange={(e) => setRenewalPeriod(e.target.value)}
-            />
           </div>
         </div>
 

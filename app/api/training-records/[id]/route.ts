@@ -216,20 +216,12 @@ export const PUT = auth(async function PUT(
       }
     }
 
-    // Calculate expiry date based on renewal period
-    let expiryDate = null;
-    if (training.renewalPeriod > 0) {
-      expiryDate = new Date(completedDate);
-      expiryDate.setMonth(expiryDate.getMonth() + training.renewalPeriod);
-    }
-
     const updatedTrainingRecord = await prisma.trainingRecords.update({
       where: { id },
       data: {
         employeeId: employeeId,
         trainingId: trainingId,
         dateCompleted: completedDate,
-        expiryDate: expiryDate,
         trainer: trainer,
         imagePath: imagePath,
         imageType: imageType,

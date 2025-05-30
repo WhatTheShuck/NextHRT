@@ -63,39 +63,6 @@ export function TrainingTab() {
     setEditingRecord(record);
     setIsEditSheetOpen(true);
   };
-
-  const getTrainingStatus = (record: TrainingRecordsWithRelations) => {
-    if (!record.expiryDate) return "No Expiry";
-    const now = new Date();
-    const expiryDate = new Date(record.expiryDate);
-
-    if (expiryDate < now) {
-      return "Expired";
-    }
-
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    if (expiryDate <= thirtyDaysFromNow) {
-      return "Expiring Soon";
-    }
-
-    return "Valid";
-  };
-
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case "Valid":
-        return "default";
-      case "Expiring Soon":
-        return "secondary";
-      case "Expired":
-        return "destructive";
-      default:
-        return "outline";
-    }
-  };
-
   return (
     <>
       <Card>
@@ -131,9 +98,7 @@ export function TrainingTab() {
                 <TableHead>Training</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Completed</TableHead>
-                <TableHead>Expires</TableHead>
                 <TableHead>Trainer</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Image</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -150,7 +115,6 @@ export function TrainingTab() {
                 </TableRow>
               ) : (
                 trainingRecords.map((record: TrainingRecordsWithRelations) => {
-                  const status = getTrainingStatus(record);
                   return (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">
@@ -160,17 +124,7 @@ export function TrainingTab() {
                       <TableCell>
                         {format(new Date(record.dateCompleted), "PP")}
                       </TableCell>
-                      <TableCell>
-                        {record.expiryDate
-                          ? format(new Date(record.expiryDate), "PP")
-                          : "N/A"}
-                      </TableCell>
                       <TableCell>{record.trainer}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusVariant(status)}>
-                          {status}
-                        </Badge>
-                      </TableCell>
                       <TableCell>
                         {record.imagePath ? (
                           <FileImage className="h-4 w-4 text-blue-600" />

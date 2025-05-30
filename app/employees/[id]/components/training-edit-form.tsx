@@ -29,7 +29,6 @@ export function TrainingEditForm({
   // Form state
   const [trainingId, setTrainingId] = useState("");
   const [provider, setProvider] = useState("");
-  const [completionDate, setCompletionDate] = useState<Date>(new Date());
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string>("");
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
@@ -44,7 +43,6 @@ export function TrainingEditForm({
     if (trainingRecord) {
       setTrainingId(trainingRecord.trainingId.toString());
       setProvider(trainingRecord.trainer);
-      setCompletionDate(new Date(trainingRecord.dateCompleted));
     }
   }, [trainingRecord]);
 
@@ -127,7 +125,6 @@ export function TrainingEditForm({
       const formData = new FormData();
       formData.append("employeeId", trainingRecord.employeeId.toString());
       formData.append("trainingId", trainingId);
-      formData.append("dateCompleted", completionDate.toISOString());
       formData.append("trainer", provider);
 
       // Handle image operations
@@ -187,13 +184,6 @@ export function TrainingEditForm({
           value={provider}
           onChange={(e) => setProvider(e.target.value)}
           required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <DateSelector
-          selectedDate={completionDate}
-          onDateSelect={setCompletionDate}
         />
       </div>
 

@@ -53,7 +53,7 @@ model TrainingRecords {
   personTrained Employee @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateCompleted DateTime
-  expiryDate    DateTime?
+  // expiryDate    DateTime?
   training      Training @relation(fields: [trainingId], references: [id])
   trainingId    Int
   trainer       String
@@ -67,7 +67,7 @@ model Training {
   id              Int               @id @default(autoincrement())
   category        Category
   title           String
-  renewalPeriod   Int               @default(12) // in months
+  // renewalPeriod   Int               //@default(12) // in months
   trainingRecords TrainingRecords[]
 }
 
@@ -86,7 +86,7 @@ model Ticket {
   id            Int             @id @default(autoincrement())
   ticketCode    String          @unique
   ticketName    String
-  renewal       Int             @default(12) // in months
+  renewal       Int             //@default(12) // in months
   ticketRecords TicketRecords[]
 }
 
@@ -98,6 +98,7 @@ model TicketRecords {
   ticket        Ticket   @relation(fields: [ticketId], references: [id])
   ticketId      Int
   licenseNumber String? // Optional unique number for the actual license instance
+  expiryDate    DateTime?
   imagePath     String?
   imageType     String?
 

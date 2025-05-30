@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { Training } from "@/generated/prisma_client";
 import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
-import { DateSelector } from "@/app/bulk-training/components/date-selector";
 import api from "@/lib/axios";
 import { X, Upload, FileImage } from "lucide-react";
 import {
@@ -26,7 +25,6 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
   // Form state
   const [trainingId, setTrainingId] = useState("");
   const [provider, setProvider] = useState("");
-  const [completionDate, setCompletionDate] = useState<Date>(new Date());
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string>("");
 
@@ -100,7 +98,6 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
       const formData = new FormData();
       formData.append("employeeId", employee.id.toString());
       formData.append("trainingId", trainingId);
-      formData.append("dateCompleted", completionDate.toISOString());
       formData.append("trainer", provider);
 
       // Add file if selected
@@ -118,7 +115,6 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
       // Reset form on success
       setTrainingId("");
       setProvider("");
-      setCompletionDate(new Date());
       setSelectedFile(null);
       setFileError("");
 
@@ -158,13 +154,6 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
           value={provider}
           onChange={(e) => setProvider(e.target.value)}
           required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <DateSelector
-          selectedDate={completionDate}
-          onDateSelect={setCompletionDate}
         />
       </div>
 
