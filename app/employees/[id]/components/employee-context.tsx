@@ -7,7 +7,6 @@ import React, {
   useCallback,
   useEffect,
 } from "react";
-import { Training, TrainingRecords } from "@/generated/prisma_client";
 import api from "@/lib/axios";
 import { EmployeeWithRelations } from "@/lib/types";
 import { AxiosError } from "axios";

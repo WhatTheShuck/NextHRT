@@ -159,9 +159,6 @@ export const POST = auth(async function POST(request) {
       }
     }
 
-    // Calculate expiry date based on renewal period
-    let expiryDate = null;
-
     const trainingRecord = await prisma.trainingRecords.create({
       data: {
         employeeId: employeeId,

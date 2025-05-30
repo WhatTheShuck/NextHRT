@@ -3,14 +3,14 @@
 import { EmployeeProvider } from "./employee-context";
 import { EmployeeHeader } from "./employee-header";
 import { EmployeeTabs } from "./employee-tabs";
-import { useSession } from "next-auth/react";
+// import { useSession } from "next-auth/react";
 
 interface Props {
   employeeId: number;
 }
 
 export function EmployeeProfile({ employeeId }: Props) {
-  const session = useSession();
+  // const session = useSession();
 
   return (
     <EmployeeProvider employeeId={employeeId}>

@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { Label } from "@/components/ui/label";
 import { NavigationCard } from "@/components/navigation-card";
 import { landingPageNavigationItems } from "@/lib/data";
 import { useSession } from "next-auth/react";

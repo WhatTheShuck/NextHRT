@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Ticket } from "@/generated/prisma_client";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";

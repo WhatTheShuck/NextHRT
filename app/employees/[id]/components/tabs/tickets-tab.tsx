@@ -1,6 +1,6 @@
 "use client";
 
-import { useEmployee, useEmployeeTicketRecords } from "../employee-context";
+import { useEmployeeTicketRecords } from "../employee-context";
 import {
   Card,
   CardHeader,
@@ -8,9 +8,9 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Eye, FileImage, Edit } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,

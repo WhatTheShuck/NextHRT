@@ -118,7 +118,7 @@ export function DuplicateEmployeeDialog({
           <DialogDescription>
             We found {matches.length} existing employee
             {matches.length > 1 ? "s" : ""} with the same name. Please choose
-            how you'd like to proceed.
+            how you&apos;d like to proceed.
           </DialogDescription>
         </DialogHeader>
 
