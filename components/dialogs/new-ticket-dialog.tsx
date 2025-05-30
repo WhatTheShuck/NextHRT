@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -12,25 +13,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Training, Category } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 
-type NewTrainingDialogProps = {
+type NewTicketDialogProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onTrainingCreated: (training: Training) => void;
+  onTicketCreated: (ticket: Ticket) => void;
 };
 
-export function NewTrainingDialog({
+export function NewTicketDialog({
   isOpen,
   onOpenChange,
-  onTrainingCreated,
-}: NewTrainingDialogProps) {
+  onTicketCreated,
+}: NewTicketDialogProps) {
   // Form state
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<Category>("Internal");
-  const [renewalPeriod, setRenewalPeriod] = useState("12");
+  const [renewal, setRenewal] = useState("5");
+  const [noExpiry, setNoExpiry] = useState(false);
+  const [ticketCode, setTicketCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -40,8 +42,9 @@ export function NewTrainingDialog({
       // Small delay to avoid visual flickering when closing
       setTimeout(() => {
         setTitle("");
-        setCategory("Internal");
-        setRenewalPeriod("12");
+        setRenewal("5");
+        setNoExpiry(false);
+        setTicketCode("");
         setError("");
       }, 300);
     }
@@ -50,10 +53,10 @@ export function NewTrainingDialog({
     onOpenChange(open);
   };
 
-  // Create new training
-  const handleCreateTraining = async () => {
+  // Create new ticket
+  const handleCreateTicket = async () => {
     if (!title.trim()) {
-      setError("Training title is required");
+      setError("Ticket title is required");
       return;
     }
 
@@ -61,14 +64,14 @@ export function NewTrainingDialog({
     setError("");
 
     try {
-      const res = await api.post("/api/training", {
-        title: title.trim(),
-        category,
-        RenewalPeriod: parseInt(renewalPeriod) || 0,
+      const res = await api.post("/api/tickets", {
+        ticketName: title.trim(),
+        renewal: noExpiry ? null : parseInt(renewal) || 0,
+        ticketCode: ticketCode.trim(),
       });
 
-      const newTraining = await res.data;
-      onTrainingCreated(newTraining);
+      const newTicket = await res.data;
+      onTicketCreated(newTicket);
       handleOpenChange(false);
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
@@ -79,8 +82,10 @@ export function NewTrainingDialog({
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Failed to create training. Please try again.");
+        setError("Failed to create ticket. Please try again.");
       }
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -88,9 +93,9 @@ export function NewTrainingDialog({
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add New Training Type</DialogTitle>
+          <DialogTitle>Add New Ticket Type</DialogTitle>
           <DialogDescription>
-            Create a new training type to use in your allocation
+            Create a new ticket type to use in your allocation
           </DialogDescription>
         </DialogHeader>
 
@@ -102,41 +107,51 @@ export function NewTrainingDialog({
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="training-title">Training Title</Label>
+            <Label htmlFor="ticket-title">Ticket Title</Label>
             <Input
-              id="training-title"
+              id="ticket-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., First Aid Training"
+              placeholder="e.g., Driver's License"
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Category</Label>
-            <RadioGroup
-              value={category}
-              onValueChange={(val) => setCategory(val as Category)}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="Internal" id="internal" />
-                <Label htmlFor="internal">Internal</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="External" id="external" />
-                <Label htmlFor="external">External</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="renewal">Renewal Period (months)</Label>
+            <Label htmlFor="ticket-code">Ticket Code</Label>
             <Input
-              id="renewal"
-              type="number"
-              min="0"
-              value={renewalPeriod}
-              onChange={(e) => setRenewalPeriod(e.target.value)}
+              id="ticket-code"
+              value={ticketCode}
+              onChange={(e) => setTicketCode(e.target.value)}
+              placeholder="e.g., FL"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="renewal">Renewal Period</Label>
+
+            <div className="flex items-center space-x-3">
+              <Input
+                id="renewal"
+                type="number"
+                min="1"
+                value={renewal}
+                onChange={(e) => setRenewal(e.target.value)}
+                disabled={noExpiry}
+                className={`w-20 ${noExpiry ? "opacity-50" : ""}`}
+              />
+              <span className="text-sm text-gray-500">years</span>
+
+              <div className="flex items-center space-x-2 ml-4">
+                <Checkbox
+                  id="no-expiry"
+                  checked={noExpiry}
+                  onCheckedChange={(checked) => setNoExpiry(checked === true)}
+                />
+                <Label htmlFor="no-expiry" className="text-sm font-normal">
+                  Does not expire
+                </Label>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -149,10 +164,10 @@ export function NewTrainingDialog({
             Cancel
           </Button>
           <Button
-            onClick={handleCreateTraining}
+            onClick={handleCreateTicket}
             disabled={!title.trim() || isCreating}
           >
-            {isCreating ? "Creating..." : "Create Training"}
+            {isCreating ? "Creating..." : "Create Ticket"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -163,16 +163,6 @@ export function TrainingTab() {
         </CardContent>
       </Card>
 
-      {/* Add Training Sheet */}
-      <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Add Training</SheetTitle>
-          </SheetHeader>
-          <TrainingAddForm onSuccess={handleAddSheetClose} />
-        </SheetContent>
-      </Sheet>
-
       {/* Edit Training Sheet */}
       <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
         <SheetContent>

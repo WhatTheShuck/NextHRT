@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { writeFile, mkdir, unlink } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
+import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
 // GET single ticket record by ID
 export const GET = auth(async function GET(
@@ -99,8 +104,6 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    const json = await req.json();
-
     // Check if ticket record exists
     const existingRecord = await prisma.ticketRecords.findUnique({
       where: { id },
@@ -113,29 +116,36 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    // Check for duplicate if key fields are being changed
-    const employeeId = json.employeeId ?? existingRecord.employeeId;
-    const ticketId = json.ticketId ?? existingRecord.ticketId;
-    const dateIssued = json.dateIssued
-      ? new Date(json.dateIssued)
+    const formData = await req.formData();
+
+    // Extract form fields
+    const employeeId = parseInt(formData.get("employeeId") as string);
+    const ticketId = parseInt(formData.get("ticketId") as string);
+    const dateIssued = formData.get("dateIssued") as string;
+    const licenseNumber = formData.get("licenseNumber") as string;
+    const imageFile = formData.get("image") as File | null;
+    const removeImage = formData.get("removeImage") === "true"; // Flag to remove existing image
+
+    // Use existing values if new ones aren't provided
+    const finalEmployeeId = employeeId || existingRecord.employeeId;
+    const finalTicketId = ticketId || existingRecord.ticketId;
+    const finalDateIssued = dateIssued
+      ? new Date(dateIssued)
       : existingRecord.dateIssued;
 
-    // Only check for duplicates if at least one of the unique constraint fields is changing
+    // Check for duplicate if key fields are being changed
     const isUniqueFieldChanged =
-      (json.employeeId !== undefined &&
-        json.employeeId !== existingRecord.employeeId) ||
-      (json.ticketId !== undefined &&
-        json.ticketId !== existingRecord.ticketId) ||
-      (json.dateIssued !== undefined &&
-        new Date(json.dateIssued).getTime() !==
-          existingRecord.dateIssued.getTime());
+      (employeeId && employeeId !== existingRecord.employeeId) ||
+      (ticketId && ticketId !== existingRecord.ticketId) ||
+      (dateIssued &&
+        new Date(dateIssued).getTime() !== existingRecord.dateIssued.getTime());
 
     if (isUniqueFieldChanged) {
       const duplicateRecord = await prisma.ticketRecords.findFirst({
         where: {
-          employeeId,
-          ticketId,
-          dateIssued,
+          employeeId: finalEmployeeId,
+          ticketId: finalTicketId,
+          dateIssued: finalDateIssued,
           NOT: { id }, // Exclude current record
         },
       });
@@ -154,9 +164,9 @@ export const PUT = auth(async function PUT(
     }
 
     // Verify that employee and ticket exist if they're being updated
-    if (json.employeeId && json.employeeId !== existingRecord.employeeId) {
+    if (employeeId && employeeId !== existingRecord.employeeId) {
       const employee = await prisma.employee.findUnique({
-        where: { id: json.employeeId },
+        where: { id: employeeId },
       });
       if (!employee) {
         return NextResponse.json(
@@ -166,9 +176,10 @@ export const PUT = auth(async function PUT(
       }
     }
 
-    if (json.ticketId && json.ticketId !== existingRecord.ticketId) {
-      const ticket = await prisma.ticket.findUnique({
-        where: { id: json.ticketId },
+    let ticket = null;
+    if (ticketId && ticketId !== existingRecord.ticketId) {
+      ticket = await prisma.ticket.findUnique({
+        where: { id: ticketId },
       });
       if (!ticket) {
         return NextResponse.json(
@@ -176,19 +187,105 @@ export const PUT = auth(async function PUT(
           { status: 404 },
         );
       }
+    } else if (ticketId || dateIssued) {
+      // We need ticket info for expiry calculation
+      ticket = await prisma.ticket.findUnique({
+        where: { id: finalTicketId },
+      });
+    }
+
+    // Handle file operations
+    let imagePath: string | null = existingRecord.imagePath;
+    let imageType: string | null = existingRecord.imageType;
+    let oldImagePath: string | null = null;
+
+    // If removing image or uploading new one, prepare to delete old file
+    if (removeImage || (imageFile && imageFile.size > 0)) {
+      oldImagePath = existingRecord.imagePath;
+      imagePath = null;
+      imageType = null;
+    }
+
+    // Process new file upload if present
+    if (imageFile && imageFile.size > 0) {
+      // Validate file
+      if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
+        return NextResponse.json(
+          {
+            error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
+        return NextResponse.json(
+          {
+            error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      try {
+        // Create upload directory if it doesn't exist
+        const uploadDir = path.join(process.cwd(), "uploads", "tickets");
+        if (!existsSync(uploadDir)) {
+          await mkdir(uploadDir, { recursive: true });
+        }
+
+        // Generate unique filename
+        const fileExtension = path.extname(imageFile.name);
+        const uniqueFilename = `${uuidv4()}${fileExtension}`;
+        const filePath = path.join(uploadDir, uniqueFilename);
+
+        // Convert file to buffer and save
+        const bytes = await imageFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        await writeFile(filePath, buffer);
+
+        // Store relative path for database
+        imagePath = `tickets/${uniqueFilename}`;
+        imageType = imageFile.type;
+      } catch (fileError) {
+        return NextResponse.json(
+          {
+            error: "Error saving file",
+            details:
+              fileError instanceof Error
+                ? fileError.message
+                : String(fileError),
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    // Calculate expiry date if ticket or date changed (renewal period in years)
+    let expiryDate: Date | null = existingRecord.expiryDate;
+    if (ticket && (ticketId || dateIssued)) {
+      if (ticket.renewal !== null) {
+        expiryDate = new Date(finalDateIssued);
+        expiryDate.setFullYear(expiryDate.getFullYear() + ticket.renewal);
+      } else {
+        expiryDate = null;
+      }
     }
 
     // Update the ticket record
     const updatedRecord = await prisma.ticketRecords.update({
       where: { id },
       data: {
-        employeeId: json.employeeId,
-        ticketId: json.ticketId,
-        dateIssued: json.dateIssued ? new Date(json.dateIssued) : undefined,
+        employeeId: employeeId || undefined,
+        ticketId: ticketId || undefined,
+        dateIssued: dateIssued ? new Date(dateIssued) : undefined,
+        expiryDate: ticketId || dateIssued ? expiryDate : undefined,
         licenseNumber:
-          json.licenseNumber !== undefined ? json.licenseNumber : undefined,
-        imagePath: json.imagePath !== undefined ? json.imagePath : undefined,
-        imageType: json.imageType !== undefined ? json.imageType : undefined,
+          licenseNumber !== undefined ? licenseNumber || null : undefined,
+        imagePath:
+          imagePath !== existingRecord.imagePath ? imagePath : undefined,
+        imageType:
+          imageType !== existingRecord.imageType ? imageType : undefined,
       },
       include: {
         ticketHolder: {
@@ -222,6 +319,19 @@ export const PUT = auth(async function PUT(
         },
       },
     });
+
+    // Clean up old file if it was replaced or removed
+    if (oldImagePath) {
+      try {
+        const oldFullPath = path.join(process.cwd(), "uploads", oldImagePath);
+        if (existsSync(oldFullPath)) {
+          await unlink(oldFullPath);
+        }
+      } catch (cleanupError) {
+        // Log error but don't fail the request
+        console.error("Error cleaning up old file:", cleanupError);
+      }
+    }
 
     // Create history record
     await prisma.history.create({
@@ -298,6 +408,23 @@ export const DELETE = auth(async function DELETE(
     await prisma.ticketRecords.delete({
       where: { id },
     });
+
+    // Clean up associated file if it exists
+    if (existingRecord.imagePath) {
+      try {
+        const filePath = path.join(
+          process.cwd(),
+          "uploads",
+          existingRecord.imagePath,
+        );
+        if (existsSync(filePath)) {
+          await unlink(filePath);
+        }
+      } catch (cleanupError) {
+        // Log error but don't fail the request since record is already deleted
+        console.error("Error cleaning up file during deletion:", cleanupError);
+      }
+    }
 
     // Create history record
     await prisma.history.create({

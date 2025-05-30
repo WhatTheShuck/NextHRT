@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { Training } from "@/generated/prisma_client";
-import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
+import { Ticket } from "@/generated/prisma_client";
+import { TicketSelector } from "@/components/ticket-selector";
+import { DateSelector } from "@/components/date-selector";
 import api from "@/lib/axios";
 import { X, Upload, FileImage, Trash2, Eye } from "lucide-react";
 import {
@@ -13,48 +14,47 @@ import {
   validateFile,
   formatFileSize,
 } from "@/lib/file-config";
-import { TrainingRecordsWithRelations } from "@/lib/types";
+import { TicketRecordsWithRelations } from "@/lib/types";
 import { Loader2 } from "lucide-react";
-import { DateSelector } from "@/components/date-selector";
 
-interface TrainingEditFormProps {
-  trainingRecord: TrainingRecordsWithRelations;
+interface TicketEditFormProps {
+  ticketRecord: TicketRecordsWithRelations;
   onSuccess?: () => void;
 }
 
-export function TrainingEditForm({
-  trainingRecord,
+export function TicketEditForm({
+  ticketRecord,
   onSuccess,
-}: TrainingEditFormProps) {
+}: TicketEditFormProps) {
   // Form state
-  const [trainingId, setTrainingId] = useState("");
-  const [provider, setProvider] = useState("");
-  const [completionDate, setCompletionDate] = useState<Date>(new Date());
+  const [ticketId, setTicketId] = useState("");
+  const [licenceNum, setLicenceNum] = useState("");
+  const [dateIssued, setDateIssued] = useState<Date>(new Date());
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string>("");
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
 
   // Data fetching state
-  const [trainings, setTrainings] = useState<Training[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize form with existing training record data
+  // Initialize form with existing ticket record data
   useEffect(() => {
-    if (trainingRecord) {
-      setTrainingId(trainingRecord.trainingId.toString());
-      setProvider(trainingRecord.trainer);
-      setCompletionDate(new Date(trainingRecord.dateCompleted));
+    if (ticketRecord) {
+      setTicketId(ticketRecord.ticketId.toString());
+      setLicenceNum(ticketRecord.licenseNumber || "");
+      setDateIssued(new Date(ticketRecord.dateIssued));
     }
-  }, [trainingRecord]);
+  }, [ticketRecord]);
 
-  // Fetch available trainings
+  // Fetch available tickets
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: trainingsRes } = await api.get("/api/training");
-        setTrainings(trainingsRes);
+        const { data: ticketsRes } = await api.get("/api/tickets");
+        setTickets(ticketsRes);
       } catch (err) {
         console.error("API error:", err);
       } finally {
@@ -65,9 +65,9 @@ export function TrainingEditForm({
     fetchData();
   }, []);
 
-  const addTraining = (newTraining: Training) => {
-    setTrainings([...trainings, newTraining]);
-    setTrainingId(newTraining.id.toString());
+  const addTicket = (newTicket: Ticket) => {
+    setTickets([...tickets, newTicket]);
+    setTicketId(newTicket.id.toString());
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,10 +125,10 @@ export function TrainingEditForm({
     try {
       // Create FormData for multipart form submission
       const formData = new FormData();
-      formData.append("employeeId", trainingRecord.employeeId.toString());
-      formData.append("trainingId", trainingId);
-      formData.append("dateCompleted", completionDate.toISOString());
-      formData.append("trainer", provider);
+      formData.append("employeeId", ticketRecord.employeeId.toString());
+      formData.append("ticketId", ticketId);
+      formData.append("licenseNumber", licenceNum);
+      formData.append("dateIssued", dateIssued.toISOString());
 
       // Handle image operations
       if (removeExistingImage) {
@@ -140,8 +140,8 @@ export function TrainingEditForm({
         formData.append("image", selectedFile);
       }
 
-      // Send PUT request to update the training record
-      await api.put(`/api/training-records/${trainingRecord.id}`, formData, {
+      // Send PUT request to update the ticket record
+      await api.put(`/api/ticket-records/${ticketRecord.id}`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -165,41 +165,36 @@ export function TrainingEditForm({
     );
   }
 
-  const hasExistingImage = trainingRecord.imagePath && !removeExistingImage;
+  const hasExistingImage = ticketRecord.imagePath && !removeExistingImage;
   const willShowNewImage = selectedFile && !fileError;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pt-6">
       <div className="space-y-2">
-        <TrainingSelector
-          trainings={trainings}
-          selectedTrainingId={trainingId}
-          onTrainingSelect={setTrainingId}
-          onNewTraining={addTraining}
+        <TicketSelector
+          tickets={tickets}
+          selectedTicketId={ticketId}
+          onTicketSelect={setTicketId}
+          onNewTicket={addTicket}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="provider-edit">Training Provider</Label>
+        <Label htmlFor="licenceNumber">Licence Number (Optional)</Label>
         <Input
-          id="provider-edit"
-          placeholder="Enter provider name"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value)}
-          required
+          id="licenceNumber"
+          placeholder="123456789"
+          value={licenceNum}
+          onChange={(e) => setLicenceNum(e.target.value)}
         />
       </div>
-
       <div className="space-y-2">
-        <DateSelector
-          selectedDate={completionDate}
-          onDateSelect={setCompletionDate}
-        />
+        <DateSelector selectedDate={dateIssued} onDateSelect={setDateIssued} />
       </div>
 
       {/* File Upload Section */}
       <div className="space-y-2">
-        <Label htmlFor="image-upload-edit">Training Certificate/Image</Label>
+        <Label htmlFor="image-upload-edit">Ticket Certificate/Image</Label>
 
         {/* Current Image Display */}
         {hasExistingImage && (
@@ -213,7 +208,7 @@ export function TrainingEditForm({
                       Current Image Attached
                     </p>
                     <p className="text-xs text-blue-600 dark:text-blue-400">
-                      {trainingRecord.imageType === "application/pdf"
+                      {ticketRecord.imageType === "application/pdf"
                         ? "PDF Document"
                         : "Image File"}
                     </p>
@@ -226,7 +221,7 @@ export function TrainingEditForm({
                     size="sm"
                     onClick={() =>
                       window.open(
-                        `/api/images/${trainingRecord.imagePath}`,
+                        `/api/images/${ticketRecord.imagePath}`,
                         "_blank",
                       )
                     }
@@ -337,9 +332,9 @@ export function TrainingEditForm({
       <Button
         type="submit"
         className="w-full"
-        disabled={isLoading || isSubmitting || !trainingId || !provider}
+        disabled={isLoading || isSubmitting || !ticketId}
       >
-        {isSubmitting ? "Saving..." : "Update Training Record"}
+        {isSubmitting ? "Saving..." : "Update Ticket Record"}
       </Button>
     </form>
   );

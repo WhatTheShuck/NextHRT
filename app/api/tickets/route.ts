@@ -76,7 +76,7 @@ export const POST = auth(async function POST(req) {
       data: {
         ticketCode: json.ticketCode,
         ticketName: json.ticketName,
-        renewal: json.renewal ?? 12,
+        renewal: json.renewal ?? null,
       },
     });
 

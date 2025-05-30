@@ -1,13 +1,12 @@
 "use client";
 
-import { useEmployee } from "./employee-context";
+import { useEmployee } from "@/app/employees/[id]/components/employee-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { Training } from "@/generated/prisma_client";
-import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
-import { DateSelector } from "@//components/date-selector";
+import { Ticket } from "@/generated/prisma_client";
+import { TicketSelector } from "@/components/ticket-selector";
 import api from "@/lib/axios";
 import { X, Upload, FileImage } from "lucide-react";
 import {
@@ -15,23 +14,24 @@ import {
   validateFile,
   formatFileSize,
 } from "@/lib/file-config";
+import { DateSelector } from "../date-selector";
 
-interface TrainingAddFormProps {
+interface TicketAddFormProps {
   onSuccess?: () => void;
 }
 
-export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
+export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
   const { employee } = useEmployee();
 
   // Form state
-  const [trainingId, setTrainingId] = useState("");
-  const [provider, setProvider] = useState("");
+  const [ticketId, setTicketId] = useState("");
+  const [licenceNum, setLicenceNum] = useState("");
+  const [dateIssued, setDateIssued] = useState<Date>(new Date());
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string>("");
-  const [completionDate, setCompletionDate] = useState<Date>(new Date());
 
   // Data fetching state
-  const [trainings, setTrainings] = useState<Training[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -39,8 +39,8 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: trainingsRes } = await api.get("/api/training");
-        setTrainings(trainingsRes);
+        const { data: ticketsRes } = await api.get("/api/tickets");
+        setTickets(ticketsRes);
       } catch (err) {
         console.error("API error:", err);
       } finally {
@@ -51,9 +51,9 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
     fetchData();
   }, []);
 
-  const addTraining = (newTraining: Training) => {
-    setTrainings([...trainings, newTraining]);
-    setTrainingId(newTraining.id.toString());
+  const addTicket = (newTicket: Ticket) => {
+    setTickets([...tickets, newTicket]);
+    setTicketId(newTicket.id.toString());
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,9 +99,9 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
       // Create FormData instead of JSON
       const formData = new FormData();
       formData.append("employeeId", employee.id.toString());
-      formData.append("trainingId", trainingId);
-      formData.append("trainer", provider);
-      formData.append("dateCompleted", completionDate.toISOString());
+      formData.append("ticketId", ticketId);
+      formData.append("licenseNumber", licenceNum);
+      formData.append("dateIssued", dateIssued.toISOString());
 
       // Add file if selected
       if (selectedFile) {
@@ -109,16 +109,16 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
       }
 
       // Send FormData (axios will automatically set the correct Content-Type)
-      await api.post("/api/training-records", formData, {
+      await api.post("/api/ticket-records", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
       // Reset form on success
-      setTrainingId("");
-      setProvider("");
-      setCompletionDate(new Date());
+      setTicketId("");
+      setLicenceNum("");
+      setDateIssued(new Date());
       setSelectedFile(null);
       setFileError("");
 
@@ -142,36 +142,31 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pt-6">
       <div className="space-y-2">
-        <TrainingSelector
-          trainings={trainings}
-          selectedTrainingId={trainingId}
-          onTrainingSelect={setTrainingId}
-          onNewTraining={addTraining}
+        <TicketSelector
+          tickets={tickets}
+          selectedTicketId={ticketId}
+          onTicketSelect={setTicketId}
+          onNewTicket={addTicket}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="provider">Training Provider</Label>
+        <Label htmlFor="licenceNumber">Licence Number (Optional)</Label>
         <Input
-          id="provider"
-          placeholder="Enter provider name"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value)}
-          required
+          id="licenceNumber"
+          placeholder="123456789"
+          value={licenceNum}
+          onChange={(e) => setLicenceNum(e.target.value)}
         />
       </div>
-
       <div className="space-y-2">
-        <DateSelector
-          selectedDate={completionDate}
-          onDateSelect={setCompletionDate}
-        />
+        <DateSelector selectedDate={dateIssued} onDateSelect={setDateIssued} />
       </div>
 
       {/* File Upload Section */}
       <div className="space-y-2">
         <Label htmlFor="image-upload">
-          Training Certificate/Image (Optional)
+          Ticket Certificate/Image (Optional)
         </Label>
         <div className="space-y-3">
           {/* File Input */}
@@ -238,9 +233,9 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
       <Button
         type="submit"
         className="w-full"
-        disabled={isLoading || isSubmitting || !trainingId || !provider}
+        disabled={isLoading || isSubmitting || !ticketId}
       >
-        {isSubmitting ? "Saving..." : "Save Training Record"}
+        {isSubmitting ? "Saving..." : "Save Ticket Record"}
       </Button>
     </form>
   );

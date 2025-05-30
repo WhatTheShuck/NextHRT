@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { writeFile, mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
+import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
 // GET all ticket records
 export const GET = auth(async function GET(req) {
@@ -63,10 +68,17 @@ export const POST = auth(async function POST(req) {
   }
 
   try {
-    const json = await req.json();
+    const formData = await req.formData();
+
+    // Extract form fields
+    const employeeId = parseInt(formData.get("employeeId") as string);
+    const ticketId = parseInt(formData.get("ticketId") as string);
+    const dateIssued = formData.get("dateIssued") as string;
+    const licenseNumber = formData.get("licenseNumber") as string;
+    const imageFile = formData.get("image") as File | null;
 
     // Validate required fields
-    if (!json.employeeId || !json.ticketId || !json.dateIssued) {
+    if (!employeeId || !ticketId || !dateIssued) {
       return NextResponse.json(
         {
           error: "Missing required fields",
@@ -76,12 +88,14 @@ export const POST = auth(async function POST(req) {
       );
     }
 
+    const issuedDate = new Date(dateIssued);
+
     // Check for duplicate based on unique constraint [employeeId, ticketId, dateIssued]
     const existingRecord = await prisma.ticketRecords.findFirst({
       where: {
-        employeeId: json.employeeId,
-        ticketId: json.ticketId,
-        dateIssued: new Date(json.dateIssued),
+        employeeId: employeeId,
+        ticketId: ticketId,
+        dateIssued: issuedDate,
       },
     });
 
@@ -99,8 +113,8 @@ export const POST = auth(async function POST(req) {
 
     // Verify that employee and ticket exist
     const [employee, ticket] = await Promise.all([
-      prisma.employee.findUnique({ where: { id: json.employeeId } }),
-      prisma.ticket.findUnique({ where: { id: json.ticketId } }),
+      prisma.employee.findUnique({ where: { id: employeeId } }),
+      prisma.ticket.findUnique({ where: { id: ticketId } }),
     ]);
 
     if (!employee) {
@@ -114,15 +128,81 @@ export const POST = auth(async function POST(req) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
+    // Process file upload if present
+    let imagePath: string | null = null;
+    let imageType: string | null = null;
+
+    if (imageFile && imageFile.size > 0) {
+      // Validate file
+      if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
+        return NextResponse.json(
+          {
+            error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
+        return NextResponse.json(
+          {
+            error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      try {
+        // Create upload directory if it doesn't exist
+        const uploadDir = path.join(process.cwd(), "uploads", "tickets");
+        if (!existsSync(uploadDir)) {
+          await mkdir(uploadDir, { recursive: true });
+        }
+
+        // Generate unique filename
+        const fileExtension = path.extname(imageFile.name);
+        const uniqueFilename = `${uuidv4()}${fileExtension}`;
+        const filePath = path.join(uploadDir, uniqueFilename);
+
+        // Convert file to buffer and save
+        const bytes = await imageFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        await writeFile(filePath, buffer);
+
+        // Store relative path for database
+        imagePath = `tickets/${uniqueFilename}`;
+        imageType = imageFile.type;
+      } catch (fileError) {
+        return NextResponse.json(
+          {
+            error: "Error saving file",
+            details:
+              fileError instanceof Error
+                ? fileError.message
+                : String(fileError),
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    // Calculate expiry date based on renewal period (in years)
+    let expiryDate: Date | null = null;
+    if (ticket.renewal !== null) {
+      expiryDate = new Date(issuedDate);
+      expiryDate.setFullYear(expiryDate.getFullYear() + ticket.renewal);
+    }
+
     // Create the ticket record
     const ticketRecord = await prisma.ticketRecords.create({
       data: {
-        employeeId: json.employeeId,
-        ticketId: json.ticketId,
-        dateIssued: new Date(json.dateIssued),
-        licenseNumber: json.licenseNumber || null,
-        imagePath: json.imagePath || null,
-        imageType: json.imageType || null,
+        employeeId: employeeId,
+        ticketId: ticketId,
+        dateIssued: issuedDate,
+        expiryDate: expiryDate,
+        licenseNumber: licenseNumber || null,
+        imagePath: imagePath,
+        imageType: imageType,
       },
       include: {
         ticketHolder: {

@@ -86,7 +86,7 @@ model Ticket {
   id            Int             @id @default(autoincrement())
   ticketCode    String          @unique
   ticketName    String
-  renewal       Int             //@default(12) // in months
+  renewal       Int?              // in years
   ticketRecords TicketRecords[]
 }
 
