@@ -161,7 +161,7 @@ export function EmployeeSelector({
     return employees.filter((employee) => {
       const searchTermLower = debouncedSearchTerm.toLowerCase();
       const fullName =
-        `${employee.firstName} ${employee.lastName} ${employee.Title}`.toLowerCase();
+        `${employee.firstName} ${employee.lastName} ${employee.title}`.toLowerCase();
 
       return fullName.includes(searchTermLower);
     });
@@ -319,7 +319,7 @@ export function EmployeeSelector({
                     )}
                   </div>
                   <span className="flex-1 text-sm">
-                    {employee.firstName} {employee.lastName} - {employee.Title}
+                    {employee.firstName} {employee.lastName} - {employee.title}
                   </span>
                 </div>
               ))}

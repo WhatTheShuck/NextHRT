@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { PlusCircle } from "lucide-react";
 import { Training } from "@/generated/prisma_client";
-import { NewTrainingDialog } from "./new-training-dialog";
+import { NewTrainingDialog } from "@/components/dialogs/new-training-dialog";
 
 type TrainingSelectorProps = {
   trainings: Training[];

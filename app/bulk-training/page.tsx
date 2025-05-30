@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Employee, Training } from "@/generated/prisma_client";
 import { TrainingSelector } from "./components/training-selector";
 import { EmployeeSelector } from "./components/employee-selector";
-import { DateSelector } from "./components/date-selector";
 import { AlertBox } from "@/components/ui/alert-box";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
@@ -16,7 +15,6 @@ export default function BulkTrainingPage() {
   // Form state
   const [trainingId, setTrainingId] = useState("");
   const [provider, setProvider] = useState("");
-  const [completionDate, setCompletionDate] = useState<Date>(new Date());
   const [selectedEmployees, setSelectedEmployees] = useState<Employee[]>([]);
 
   // Data fetching state
@@ -79,7 +77,6 @@ export default function BulkTrainingPage() {
         api.post("/api/training-records", {
           employeeId: employee.id,
           trainingId: parseInt(trainingId),
-          dateCompleted: completionDate.toISOString(),
           trainer: provider,
         }),
       );
@@ -94,7 +91,6 @@ export default function BulkTrainingPage() {
       // Reset form
       setTrainingId("");
       setProvider("");
-      setCompletionDate(new Date());
       setSelectedEmployees([]);
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
@@ -151,12 +147,6 @@ export default function BulkTrainingPage() {
               onChange={(e) => setProvider(e.target.value)}
             />
           </div>
-
-          {/* Date Selector Component */}
-          <DateSelector
-            selectedDate={completionDate}
-            onDateSelect={setCompletionDate}
-          />
 
           {/* Employee Selector Component */}
           <EmployeeSelector

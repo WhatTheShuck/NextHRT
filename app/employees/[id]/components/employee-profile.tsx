@@ -1,27 +1,19 @@
 "use client";
 
-import { Employee, Training, TrainingRecords } from "@/generated/prisma_client";
 import { EmployeeProvider } from "./employee-context";
 import { EmployeeHeader } from "./employee-header";
 import { EmployeeTabs } from "./employee-tabs";
+// import { useSession } from "next-auth/react";
 
 interface Props {
-  initialEmployee: Employee;
-  initialTrainingRecords: (TrainingRecords & { training: Training })[];
   employeeId: number;
 }
 
-export function EmployeeProfile({
-  initialEmployee,
-  initialTrainingRecords,
-  employeeId,
-}: Props) {
+export function EmployeeProfile({ employeeId }: Props) {
+  // const session = useSession();
+
   return (
-    <EmployeeProvider
-      initialEmployee={initialEmployee}
-      initialTrainingRecords={initialTrainingRecords}
-      employeeId={employeeId}
-    >
+    <EmployeeProvider employeeId={employeeId}>
       <div className="min-h-screen bg-background">
         <EmployeeHeader />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

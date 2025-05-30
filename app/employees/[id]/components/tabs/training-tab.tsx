@@ -1,7 +1,6 @@
-// app/employees/[id]/components/tabs/training-tab.tsx
 "use client";
 
-import { useEmployee } from "../employee-context";
+import { useEmployeeTrainingRecords } from "../employee-context";
 import {
   Card,
   CardHeader,
@@ -10,8 +9,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Plus, Eye, FileImage, Edit } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -29,117 +27,162 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { TrainingAddForm } from "../training-add-form";
-import { TrainingRecords } from "@/generated/prisma_client";
+import { TrainingEditForm } from "../training-edit-form";
+import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-record-details-dialog";
+import { TrainingRecordsWithRelations } from "@/lib/types";
+import { useState } from "react";
 
 export function TrainingTab() {
-  const { trainingRecords } = useEmployee();
+  const trainingRecords = useEmployeeTrainingRecords();
+  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] =
+    useState<TrainingRecordsWithRelations | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [editingRecord, setEditingRecord] =
+    useState<TrainingRecordsWithRelations | null>(null);
 
-  const getTrainingStatus = (record: TrainingRecords) => {
-    if (!record.expiryDate) return "No Expiry";
-    const now = new Date();
-    const expiryDate = new Date(record.expiryDate);
-
-    if (expiryDate < now) {
-      return "Expired";
-    }
-
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    if (expiryDate <= thirtyDaysFromNow) {
-      return "Expiring Soon";
-    }
-
-    return "Valid";
+  const handleAddSheetClose = () => {
+    setIsAddSheetOpen(false);
+    window.location.reload();
   };
 
+  const handleEditSheetClose = () => {
+    setIsEditSheetOpen(false);
+    setEditingRecord(null);
+    window.location.reload();
+  };
+
+  const handleViewDetails = (record: TrainingRecordsWithRelations) => {
+    setSelectedRecord(record);
+    setIsDetailsOpen(true);
+  };
+
+  const handleEditRecord = (record: TrainingRecordsWithRelations) => {
+    setEditingRecord(record);
+    setIsEditSheetOpen(true);
+  };
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>Training Records</CardTitle>
-            <CardDescription>
-              Showing {trainingRecords.length} training record
-              {trainingRecords.length !== 1 ? "s" : ""}
-            </CardDescription>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Training Records</CardTitle>
+              <CardDescription>
+                Showing {trainingRecords.length} training record
+                {trainingRecords.length !== 1 ? "s" : ""}
+              </CardDescription>
+            </div>
+            <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
+              <SheetTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Training
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Add Training</SheetTitle>
+                </SheetHeader>
+                <TrainingAddForm onSuccess={handleAddSheetClose} />
+              </SheetContent>
+            </Sheet>
           </div>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Training
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Add Training</SheetTitle>
-              </SheetHeader>
-              <TrainingAddForm />
-            </SheetContent>
-          </Sheet>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Training</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Completed</TableHead>
-              <TableHead>Expires</TableHead>
-              <TableHead>Trainer</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {trainingRecords.length === 0 ? (
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-center text-muted-foreground"
-                >
-                  No training records found
-                </TableCell>
+                <TableHead>Training</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Completed</TableHead>
+                <TableHead>Trainer</TableHead>
+                <TableHead>Image</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ) : (
-              trainingRecords.map((record) => {
-                const status = getTrainingStatus(record);
-                return (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium">
-                      {record.training.title}
-                    </TableCell>
-                    <TableCell>{record.training.category}</TableCell>
-                    <TableCell>
-                      {format(new Date(record.dateCompleted), "PP")}
-                    </TableCell>
-                    <TableCell>
-                      {record.expiryDate
-                        ? format(new Date(record.expiryDate), "PP")
-                        : "N/A"}
-                    </TableCell>
-                    <TableCell>{record.trainer}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          status === "Valid"
-                            ? "default"
-                            : status === "Expiring Soon"
-                              ? "secondary"
-                              : "destructive"
-                        }
-                      >
-                        {status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {trainingRecords.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="text-center text-muted-foreground"
+                  >
+                    No training records found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                trainingRecords.map((record: TrainingRecordsWithRelations) => {
+                  return (
+                    <TableRow key={record.id}>
+                      <TableCell className="font-medium">
+                        {record.training?.title}
+                      </TableCell>
+                      <TableCell>{record.training?.category}</TableCell>
+                      <TableCell>
+                        {format(new Date(record.dateCompleted), "PP")}
+                      </TableCell>
+                      <TableCell>{record.trainer}</TableCell>
+                      <TableCell>
+                        {record.imagePath ? (
+                          <FileImage className="h-4 w-4 text-blue-600" />
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(record)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditRecord(record)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Edit Training Sheet */}
+      <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Edit Training Record</SheetTitle>
+          </SheetHeader>
+          {editingRecord && (
+            <TrainingEditForm
+              trainingRecord={editingRecord}
+              onSuccess={handleEditSheetClose}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Training Record Details Dialog */}
+      <TrainingRecordDetailsDialog
+        record={selectedRecord}
+        open={isDetailsOpen}
+        onOpenChange={setIsDetailsOpen}
+      />
+    </>
   );
 }

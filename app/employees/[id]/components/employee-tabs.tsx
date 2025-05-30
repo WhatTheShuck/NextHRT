@@ -25,7 +25,7 @@ export function EmployeeTabs() {
           <Award className="h-4 w-4 mr-2" />
           Training
         </TabsTrigger>
-        <TabsTrigger value="documents">
+        <TabsTrigger value="tickets">
           <FileText className="h-4 w-4 mr-2" />
           Tickets
         </TabsTrigger>

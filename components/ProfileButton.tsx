@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth";
-import Image from "next/image";
 import Link from "next/link";
 import { SignOut } from "@/components/sign-out";
 import { UserIcon, Settings, User } from "lucide-react";
@@ -20,7 +19,7 @@ export async function ProfileButton() {
   if (!session?.user) {
     return (
       <Button variant="outline" asChild>
-        <Link href="/login">
+        <Link href="/auth">
           <UserIcon className="h-4 w-4 mr-2" />
           Login
         </Link>

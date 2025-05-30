@@ -3,7 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output = "../generated/prisma_client"
+  output   = "../generated/prisma_client"
 }
 
 datasource db {
@@ -13,32 +13,53 @@ datasource db {
 
 model Employee {
   id              Int               @id @default(autoincrement())
-  // email String  @unique
   firstName       String
   lastName        String
-  WorkAreaID      Int
-  Title           String
-  StartDate       DateTime?
-  FinishDate      DateTime?
-  Department      String
-  Location        String
-  IsActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  TrainingRecords TrainingRecords[]
+  title           String
+  startDate       DateTime?
+  finishDate      DateTime?
+  department      Department        @relation(fields: [departmentId], references: [id])
+  departmentId    Int
+  location        Location          @relation(fields: [locationId], references: [id])
+  locationId      Int
+  businessArea    String
+  job             String
+  notes           String?
+  usi             String? //Universal Student Identifier
+  isActive        Boolean           @default(true)
+  trainingRecords TrainingRecords[]
+  ticketRecords   TicketRecords[]
+  User            User?
+}
+
+model Location {
+  id        Int        @id @default(autoincrement())
+  name      String
+  state     String
+  employees Employee[]
+
+  @@unique([name, state])
+}
+
+model Department {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  employees Employee[]
+  managers  User[]     @relation("DepartmentManager")
 }
 
 model TrainingRecords {
-  id            Int       @id @default(autoincrement())
-  personTrained Employee  @relation(fields: [employeeId], references: [id])
+  id            Int      @id @default(autoincrement())
+  personTrained Employee @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateCompleted DateTime
-  training      Training  @relation(fields: [trainingId], references: [id])
+  // expiryDate    DateTime?
+  training      Training @relation(fields: [trainingId], references: [id])
   trainingId    Int
-  expiryDate    DateTime? // should probably be default dateCompleted + 1 year
   trainer       String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  imagePath     String?
+  imageType     String?
+
   @@unique([employeeId, trainingId, dateCompleted])
 }
 
@@ -46,11 +67,111 @@ model Training {
   id              Int               @id @default(autoincrement())
   category        Category
   title           String
-  RenewalPeriod   Int               @default(0) // in months
-  TrainingRecords TrainingRecords[]
+  // renewalPeriod   Int               //@default(12) // in months
+  trainingRecords TrainingRecords[]
 }
 
 enum Category {
   Internal
   External
+}
+
+enum UserRole {
+  User
+  DepartmentManager
+  Admin
+}
+
+model Ticket {
+  id            Int             @id @default(autoincrement())
+  ticketCode    String          @unique
+  ticketName    String
+  renewal       Int?              // in years
+  ticketRecords TicketRecords[]
+}
+
+model TicketRecords {
+  id            Int      @id @default(autoincrement())
+  ticketHolder  Employee @relation(fields: [employeeId], references: [id])
+  employeeId    Int
+  dateIssued    DateTime
+  ticket        Ticket   @relation(fields: [ticketId], references: [id])
+  ticketId      Int
+  licenseNumber String? // Optional unique number for the actual license instance
+  expiryDate    DateTime?
+  imagePath     String?
+  imageType     String?
+
+  @@unique([employeeId, ticketId, dateIssued]) // Prevent duplicate records
+}
+
+model History {
+  id            Int      @id @default(autoincrement())
+  tableName     String // Which table was affected (Employee, Training, etc.)
+  recordId      Int // ID of the record that was changed
+  action        String // CREATE, UPDATE, DELETE
+  changedFields String? // JSON string of changed fields
+  oldValues     String? // JSON string of previous values
+  newValues     String? // JSON string of new values
+  userId        String? // Foreign key to User model
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  timestamp     DateTime @default(now()) // When the change occurred
+}
+
+model User {
+  id                 String       @id @default(cuid())
+  name               String?
+  email              String?      @unique
+  emailVerified      DateTime?
+  image              String?
+  role               UserRole?    @default(User)
+  managedDepartments Department[] @relation("DepartmentManager")
+  employee           Employee?    @relation(fields: [employeeId], references: [id])
+  employeeId         Int?         @unique // Link to employee if user represents an employee
+  accounts           Account[]
+  sessions           Session[]
+  historyLogs        History[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
