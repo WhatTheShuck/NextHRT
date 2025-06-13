@@ -3,56 +3,29 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
 
-// GET single department
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
-) {
+// GET all departments with employee counts
+export const GET = auth(async function GET(request) {
   if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-
   try {
-    const id = parseInt(params.id);
-    const department = await prisma.department.findUnique({
-      where: { id },
+    const departments = await prisma.department.findMany({
       include: {
-        employees: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            title: true,
-            isActive: true,
-          },
-        },
-        managers: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
         _count: {
           select: { employees: true },
         },
       },
+      orderBy: {
+        name: "asc",
+      },
     });
 
-    if (!department) {
-      return NextResponse.json(
-        { error: "Department not found" },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json(department);
+    return NextResponse.json(departments);
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Error fetching department",
+        error: "Error fetching departments",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
@@ -60,55 +33,59 @@ export const GET = auth(async function GET(
   }
 });
 
-// PUT update department
-export const PUT = auth(async function PUT(
-  request,
-  props: { params: Promise<{ id: string }> },
-) {
+// POST create new department
+export const POST = auth(async function POST(request) {
   if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
   const userRole = request.auth.user?.role as UserRole;
   const userId = request.auth.user?.id;
 
-  // Only Admins can update departments
+  // Only Admins can create departments
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorized" }, { status: 403 });
   }
 
   try {
-    const id = parseInt(params.id);
+    const json = await request.json();
 
-    // Get current department data for history
-    const currentDepartment = await prisma.department.findUnique({
-      where: { id },
-      include: { managers: true },
-    });
-
-    if (!currentDepartment) {
+    if (!json.name || !json.name.trim()) {
       return NextResponse.json(
-        { error: "Department not found" },
-        { status: 404 },
+        { error: "Department name is required" },
+        { status: 400 },
       );
     }
 
-    const json = await request.json();
+    // Check if department name already exists
+    const existingDepartment = await prisma.department.findFirst({
+      where: {
+        name: {
+          equals: json.name.trim(),
+        },
+      },
+    });
 
-    const updatedDepartment = await prisma.department.update({
-      where: { id },
+    if (existingDepartment) {
+      return NextResponse.json(
+        { error: "A department with this name already exists" },
+        { status: 400 },
+      );
+    }
+
+    const newDepartment = await prisma.department.create({
       data: {
-        name: json.name,
-        managers:
-          json.managerIds !== undefined
-            ? {
-                set: [], // Clear existing managers
-                connect: json.managerIds.map((id: string) => ({ id })), // Add new managers
-              }
-            : undefined,
+        name: json.name.trim(),
+        managers: json.managerIds
+          ? {
+              connect: json.managerIds.map((id: string) => ({ id })),
+            }
+          : undefined,
       },
       include: {
+        _count: {
+          select: { employees: true },
+        },
         managers: {
           select: {
             id: true,
@@ -123,94 +100,18 @@ export const PUT = auth(async function PUT(
     await prisma.history.create({
       data: {
         tableName: "Department",
-        recordId: id,
-        action: "UPDATE",
-        oldValues: JSON.stringify(currentDepartment),
-        newValues: JSON.stringify(updatedDepartment),
+        recordId: newDepartment.id,
+        action: "CREATE",
+        newValues: JSON.stringify(newDepartment),
         userId: userId,
       },
     });
 
-    return NextResponse.json(updatedDepartment);
+    return NextResponse.json(newDepartment);
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Error updating department",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
-  }
-});
-
-// DELETE department
-export const DELETE = auth(async function DELETE(
-  request,
-  props: { params: Promise<{ id: string }> },
-) {
-  if (!request.auth) {
-    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
-  }
-
-  const params = await props.params;
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
-
-  // Only Admins can delete departments
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
-  }
-
-  try {
-    const id = parseInt(params.id);
-
-    // Check if there are employees in this department
-    const employeeCount = await prisma.employee.count({
-      where: { departmentId: id },
-    });
-
-    if (employeeCount > 0) {
-      return NextResponse.json(
-        { error: "Cannot delete department with active employees" },
-        { status: 400 },
-      );
-    }
-
-    // Get current department data for history
-    const currentDepartment = await prisma.department.findUnique({
-      where: { id },
-    });
-
-    if (!currentDepartment) {
-      return NextResponse.json(
-        { error: "Department not found" },
-        { status: 404 },
-      );
-    }
-
-    // Delete department
-    await prisma.$transaction([
-      // Create history record
-      prisma.history.create({
-        data: {
-          tableName: "Department",
-          recordId: id,
-          action: "DELETE",
-          oldValues: JSON.stringify(currentDepartment),
-          userId: userId,
-        },
-      }),
-      // Delete the department
-      prisma.department.delete({
-        where: { id },
-      }),
-    ]);
-
-    return NextResponse.json({ message: "Department deleted successfully" });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Error deleting department",
+        error: "Error creating department",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
