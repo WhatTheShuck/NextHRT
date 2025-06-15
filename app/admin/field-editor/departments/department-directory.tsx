@@ -17,12 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AddDepartmentDialog } from "@/components/dialogs/add-department-dialog";
+import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
 import { useEffect, useState } from "react";
 import { Department } from "@/generated/prisma_client";
 import api from "@/lib/axios";
-import { EditDepartmentDialog } from "@/components/dialogs/edit-department-dialog";
-import { DeleteDepartmentDialog } from "@/components/dialogs/delete-department-dialog";
+import { EditDepartmentDialog } from "@/components/dialogs/department/edit-department-dialog";
+import { DeleteDepartmentDialog } from "@/components/dialogs/department/delete-department-dialog";
 
 // Extended type to include employee count
 interface DepartmentWithCount extends Department {
