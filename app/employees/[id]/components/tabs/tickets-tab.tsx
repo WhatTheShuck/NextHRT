@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, FileImage, Edit } from "lucide-react";
+import { Plus, Eye, FileImage, Edit, Trash } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -62,6 +62,9 @@ export function TicketTab() {
   const handleEditRecord = (record: TicketRecordsWithRelations) => {
     setEditingRecord(record);
     setIsEditSheetOpen(true);
+  };
+  const handleDeleteRecord = (record: TicketRecordsWithRelations) => {
+    // open a dialog to confirm deletion
   };
 
   const getTicketStatus = (record: TicketRecordsWithRelations) => {
@@ -196,6 +199,14 @@ export function TicketTab() {
                             onClick={() => handleEditRecord(record)}
                           >
                             <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteRecord(record)}
+                          >
+                            <Trash className="h-4 w-4 mr-1" />
                             Edit
                           </Button>
                         </div>

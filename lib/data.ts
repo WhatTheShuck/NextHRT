@@ -134,7 +134,7 @@ export const fieldEditorNavigationItems: NavigationItem[] = [
   {
     title: "Tickets",
     description: "Set up ticket categories and configurations",
-    href: "admin/field-editor/tickets",
+    href: "/admin/field-editor/tickets",
     icon: IdCard,
     requiresAdmin: false,
   },

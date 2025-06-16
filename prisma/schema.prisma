@@ -67,7 +67,6 @@ model Training {
   id              Int               @id @default(autoincrement())
   category        Category
   title           String
-  // renewalPeriod   Int               //@default(12) // in months
   trainingRecords TrainingRecords[]
 }
 

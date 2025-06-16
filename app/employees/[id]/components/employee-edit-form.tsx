@@ -15,8 +15,8 @@ import {
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Loader2, Plus } from "lucide-react";
-import { AddDepartmentDialog } from "@/components/dialogs/add-department-dialog";
-import { AddLocationDialog } from "@/components/dialogs/add-location-dialog";
+import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
+import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
 import api from "@/lib/axios";
 import { Department, Location } from "@/generated/prisma_client";
 import { Textarea } from "@/components/ui/textarea";

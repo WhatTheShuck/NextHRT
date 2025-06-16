@@ -12,7 +12,9 @@ export const GET = auth(async function GET(request) {
   try {
     const trainings = await prisma.training.findMany({
       include: {
-        trainingRecords: true,
+        _count: {
+          select: { trainingRecords: true },
+        },
       },
       orderBy: {
         title: "asc",

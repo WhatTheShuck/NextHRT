@@ -24,8 +24,8 @@ import {
 import { CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { AddDepartmentDialog } from "@/components/dialogs/add-department-dialog";
-import { AddLocationDialog } from "@/components/dialogs/add-location-dialog";
+import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
+import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
 import { AxiosError } from "axios";
 import { EmployeeWithRelations } from "@/lib/types";
 import { DuplicateEmployeeDialog } from "@/components/dialogs/duplicate-employee-dialog";
