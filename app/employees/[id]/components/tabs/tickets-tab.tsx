@@ -1,6 +1,6 @@
 "use client";
 
-import { useEmployeeTicketRecords } from "../employee-context";
+import { useEmployee, useEmployeeTicketRecords } from "../employee-context";
 import {
   Card,
   CardHeader,
@@ -29,11 +29,13 @@ import {
 } from "@/components/ui/sheet";
 import { TicketAddForm } from "@/components/forms/ticket-add-form";
 import { TicketEditForm } from "@/components/forms/ticket-edit-form";
+import { DeleteTicketRecordDialog } from "@/components/dialogs/ticket-records/delete-ticket-record-dialog";
 import { TicketRecordDetailsDialog } from "@/components/dialogs/ticket-record-details-dialog";
 import { TicketRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
 
 export function TicketTab() {
+  const { employee } = useEmployee();
   const ticketRecords = useEmployeeTicketRecords();
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -42,6 +44,9 @@ export function TicketTab() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingRecord, setEditingRecord] =
     useState<TicketRecordsWithRelations | null>(null);
+  const [deletingRecord, setDeletingRecord] =
+    useState<TicketRecordsWithRelations | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleAddSheetClose = () => {
     setIsAddSheetOpen(false);
@@ -64,7 +69,8 @@ export function TicketTab() {
     setIsEditSheetOpen(true);
   };
   const handleDeleteRecord = (record: TicketRecordsWithRelations) => {
-    // open a dialog to confirm deletion
+    setDeletingRecord(record);
+    setIsDeleteDialogOpen(true);
   };
 
   const getTicketStatus = (record: TicketRecordsWithRelations) => {
@@ -207,7 +213,7 @@ export function TicketTab() {
                             onClick={() => handleDeleteRecord(record)}
                           >
                             <Trash className="h-4 w-4 mr-1" />
-                            Edit
+                            Delete
                           </Button>
                         </div>
                       </TableCell>
@@ -240,6 +246,18 @@ export function TicketTab() {
         record={selectedRecord}
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
+      />
+      {/* Delete Ticket Record Dialog */}
+      <DeleteTicketRecordDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        ticketRecord={deletingRecord}
+        employee={employee}
+        onTicketRecordDeleted={() => {
+          setDeletingRecord(null);
+          setIsDeleteDialogOpen(false);
+          window.location.reload();
+        }}
       />
     </>
   );

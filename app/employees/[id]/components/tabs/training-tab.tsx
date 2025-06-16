@@ -1,6 +1,6 @@
 "use client";
 
-import { useEmployeeTrainingRecords } from "../employee-context";
+import { useEmployee, useEmployeeTrainingRecords } from "../employee-context";
 import {
   Card,
   CardHeader,
@@ -31,9 +31,10 @@ import { TrainingEditForm } from "../training-edit-form";
 import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-record-details-dialog";
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
-import { DeleteTrainingRecordDialog } from "@/components/dialogs/delete-training-record-dialog";
+import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
 
 export function TrainingTab() {
+  const { employee } = useEmployee(); // Add this line
   const trainingRecords = useEmployeeTrainingRecords();
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -42,9 +43,6 @@ export function TrainingTab() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingRecord, setEditingRecord] =
     useState<TrainingRecordsWithRelations | null>(null);
-  const isDeleteingRecord = useState<TrainingRecordsWithRelations | null>(
-    null,
-  )[0];
   const [deletingRecord, setDeletingRecord] =
     useState<TrainingRecordsWithRelations | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -66,6 +64,7 @@ export function TrainingTab() {
   };
   const handleDeleteRecord = (record: TrainingRecordsWithRelations) => {
     setDeletingRecord(record);
+    setIsDeleteDialogOpen(true);
   };
   const handleEditRecord = (record: TrainingRecordsWithRelations) => {
     setEditingRecord(record);
@@ -203,10 +202,15 @@ export function TrainingTab() {
 
       {/* Delete Training Record Dialog */}
       <DeleteTrainingRecordDialog
-        open={!!deletingRecord}
-        onOpenChange={() => setDeletingRecord(null)}
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
         trainingRecord={deletingRecord}
-        // onDeleted={() => window.location.reload()}
+        employee={employee}
+        onTrainingRecordDeleted={() => {
+          setDeletingRecord(null);
+          setIsDeleteDialogOpen(false);
+          window.location.reload();
+        }}
       />
     </>
   );
