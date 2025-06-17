@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { Training } from "@/generated/prisma_client";
 import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
-import { DateSelector } from "@//components/date-selector";
+import { DateSelector } from "@/components/date-selector";
 import api from "@/lib/axios";
 import { X, Upload, FileImage } from "lucide-react";
 import {
@@ -162,6 +162,7 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="completion-date">Completion Date</Label>
         <DateSelector
           selectedDate={completionDate}
           onDateSelect={setCompletionDate}

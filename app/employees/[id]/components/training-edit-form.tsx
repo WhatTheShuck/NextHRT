@@ -191,6 +191,7 @@ export function TrainingEditForm({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="completion-date-edit">Completion Date</Label>
         <DateSelector
           selectedDate={completionDate}
           onDateSelect={setCompletionDate}

@@ -189,6 +189,7 @@ export function TicketEditForm({
         />
       </div>
       <div className="space-y-2">
+        <Label htmlFor="dateIssued">Date Issued</Label>
         <DateSelector selectedDate={dateIssued} onDateSelect={setDateIssued} />
       </div>
 
