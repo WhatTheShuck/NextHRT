@@ -58,7 +58,9 @@ const EmployeeDirectory = () => {
           if (error.response?.status === 401) {
             setError("You are not authenticated. Please log in.");
           } else if (error.response?.status === 403) {
-            setError("You do not have permission to view this data.");
+            setError(
+              "You do not have permission to view this data or no linked employee found. Please contact an administrator to link your account to your employee record.",
+            );
           } else {
             setError("Failed to fetch employees. Please try again later.");
           }
