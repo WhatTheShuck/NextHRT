@@ -132,7 +132,7 @@ export const PUT = auth(async function PUT(
     await prisma.history.create({
       data: {
         tableName: "Ticket",
-        recordId: updatedTicket.id,
+        recordId: updatedTicket.id.toString(),
         action: "UPDATE",
         oldValues: JSON.stringify(existingTicket),
         newValues: JSON.stringify(updatedTicket),

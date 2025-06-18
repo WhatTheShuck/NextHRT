@@ -107,7 +107,7 @@ model TicketRecords {
 model History {
   id            Int      @id @default(autoincrement())
   tableName     String // Which table was affected (Employee, Training, etc.)
-  recordId      Int // ID of the record that was changed
+  recordId      String // ID of the record that was changed
   action        String // CREATE, UPDATE, DELETE
   changedFields String? // JSON string of changed fields
   oldValues     String? // JSON string of previous values

@@ -239,7 +239,7 @@ export const POST = auth(async function POST(req) {
     await prisma.history.create({
       data: {
         tableName: "TicketRecords",
-        recordId: ticketRecord.id,
+        recordId: ticketRecord.id.toString(),
         action: "CREATE",
         newValues: JSON.stringify(ticketRecord),
         userId: req.auth.user?.id,
