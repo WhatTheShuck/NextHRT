@@ -27,7 +27,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Plus, Search } from "lucide-react";
-import { EmployeeAddForm } from "./employee-add-form";
+import { EmployeeAddForm } from "@/components/forms/employee-add-form";
 import { EmployeeWithRelations } from "@/lib/types";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";

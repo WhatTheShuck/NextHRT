@@ -26,8 +26,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { TrainingAddForm } from "../training-add-form";
-import { TrainingEditForm } from "../training-edit-form";
+import { TrainingAddForm } from "@/components/forms/training-add-form";
+import { TrainingEditForm } from "@/components/forms/training-edit-form";
 import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-record-details-dialog";
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";

@@ -1,7 +1,7 @@
 // app/employees/[id]/components/employee-edit-form.tsx
 "use client";
 
-import { useEmployee } from "./employee-context";
+import { useEmployee } from "@/app/employees/[id]/components/employee-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
