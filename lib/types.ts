@@ -7,6 +7,7 @@ import {
   TicketRecords,
   Training,
   Ticket,
+  User,
 } from "@/generated/prisma_client";
 
 export type CompanyDetails = {
@@ -44,4 +45,9 @@ export interface TrainingRecordsWithRelations extends TrainingRecords {
 export interface TicketRecordsWithRelations extends TicketRecords {
   ticket?: Ticket;
   employee?: Employee;
+}
+
+export interface UserWithRelations extends User {
+  employee?: EmployeeWithRelations;
+  managedDepartments?: Department[];
 }

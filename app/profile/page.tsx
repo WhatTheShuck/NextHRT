@@ -1,31 +1,44 @@
 import { auth } from "@/lib/auth";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import UserProfileDetails from "./profile-details";
 
 async function Profile() {
   const session = await auth();
-  if (!session) redirect("/auth");
+  if (!session?.user?.id) redirect("/auth");
+
   return (
-    <div className="flex items-center justify-center min-h-[90vh]">
-      <div className="p-5  shadow-2xl rounded-md min-w-[30%] max-w-[50%] flex gap-5 flex-col items-center">
-        {session?.user?.image ? (
-          <Image
-            width={100}
-            height={100}
-            alt={session?.user?.name || ""}
-            src={session?.user?.image || ""}
-            className="w-20 h-20 rounded-full border border-yellow-500 shadow-md"
-          />
-        ) : (
-          <div className="w-20 h-20 rounded-full border border-yellow-500 shadow-md bg-green-600 flex items-center justify-center">
-            {session?.user?.name?.charAt(0).toUpperCase()}
-            {session?.user?.name?.split(" ")[1]?.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div className="text-center text-sm">
-          <p>{session?.user?.name}</p>
-          <p>{session?.user?.email}</p>
-        </div>
+    <div className="flex items-center justify-center min-h-[90vh] p-4">
+      <div className="w-full max-w-2xl space-y-6">
+        {/* Main Profile Card - Server Side */}
+        <Card className="shadow-lg">
+          <CardContent className="p-0">
+            {/* Header Section */}
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-lg p-8 text-white">
+              <div className="flex flex-col items-center space-y-4">
+                <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
+                  <AvatarImage
+                    src={session.user.image || ""}
+                    alt={session.user.name || ""}
+                  />
+                  <AvatarFallback className="bg-white text-purple-600 text-2xl font-bold">
+                    {session.user.name?.charAt(0).toUpperCase()}
+                    {session.user.name?.split(" ")[1]?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-center">
+                  <h1 className="text-3xl font-bold">{session.user.name}</h1>
+                  <p className="text-blue-100 text-lg">{session.user.email}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Enhanced User Details - Client Side Component */}
+        <UserProfileDetails userId={session.user.id} />
       </div>
     </div>
   );

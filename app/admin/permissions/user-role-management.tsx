@@ -31,6 +31,7 @@ import { Search } from "lucide-react";
 import { Department, User, UserRole } from "@/generated/prisma_client";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
+import { useRouter } from "next/navigation";
 
 export function UserRoleManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -47,6 +48,7 @@ export function UserRoleManagement() {
   >([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   // Fetch users and departments
   useEffect(() => {
@@ -120,6 +122,11 @@ export function UserRoleManagement() {
     }
 
     setOpenDialog(true);
+  };
+
+  const handleViewProfile = (user: User) => {
+    // Navigate to user profile page
+    router.push(`/profile/${user.id}`);
   };
 
   // Handle role update
@@ -236,14 +243,25 @@ export function UserRoleManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                      disabled={loading}
-                    >
-                      Edit Role
-                    </Button>
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        variant={"outline"}
+                        size="sm"
+                        onClick={() => handleViewProfile(user)}
+                        disabled={loading}
+                      >
+                        {" "}
+                        View Profile
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditUser(user)}
+                        disabled={loading}
+                      >
+                        Edit Role
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
