@@ -7,6 +7,26 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
+/**
+ * Calculate expiry date based on issue date and ticket renewal period
+ */
+function calculateExpiryDate(
+  dateIssued: Date,
+  renewalYears: number | null,
+): Date | null {
+  if (renewalYears === null) {
+    // Ticket never expires
+    return null;
+  }
+
+  const expiryDate = new Date(dateIssued);
+  expiryDate.setFullYear(expiryDate.getFullYear() + renewalYears);
+
+  expiryDate.setDate(expiryDate.getDate());
+
+  return expiryDate;
+}
+
 // GET all ticket records
 export const GET = auth(async function GET(req) {
   // Check if the user is authenticated
@@ -76,6 +96,9 @@ export const POST = auth(async function POST(req) {
     const dateIssued = formData.get("dateIssued") as string;
     const licenseNumber = formData.get("licenseNumber") as string;
     const imageFile = formData.get("image") as File | null;
+    const expiryDate = formData.get("expiryDate") as string;
+    const manualExpiryOverride =
+      formData.get("manualExpiryOverride") === "true";
 
     // Validate required fields
     if (!employeeId || !ticketId || !dateIssued) {
@@ -186,11 +209,42 @@ export const POST = auth(async function POST(req) {
       }
     }
 
-    // Calculate expiry date based on renewal period (in years)
-    let expiryDate: Date | null = null;
-    if (ticket.renewal !== null) {
-      expiryDate = new Date(issuedDate);
-      expiryDate.setFullYear(expiryDate.getFullYear() + ticket.renewal);
+    // Handle expiry date calculation
+    let finalExpiryDate: Date | null = null;
+
+    if (manualExpiryOverride && expiryDate) {
+      // User provided a manual expiry date
+      finalExpiryDate = new Date(expiryDate);
+
+      // Validate that manual expiry is after issue date
+      if (finalExpiryDate <= issuedDate) {
+        return NextResponse.json(
+          {
+            error: "Expiry date must be after the issue date",
+            code: "INVALID_EXPIRY_DATE",
+          },
+          { status: 400 },
+        );
+      }
+    } else {
+      // Calculate expiry date based on ticket renewal period
+      finalExpiryDate = calculateExpiryDate(issuedDate, ticket.renewal);
+    }
+
+    // For tickets that should have expiry dates, ensure we have one
+    if (ticket.renewal !== null && !finalExpiryDate) {
+      return NextResponse.json(
+        {
+          error: "Expiry date is required for tickets with renewal periods",
+          code: "EXPIRY_DATE_REQUIRED",
+        },
+        { status: 400 },
+      );
+    }
+
+    // For tickets that never expire, clear any expiry date
+    if (ticket.renewal === null) {
+      finalExpiryDate = null;
     }
 
     // Create the ticket record
@@ -199,7 +253,7 @@ export const POST = auth(async function POST(req) {
         employeeId: employeeId,
         ticketId: ticketId,
         dateIssued: issuedDate,
-        expiryDate: expiryDate,
+        expiryDate: finalExpiryDate,
         licenseNumber: licenseNumber || null,
         imagePath: imagePath,
         imageType: imageType,
@@ -235,13 +289,26 @@ export const POST = auth(async function POST(req) {
       },
     });
 
-    // Create history record
+    // Create history record with additional context for manual overrides
+    const historyData = {
+      ...ticketRecord,
+      _metadata: {
+        manualExpiryOverride,
+        calculatedExpiryDate:
+          ticket.renewal !== null
+            ? calculateExpiryDate(issuedDate, ticket.renewal)?.toISOString() ||
+              null
+            : null,
+        finalExpiryDate: finalExpiryDate?.toISOString() || null,
+      },
+    };
+
     await prisma.history.create({
       data: {
         tableName: "TicketRecords",
         recordId: ticketRecord.id.toString(),
         action: "CREATE",
-        newValues: JSON.stringify(ticketRecord),
+        newValues: JSON.stringify(historyData),
         userId: req.auth.user?.id,
       },
     });

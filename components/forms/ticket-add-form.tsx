@@ -4,17 +4,26 @@ import { useEmployee } from "@/app/employees/[id]/components/employee-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
 import { Ticket } from "@/generated/prisma_client";
 import { TicketSelector } from "@/components/ticket-selector";
+import { DateSelector } from "@/components/date-selector";
 import api from "@/lib/axios";
-import { X, Upload, FileImage, AlertCircle } from "lucide-react";
+import {
+  X,
+  Upload,
+  FileImage,
+  AlertCircle,
+  Calendar,
+  Clock,
+} from "lucide-react";
 import {
   FILE_UPLOAD_CONFIG,
   validateFile,
   formatFileSize,
 } from "@/lib/file-config";
-import { DateSelector } from "../date-selector";
+import { calculateExpiryDate, formatRenewalPeriod } from "@/lib/expiry-utils";
 
 interface TicketAddFormProps {
   onSuccess?: () => void;
@@ -29,6 +38,10 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
   const [dateIssued, setDateIssued] = useState<Date>(new Date());
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string>("");
+
+  // Expiry date state
+  const [manualExpiryOverride, setManualExpiryOverride] = useState(false);
+  const [manualExpiryDate, setManualExpiryDate] = useState<Date | null>(null);
 
   // Data fetching state
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -54,9 +67,51 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
     fetchData();
   }, []);
 
+  // Get current selected ticket
+  const currentTicket = tickets.find((t) => t.id.toString() === ticketId);
+
+  // Calculate expiry date based on current selections
+  const calculatedExpiryDate = currentTicket
+    ? calculateExpiryDate(dateIssued, currentTicket.renewal)
+    : null;
+
+  // Determine final expiry date to use
+  const finalExpiryDate = manualExpiryOverride
+    ? manualExpiryDate
+    : calculatedExpiryDate;
+
+  // Initialize manual expiry date when calculated date is first available
+  useEffect(() => {
+    if (calculatedExpiryDate && manualExpiryDate === null) {
+      setManualExpiryDate(calculatedExpiryDate);
+    }
+  }, [calculatedExpiryDate, manualExpiryDate]);
+
   const addTicket = (newTicket: Ticket) => {
     setTickets([...tickets, newTicket]);
     setTicketId(newTicket.id.toString());
+  };
+
+  const handleTicketChange = (newTicketId: string) => {
+    setTicketId(newTicketId);
+    // Reset manual override when changing tickets
+    setManualExpiryOverride(false);
+    setManualExpiryDate(null); // Reset manual date to trigger recalculation
+  };
+
+  const handleDateIssuedChange = (newDate: Date) => {
+    setDateIssued(newDate);
+    // Reset manual override when changing issue date
+    setManualExpiryOverride(false);
+    setManualExpiryDate(null); // Reset manual date to trigger recalculation
+  };
+
+  const handleManualOverrideChange = (checked: boolean) => {
+    setManualExpiryOverride(checked);
+    if (checked && calculatedExpiryDate) {
+      // Initialize manual date with calculated date
+      setManualExpiryDate(calculatedExpiryDate);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,7 +127,6 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
     if (error) {
       setFileError(error);
       setSelectedFile(null);
-      // Clear the input
       e.target.value = "";
       return;
     }
@@ -83,7 +137,6 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
   const removeFile = () => {
     setSelectedFile(null);
     setFileError("");
-    // Clear the file input
     const fileInput = document.getElementById(
       "image-upload",
     ) as HTMLInputElement;
@@ -97,22 +150,27 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setSubmitError(""); // Clear any previous errors
+    setSubmitError("");
 
     try {
-      // Create FormData instead of JSON
       const formData = new FormData();
       formData.append("employeeId", employee.id.toString());
       formData.append("ticketId", ticketId);
       formData.append("licenseNumber", licenceNum);
       formData.append("dateIssued", dateIssued.toISOString());
 
-      // Add file if selected
+      // Add expiry date if we have one
+      if (finalExpiryDate) {
+        formData.append("expiryDate", finalExpiryDate.toISOString());
+      }
+
+      // Add manual override flag
+      formData.append("manualExpiryOverride", manualExpiryOverride.toString());
+
       if (selectedFile) {
         formData.append("image", selectedFile);
       }
 
-      // Send FormData (axios will automatically set the correct Content-Type)
       await api.post("/api/ticket-records", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -125,8 +183,9 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
       setDateIssued(new Date());
       setSelectedFile(null);
       setFileError("");
+      setManualExpiryOverride(false);
+      setManualExpiryDate(null);
 
-      // Clear file input
       const fileInput = document.getElementById(
         "image-upload",
       ) as HTMLInputElement;
@@ -134,31 +193,34 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
         fileInput.value = "";
       }
 
-      // Call success callback
       onSuccess?.();
     } catch (err: any) {
       console.error("API error:", err);
 
-      // Handle different error types
       if (err.response?.status === 409) {
-        // Duplicate record error
         setSubmitError(
           err.response.data?.details ||
             "A ticket record with the same ticket type and date issued already exists for this employee.",
         );
       } else if (err.response?.data?.error) {
-        // Other API errors with error messages
         setSubmitError(err.response.data.error);
       } else if (err.message) {
-        // Network or other errors
         setSubmitError(`Error saving ticket record: ${err.message}`);
       } else {
-        // Fallback error message
         setSubmitError("An unexpected error occurred. Please try again.");
       }
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const formatDate = (date: Date | null) => {
+    if (!date) return "No expiry";
+    return date.toLocaleDateString("en-AU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
   };
 
   return (
@@ -188,9 +250,15 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
         <TicketSelector
           tickets={tickets}
           selectedTicketId={ticketId}
-          onTicketSelect={setTicketId}
+          onTicketSelect={handleTicketChange}
           onNewTicket={addTicket}
         />
+        {currentTicket && (
+          <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {formatRenewalPeriod(currentTicket.renewal)}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -202,10 +270,82 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
           onChange={(e) => setLicenceNum(e.target.value)}
         />
       </div>
+
       <div className="space-y-2">
         <Label htmlFor="dateIssued">Date Issued</Label>
-        <DateSelector selectedDate={dateIssued} onDateSelect={setDateIssued} />
+        <DateSelector
+          selectedDate={dateIssued}
+          onDateSelect={handleDateIssuedChange}
+        />
       </div>
+
+      {/* Expiry Date Preview and Override Section */}
+      {currentTicket && (
+        <div className="space-y-4">
+          {/* Calculated Expiry Preview */}
+          <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                Calculated Expiry Date
+              </span>
+            </div>
+            <div className="text-lg font-semibold text-blue-800 dark:text-blue-200">
+              {formatDate(calculatedExpiryDate)}
+            </div>
+            {currentTicket.renewal && (
+              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Based on {currentTicket.renewal} year
+                {currentTicket.renewal !== 1 ? "s" : ""} renewal period
+              </div>
+            )}
+          </div>
+
+          {/* Manual Override Section */}
+          {currentTicket.renewal !== null && (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="manual-expiry"
+                  checked={manualExpiryOverride}
+                  onCheckedChange={handleManualOverrideChange}
+                />
+                <Label htmlFor="manual-expiry" className="text-sm font-normal">
+                  Manually set expiry date
+                </Label>
+              </div>
+
+              {manualExpiryOverride && (
+                <div className="space-y-2 pl-6">
+                  <Label htmlFor="manual-expiry-date">Custom Expiry Date</Label>
+                  <DateSelector
+                    selectedDate={manualExpiryDate}
+                    onDateSelect={setManualExpiryDate}
+                    optional={true}
+                  />
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    This will override the calculated expiry date for special
+                    cases
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Final Expiry Summary */}
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="h-4 w-4 text-gray-500" />
+            <span className="text-gray-700 dark:text-gray-300">
+              Final expiry date: <strong>{formatDate(finalExpiryDate)}</strong>
+              {manualExpiryOverride && (
+                <span className="text-amber-600 dark:text-amber-400 ml-1">
+                  (manually set)
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* File Upload Section */}
       <div className="space-y-2">
@@ -213,7 +353,6 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
           Ticket Certificate/Image (Optional)
         </Label>
         <div className="space-y-3">
-          {/* File Input */}
           <div className="flex items-center justify-center w-full">
             <label
               htmlFor="image-upload"
@@ -239,14 +378,12 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
             />
           </div>
 
-          {/* File Error */}
           {fileError && (
             <div className="text-sm text-red-600 dark:text-red-400">
               {fileError}
             </div>
           )}
 
-          {/* Selected File Display */}
           {selectedFile && !fileError && (
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex items-center space-x-3">

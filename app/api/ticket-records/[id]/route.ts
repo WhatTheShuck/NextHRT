@@ -7,6 +7,25 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
+/**
+ * Calculate expiry date based on issue date and ticket renewal period
+ */
+function calculateExpiryDate(
+  dateIssued: Date,
+  renewalYears: number | null,
+): Date | null {
+  if (renewalYears === null) {
+    // Ticket never expires
+    return null;
+  }
+
+  const expiryDate = new Date(dateIssued);
+  expiryDate.setFullYear(expiryDate.getFullYear() + renewalYears);
+  expiryDate.setDate(expiryDate.getDate());
+
+  return expiryDate;
+}
+
 // GET single ticket record by ID
 export const GET = auth(async function GET(
   req,
@@ -123,8 +142,9 @@ export const PUT = auth(async function PUT(
     const ticketId = parseInt(formData.get("ticketId") as string);
     const dateIssued = formData.get("dateIssued") as string;
     const licenseNumber = formData.get("licenseNumber") as string;
+    const expiryDate = formData.get("expiryDate") as string;
     const imageFile = formData.get("image") as File | null;
-    const removeImage = formData.get("removeImage") === "true"; // Flag to remove existing image
+    const removeImage = formData.get("removeImage") === "true";
 
     // Use existing values if new ones aren't provided
     const finalEmployeeId = employeeId || existingRecord.employeeId;
@@ -132,6 +152,51 @@ export const PUT = auth(async function PUT(
     const finalDateIssued = dateIssued
       ? new Date(dateIssued)
       : existingRecord.dateIssued;
+
+    // Get ticket information for expiry calculation
+    let ticket = null;
+    if (ticketId || dateIssued) {
+      ticket = await prisma.ticket.findUnique({
+        where: { id: finalTicketId },
+      });
+
+      if (!ticket) {
+        return NextResponse.json(
+          { error: "Ticket not found" },
+          { status: 404 },
+        );
+      }
+    }
+
+    // Handle expiry date logic
+    let finalExpiryDate: Date | null = null;
+
+    if (expiryDate) {
+      // User provided explicit expiry date
+      finalExpiryDate = new Date(expiryDate);
+    } else if (ticket) {
+      // No expiry date provided, calculate based on ticket type and issue date
+      finalExpiryDate = calculateExpiryDate(finalDateIssued, ticket.renewal);
+    } else {
+      // Keep existing expiry date if no changes
+      finalExpiryDate = existingRecord.expiryDate;
+    }
+
+    // Validate expiry date for tickets that should expire
+    if (ticket && ticket.renewal !== null && !finalExpiryDate) {
+      return NextResponse.json(
+        {
+          error: "Expiry date is required for tickets with renewal periods",
+          code: "EXPIRY_DATE_REQUIRED",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Clear expiry date for tickets that never expire
+    if (ticket && ticket.renewal === null) {
+      finalExpiryDate = null;
+    }
 
     // Check for duplicate if key fields are being changed
     const isUniqueFieldChanged =
@@ -163,7 +228,7 @@ export const PUT = auth(async function PUT(
       }
     }
 
-    // Verify that employee and ticket exist if they're being updated
+    // Verify that employee exists if being updated
     if (employeeId && employeeId !== existingRecord.employeeId) {
       const employee = await prisma.employee.findUnique({
         where: { id: employeeId },
@@ -174,24 +239,6 @@ export const PUT = auth(async function PUT(
           { status: 404 },
         );
       }
-    }
-
-    let ticket = null;
-    if (ticketId && ticketId !== existingRecord.ticketId) {
-      ticket = await prisma.ticket.findUnique({
-        where: { id: ticketId },
-      });
-      if (!ticket) {
-        return NextResponse.json(
-          { error: "Ticket not found" },
-          { status: 404 },
-        );
-      }
-    } else if (ticketId || dateIssued) {
-      // We need ticket info for expiry calculation
-      ticket = await prisma.ticket.findUnique({
-        where: { id: finalTicketId },
-      });
     }
 
     // Handle file operations
@@ -261,17 +308,6 @@ export const PUT = auth(async function PUT(
       }
     }
 
-    // Calculate expiry date if ticket or date changed (renewal period in years)
-    let expiryDate: Date | null = existingRecord.expiryDate;
-    if (ticket && (ticketId || dateIssued)) {
-      if (ticket.renewal !== null) {
-        expiryDate = new Date(finalDateIssued);
-        expiryDate.setFullYear(expiryDate.getFullYear() + ticket.renewal);
-      } else {
-        expiryDate = null;
-      }
-    }
-
     // Update the ticket record
     const updatedRecord = await prisma.ticketRecords.update({
       where: { id },
@@ -279,7 +315,7 @@ export const PUT = auth(async function PUT(
         employeeId: employeeId || undefined,
         ticketId: ticketId || undefined,
         dateIssued: dateIssued ? new Date(dateIssued) : undefined,
-        expiryDate: ticketId || dateIssued ? expiryDate : undefined,
+        expiryDate: finalExpiryDate,
         licenseNumber:
           licenseNumber !== undefined ? licenseNumber || null : undefined,
         imagePath:
@@ -430,7 +466,7 @@ export const DELETE = auth(async function DELETE(
     await prisma.history.create({
       data: {
         tableName: "TicketRecords",
-        recordId: id,
+        recordId: id.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(existingRecord),
         userId: req.auth.user?.id,
