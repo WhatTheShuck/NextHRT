@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
 import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
 import { AxiosError } from "axios";
-import { EmployeeWithRelations } from "@/lib/types";
+import { EmployeeFormData, EmployeeWithRelations } from "@/lib/types";
 import { DuplicateEmployeeDialog } from "@/components/dialogs/duplicate-employee-dialog";
 import { DateSelector } from "@/components/date-selector";
 
@@ -83,7 +83,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
 
     fetchData();
   }, []);
-  const createEmployeeData = () => ({
+  const createEmployeeData = (): EmployeeFormData => ({
     firstName,
     lastName,
     title,
