@@ -1,6 +1,6 @@
 "use client";
 
-import { useEmployeeTrainingRecords } from "../employee-context";
+import { useEmployee, useEmployeeTrainingRecords } from "../employee-context";
 import {
   Card,
   CardHeader,
@@ -9,7 +9,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, FileImage, Edit } from "lucide-react";
+import { Plus, Eye, FileImage, Edit, Trash } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -26,13 +26,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { TrainingAddForm } from "../training-add-form";
-import { TrainingEditForm } from "../training-edit-form";
+import { TrainingAddForm } from "@/components/forms/training-add-form";
+import { TrainingEditForm } from "@/components/forms/training-edit-form";
 import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-record-details-dialog";
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
+import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
 
 export function TrainingTab() {
+  const { employee } = useEmployee(); // Add this line
   const trainingRecords = useEmployeeTrainingRecords();
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -41,6 +43,9 @@ export function TrainingTab() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingRecord, setEditingRecord] =
     useState<TrainingRecordsWithRelations | null>(null);
+  const [deletingRecord, setDeletingRecord] =
+    useState<TrainingRecordsWithRelations | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleAddSheetClose = () => {
     setIsAddSheetOpen(false);
@@ -57,7 +62,10 @@ export function TrainingTab() {
     setSelectedRecord(record);
     setIsDetailsOpen(true);
   };
-
+  const handleDeleteRecord = (record: TrainingRecordsWithRelations) => {
+    setDeletingRecord(record);
+    setIsDeleteDialogOpen(true);
+  };
   const handleEditRecord = (record: TrainingRecordsWithRelations) => {
     setEditingRecord(record);
     setIsEditSheetOpen(true);
@@ -151,6 +159,14 @@ export function TrainingTab() {
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
                           </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteRecord(record)}
+                          >
+                            <Trash className="h-4 w-4 mr-1" />
+                            Delete
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -182,6 +198,19 @@ export function TrainingTab() {
         record={selectedRecord}
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
+      />
+
+      {/* Delete Training Record Dialog */}
+      <DeleteTrainingRecordDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        trainingRecord={deletingRecord}
+        employee={employee}
+        onTrainingRecordDeleted={() => {
+          setDeletingRecord(null);
+          setIsDeleteDialogOpen(false);
+          window.location.reload();
+        }}
       />
     </>
   );

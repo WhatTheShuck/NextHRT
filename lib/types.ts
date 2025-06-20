@@ -7,6 +7,7 @@ import {
   TicketRecords,
   Training,
   Ticket,
+  User,
 } from "@/generated/prisma_client";
 
 export type CompanyDetails = {
@@ -45,3 +46,22 @@ export interface TicketRecordsWithRelations extends TicketRecords {
   ticket?: Ticket;
   employee?: Employee;
 }
+
+export interface UserWithRelations extends User {
+  employee?: EmployeeWithRelations;
+  managedDepartments?: Department[];
+}
+
+export type EmployeeFormData = {
+  firstName: string;
+  lastName: string;
+  title: string;
+  departmentId: number; // Form has parsed numbers
+  locationId: number; // Form has parsed numbers
+  businessArea: string;
+  job: string;
+  notes: string | null;
+  usi: string | null;
+  isActive: boolean;
+  startDate: string | null; // Form sends ISO string
+};

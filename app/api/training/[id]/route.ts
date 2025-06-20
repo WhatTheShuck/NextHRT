@@ -106,7 +106,7 @@ export const PUT = auth(async function PUT(
     await prisma.history.create({
       data: {
         tableName: "Training",
-        recordId: id,
+        recordId: id.toString(),
         action: "UPDATE",
         oldValues: JSON.stringify(currentTraining),
         newValues: JSON.stringify(updatedTraining),
@@ -181,7 +181,7 @@ export const DELETE = auth(async function DELETE(
     await prisma.history.create({
       data: {
         tableName: "Training",
-        recordId: id,
+        recordId: id.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(currentTraining),
         userId: request.auth.user?.id,

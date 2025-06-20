@@ -15,20 +15,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Department, Location } from "@/generated/prisma_client";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { CalendarIcon, Plus } from "lucide-react";
-import { format } from "date-fns";
+import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AddDepartmentDialog } from "@/components/dialogs/add-department-dialog";
-import { AddLocationDialog } from "@/components/dialogs/add-location-dialog";
+import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
+import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
 import { AxiosError } from "axios";
-import { EmployeeWithRelations } from "@/lib/types";
+import { EmployeeFormData, EmployeeWithRelations } from "@/lib/types";
 import { DuplicateEmployeeDialog } from "@/components/dialogs/duplicate-employee-dialog";
+import { DateSelector } from "@/components/date-selector";
 
 interface EmployeeAddFormProps {
   onSuccess?: () => void;
@@ -54,7 +48,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
   const [notes, setNotes] = useState("");
   const [usi, setUsi] = useState("");
   const [isActive, setIsActive] = useState(true);
-  const [startDate, setStartDate] = useState<Date>();
+  const [startDate, setStartDate] = useState<Date>(new Date());
 
   // Data state
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -89,7 +83,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
 
     fetchData();
   }, []);
-  const createEmployeeData = () => ({
+  const createEmployeeData = (): EmployeeFormData => ({
     firstName,
     lastName,
     title,
@@ -268,28 +262,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="startDate">Start Date</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                "w-full justify-start text-left font-normal",
-                !startDate && "text-muted-foreground",
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {startDate ? format(startDate, "PPP") : "Pick a date"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={startDate}
-              onSelect={setStartDate}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
+        <DateSelector selectedDate={startDate} onDateSelect={setStartDate} />
       </div>
 
       <div className="space-y-2">

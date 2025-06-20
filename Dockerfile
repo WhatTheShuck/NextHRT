@@ -29,7 +29,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN \
-    if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run db:deploy && pnpm run build; \
+    if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run db:deploy &&  mkdir -p node_modules/.prisma && \
+    ln -s ../../generated/prisma_client node_modules/.prisma/client && \ pnpm run build; \
     elif [ -f package-lock.json ]; then npm run build; \
     else echo "Lockfile not found." && exit 1; \
     fi

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { PlusCircle } from "lucide-react";
 import { Ticket } from "@/generated/prisma_client";
-import { NewTicketDialog } from "@/components/dialogs/new-ticket-dialog";
+import { NewTicketDialog } from "@/components/dialogs/tickets/add-ticket-dialog";
 
 type TicketSelectorProps = {
   tickets: Ticket[];

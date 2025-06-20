@@ -7,6 +7,10 @@ import {
   Settings,
   FileText,
   ShieldCheck,
+  Building2,
+  GraduationCap,
+  MapPin,
+  IdCard,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -47,7 +51,7 @@ export const landingPageNavigationItems: NavigationItem[] = [
     title: "Dropdown Items",
     description: "Edit and manage dropdown menu items",
     icon: Settings,
-    href: "/admin/dropdown-items",
+    href: "/admin/field-editor",
     requiresAdmin: true,
   },
   {
@@ -101,6 +105,37 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "See who holds a specific type of ticket",
     icon: ShieldCheck,
     href: "/reports/tickets/completed",
+    requiresAdmin: false,
+  },
+];
+
+export const fieldEditorNavigationItems: NavigationItem[] = [
+  {
+    title: "Departments",
+    description: "Manage and organise department information",
+    href: "/admin/field-editor/departments",
+    icon: Building2,
+    requiresAdmin: false,
+  },
+  {
+    title: "Locations",
+    description: "Configure and maintain location data",
+    href: "/admin/field-editor/locations",
+    icon: MapPin,
+    requiresAdmin: false,
+  },
+  {
+    title: "Training",
+    description: "Administer training programmes and records",
+    href: "/admin/field-editor/training",
+    icon: GraduationCap,
+    requiresAdmin: false,
+  },
+  {
+    title: "Tickets",
+    description: "Set up ticket categories and configurations",
+    href: "/admin/field-editor/tickets",
+    icon: IdCard,
     requiresAdmin: false,
   },
 ];

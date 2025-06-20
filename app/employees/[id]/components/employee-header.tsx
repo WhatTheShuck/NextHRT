@@ -12,7 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useEmployee } from "./employee-context";
-import { EmployeeEditForm } from "./employee-edit-form";
+import { EmployeeEditForm } from "@/components/forms/employee-edit-form";
 import { useState } from "react";
 
 export function EmployeeHeader() {

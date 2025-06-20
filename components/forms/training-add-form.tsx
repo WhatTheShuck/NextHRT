@@ -1,15 +1,15 @@
 "use client";
 
-import { useEmployee } from "./employee-context";
+import { useEmployee } from "@/app/employees/[id]/components/employee-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { Training } from "@/generated/prisma_client";
 import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
-import { DateSelector } from "@//components/date-selector";
+import { DateSelector } from "@/components/date-selector";
 import api from "@/lib/axios";
-import { X, Upload, FileImage } from "lucide-react";
+import { X, Upload, FileImage, AlertCircle } from "lucide-react";
 import {
   FILE_UPLOAD_CONFIG,
   validateFile,
@@ -34,6 +34,9 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Error handling state
+  const [submitError, setSubmitError] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -94,6 +97,7 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitError(""); // Clear any previous errors
 
     try {
       // Create FormData instead of JSON
@@ -132,8 +136,26 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
 
       // Call success callback
       onSuccess?.();
-    } catch (err) {
+    } catch (err: any) {
       console.error("API error:", err);
+
+      // Handle different error types
+      if (err.response?.status === 409) {
+        // Duplicate record error
+        setSubmitError(
+          err.response.data?.details ||
+            "A training record with the same training course and completion date already exists for this employee.",
+        );
+      } else if (err.response?.data?.error) {
+        // Other API errors with error messages
+        setSubmitError(err.response.data.error);
+      } else if (err.message) {
+        // Network or other errors
+        setSubmitError(`Error saving training record: ${err.message}`);
+      } else {
+        // Fallback error message
+        setSubmitError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -141,6 +163,27 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pt-6">
+      {/* Error Message Display */}
+      {submitError && (
+        <div className="flex items-start space-x-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-red-800 dark:text-red-200">
+              {submitError}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setSubmitError("")}
+            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 p-1"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       <div className="space-y-2">
         <TrainingSelector
           trainings={trainings}
@@ -162,6 +205,7 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="completion-date">Completion Date</Label>
         <DateSelector
           selectedDate={completionDate}
           onDateSelect={setCompletionDate}

@@ -67,7 +67,6 @@ model Training {
   id              Int               @id @default(autoincrement())
   category        Category
   title           String
-  // renewalPeriod   Int               //@default(12) // in months
   trainingRecords TrainingRecords[]
 }
 
@@ -84,7 +83,7 @@ enum UserRole {
 
 model Ticket {
   id            Int             @id @default(autoincrement())
-  ticketCode    String          @unique
+  ticketCode    String
   ticketName    String
   renewal       Int?              // in years
   ticketRecords TicketRecords[]
@@ -108,7 +107,7 @@ model TicketRecords {
 model History {
   id            Int      @id @default(autoincrement())
   tableName     String // Which table was affected (Employee, Training, etc.)
-  recordId      Int // ID of the record that was changed
+  recordId      String // ID of the record that was changed
   action        String // CREATE, UPDATE, DELETE
   changedFields String? // JSON string of changed fields
   oldValues     String? // JSON string of previous values

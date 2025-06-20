@@ -12,7 +12,9 @@ export const GET = auth(async function GET(request) {
   try {
     const trainings = await prisma.training.findMany({
       include: {
-        trainingRecords: true,
+        _count: {
+          select: { trainingRecords: true },
+        },
       },
       orderBy: {
         title: "asc",
@@ -49,7 +51,7 @@ export const POST = auth(async function POST(request) {
     await prisma.history.create({
       data: {
         tableName: "Training",
-        recordId: training.id,
+        recordId: training.id.toString(),
         action: "CREATE",
         newValues: JSON.stringify(training),
         userId: request.auth.user?.id,

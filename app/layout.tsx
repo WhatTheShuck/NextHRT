@@ -5,6 +5,7 @@ import Footer from "@/components/footer";
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Providers } from "./providers";
+import ConditionalBreadcrumbs from "@/components/conditional-breadcrumbs";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <Header />
+            <ConditionalBreadcrumbs />
             {children}
             <Footer />
           </ThemeProvider>

@@ -1,7 +1,7 @@
 // app/employees/[id]/components/employee-edit-form.tsx
 "use client";
 
-import { useEmployee } from "./employee-context";
+import { useEmployee } from "@/app/employees/[id]/components/employee-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,13 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
 import { Loader2, Plus } from "lucide-react";
-import { AddDepartmentDialog } from "@/components/dialogs/add-department-dialog";
-import { AddLocationDialog } from "@/components/dialogs/add-location-dialog";
+import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
+import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
 import api from "@/lib/axios";
 import { Department, Location } from "@/generated/prisma_client";
 import { Textarea } from "@/components/ui/textarea";
+import { DateSelector } from "@/components/date-selector";
 
 interface EmployeeEditFormProps {
   onSuccess?: () => void;
@@ -39,8 +39,8 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const [locationId, setLocationId] = useState("");
   const [businessArea, setBusinessArea] = useState("");
   const [job, setJob] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [finishDate, setFinishDate] = useState("");
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [finishDate, setFinishDate] = useState<Date | null>(null);
   const [notes, setNotes] = useState("");
   const [usi, setUsi] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -63,18 +63,8 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       setNotes(employee.notes || "");
       setUsi(employee.usi || "");
       setIsActive(employee.isActive ?? true);
-
-      // Format dates for input fields
-      setStartDate(
-        employee.startDate
-          ? format(new Date(employee.startDate), "yyyy-MM-dd")
-          : "",
-      );
-      setFinishDate(
-        employee.finishDate
-          ? format(new Date(employee.finishDate), "yyyy-MM-dd")
-          : "",
-      );
+      setStartDate(employee.startDate || new Date());
+      setFinishDate(employee.finishDate || null);
     }
   }, [employee]);
 
@@ -114,7 +104,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       locationId: locationId ? parseInt(locationId) : null,
       businessArea,
       job,
-      startDate: startDate || null,
+      startDate: startDate,
       finishDate: finishDate || null,
       notes,
       usi,
@@ -261,20 +251,14 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="startDate">Start Date</Label>
-          <Input
-            id="startDate"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
+          <DateSelector selectedDate={startDate} onDateSelect={setStartDate} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="finishDate">Finish Date</Label>
-          <Input
-            id="finishDate"
-            type="date"
-            value={finishDate}
-            onChange={(e) => setFinishDate(e.target.value)}
+          <DateSelector
+            selectedDate={finishDate}
+            onDateSelect={setFinishDate}
+            optional={true}
           />
         </div>
       </div>
