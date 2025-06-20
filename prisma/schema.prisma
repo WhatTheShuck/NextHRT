@@ -83,7 +83,7 @@ enum UserRole {
 
 model Ticket {
   id            Int             @id @default(autoincrement())
-  ticketCode    String          @unique
+  ticketCode    String
   ticketName    String
   renewal       Int?              // in years
   ticketRecords TicketRecords[]
