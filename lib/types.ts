@@ -8,6 +8,7 @@ import {
   Training,
   Ticket,
   User,
+  History,
 } from "@/generated/prisma_client";
 
 export type CompanyDetails = {
@@ -65,3 +66,7 @@ export type EmployeeFormData = {
   isActive: boolean;
   startDate: string | null; // Form sends ISO string
 };
+
+export interface HistoryWithRelations extends History {
+  user?: User;
+}
