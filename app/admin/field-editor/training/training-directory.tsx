@@ -89,69 +89,76 @@ const TrainingDirectory = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Training Title</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Training Records</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trainings.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <span className="text-muted-foreground">Loading...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="text-center text-muted-foreground"
-                  >
-                    No training courses found
-                  </TableCell>
+                  <TableHead>Training Title</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Training Records</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ) : (
-                trainings.map((record: TrainingWithCount) => {
-                  const recordCount = record._count?.trainingRecords || 0;
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        {record.title}
-                      </TableCell>
-                      <TableCell>{record.category}</TableCell>
-                      <TableCell>
-                        {recordCount} {recordCount === 1 ? "record" : "records"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditTraining(record)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteTraining(record)}
-                            disabled={recordCount > 0}
-                            title={
-                              recordCount > 0
-                                ? "Cannot delete training course with existing training records"
-                                : "Delete training course"
-                            }
-                          >
-                            <Trash className="h-4 w-4 mr-1" />
-                            Delete
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {trainings.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
+                      className="text-center text-muted-foreground"
+                    >
+                      No training courses found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  trainings.map((record: TrainingWithCount) => {
+                    const recordCount = record._count?.trainingRecords || 0;
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">
+                          {record.title}
+                        </TableCell>
+                        <TableCell>{record.category}</TableCell>
+                        <TableCell>
+                          {recordCount}{" "}
+                          {recordCount === 1 ? "record" : "records"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditTraining(record)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteTraining(record)}
+                              disabled={recordCount > 0}
+                              title={
+                                recordCount > 0
+                                  ? "Cannot delete training course with existing training records"
+                                  : "Delete training course"
+                              }
+                            >
+                              <Trash className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
       {/* Dialogs */}

@@ -57,7 +57,7 @@ export function ExpiryRecalcDialog({
             Expiry Date Change Detected
           </DialogTitle>
           <DialogDescription>
-            You've changed the ticket type, which affects the expiry date
+            You&apos;ve changed the ticket type, which affects the expiry date
             calculation.
           </DialogDescription>
         </DialogHeader>

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Ticket } from "@/generated/prisma_client";
 import { TicketSelector } from "@/components/ticket-selector";
 import { DateSelector } from "@/components/date-selector";
-import { ExpiryRecalcDialog } from "@/components/dialogs/ticket-record-expiry-recalc-dialog";
+import { ExpiryRecalcDialog } from "@/components/dialogs/ticket-records/ticket-record-expiry-recalc-dialog";
 import api from "@/lib/axios";
 import { X, Upload, FileImage, Trash2, Eye, AlertCircle } from "lucide-react";
 import {

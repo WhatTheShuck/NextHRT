@@ -30,7 +30,7 @@ import {
 import { TicketAddForm } from "@/components/forms/ticket-add-form";
 import { TicketEditForm } from "@/components/forms/ticket-edit-form";
 import { DeleteTicketRecordDialog } from "@/components/dialogs/ticket-records/delete-ticket-record-dialog";
-import { TicketRecordDetailsDialog } from "@/components/dialogs/ticket-record-details-dialog";
+import { TicketRecordDetailsDialog } from "@/components/dialogs/ticket-records/ticket-record-details-dialog";
 import { TicketRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
 

@@ -31,7 +31,7 @@ interface LocationWithCount extends Location {
   };
 }
 
-const locationsDirectory = () => {
+const LocationsDirectory = () => {
   const [locations, setLocations] = useState<LocationWithCount[]>([]);
   const [isLocationAddDialogOpen, setIsLocationAddDialogOpen] = useState(false);
   const [isLocationEditDialogOpen, setIsLocationEditDialogOpen] =
@@ -89,70 +89,76 @@ const locationsDirectory = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Location Name</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead>Employees Assigned</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {locations.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center text-muted-foreground py-8">
+              Loading locations...
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={3}
-                    className="text-center text-muted-foreground"
-                  >
-                    No locations found
-                  </TableCell>
+                  <TableHead>Location Name</TableHead>
+                  <TableHead>State</TableHead>
+                  <TableHead>Employees Assigned</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ) : (
-                locations.map((record: LocationWithCount) => {
-                  const employeeCount = record._count?.employees || 0;
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        {record.name}
-                      </TableCell>
-                      <TableCell>{record.state}</TableCell>
-                      <TableCell>
-                        {employeeCount}{" "}
-                        {employeeCount === 1 ? "employee" : "employees"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditLocation(record)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteLocation(record)}
-                            disabled={employeeCount > 0}
-                            title={
-                              employeeCount > 0
-                                ? "Cannot delete location with assigned employees"
-                                : "Delete location"
-                            }
-                          >
-                            <Trash className="h-4 w-4 mr-1" />
-                            Delete
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {locations.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="text-center text-muted-foreground"
+                    >
+                      No locations found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  locations.map((record: LocationWithCount) => {
+                    const employeeCount = record._count?.employees || 0;
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">
+                          {record.name}
+                        </TableCell>
+                        <TableCell>{record.state}</TableCell>
+                        <TableCell>
+                          {employeeCount}{" "}
+                          {employeeCount === 1 ? "employee" : "employees"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditLocation(record)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteLocation(record)}
+                              disabled={employeeCount > 0}
+                              title={
+                                employeeCount > 0
+                                  ? "Cannot delete location with assigned employees"
+                                  : "Delete location"
+                              }
+                            >
+                              <Trash className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
       {/* Dialogs */}
@@ -191,4 +197,4 @@ const locationsDirectory = () => {
   );
 };
 
-export default locationsDirectory;
+export default LocationsDirectory;

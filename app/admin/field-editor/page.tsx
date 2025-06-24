@@ -23,7 +23,7 @@ export default async function MetaPropertiesPage() {
           <div>
             <h1 className="text-4xl font-bold">Meta Properties</h1>
             <p className="text-muted-foreground mt-2">
-              Manage HRT's core data structures and configurations
+              Manage HRT&apos;s core data structures and configurations
             </p>
           </div>
         </div>

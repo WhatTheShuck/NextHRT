@@ -66,7 +66,7 @@ export function DeleteLocationDialog({
           </div>
           <DialogDescription className="pt-2">
             This action cannot be undone. Are you sure you want to permanently
-            delete the location "{location?.name}"?
+            delete the location &quot;{location?.name}&quot;?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">

@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/sheet";
 import { TrainingAddForm } from "@/components/forms/training-add-form";
 import { TrainingEditForm } from "@/components/forms/training-edit-form";
-import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-record-details-dialog";
+import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-record/training-record-details-dialog";
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
 import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";

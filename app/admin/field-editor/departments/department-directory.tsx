@@ -31,7 +31,7 @@ interface DepartmentWithCount extends Department {
   };
 }
 
-const departmentsDirectory = () => {
+const DepartmentsDirectory = () => {
   const [departments, setDepartments] = useState<DepartmentWithCount[]>([]);
   const [isDepartmentAddDialogOpen, setIsDepartmentAddDialogOpen] =
     useState(false);
@@ -90,68 +90,74 @@ const departmentsDirectory = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Department Name</TableHead>
-                <TableHead>Employees Assigned</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {departments.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center text-muted-foreground">
+              Loading departments...
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={3}
-                    className="text-center text-muted-foreground"
-                  >
-                    No departments found
-                  </TableCell>
+                  <TableHead>Department Name</TableHead>
+                  <TableHead>Employees Assigned</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ) : (
-                departments.map((record: DepartmentWithCount) => {
-                  const employeeCount = record._count?.employees || 0;
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        {record.name}
-                      </TableCell>
-                      <TableCell>
-                        {employeeCount}{" "}
-                        {employeeCount === 1 ? "employee" : "employees"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditDepartment(record)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteDepartment(record)}
-                            disabled={employeeCount > 0}
-                            title={
-                              employeeCount > 0
-                                ? "Cannot delete department with assigned employees"
-                                : "Delete department"
-                            }
-                          >
-                            <Trash className="h-4 w-4 mr-1" />
-                            Delete
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {departments.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="text-center text-muted-foreground"
+                    >
+                      No departments found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  departments.map((record: DepartmentWithCount) => {
+                    const employeeCount = record._count?.employees || 0;
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">
+                          {record.name}
+                        </TableCell>
+                        <TableCell>
+                          {employeeCount}{" "}
+                          {employeeCount === 1 ? "employee" : "employees"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditDepartment(record)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteDepartment(record)}
+                              disabled={employeeCount > 0}
+                              title={
+                                employeeCount > 0
+                                  ? "Cannot delete department with assigned employees"
+                                  : "Delete department"
+                              }
+                            >
+                              <Trash className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
       {/* Dialogs */}
@@ -190,4 +196,4 @@ const departmentsDirectory = () => {
   );
 };
 
-export default departmentsDirectory;
+export default DepartmentsDirectory;
