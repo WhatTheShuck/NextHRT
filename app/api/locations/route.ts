@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
-// GET all locations
 export const GET = auth(async function GET(req) {
   // Check if the user is authenticated
   if (!req.auth) {
@@ -14,7 +13,17 @@ export const GET = auth(async function GET(req) {
     const locations = await prisma.location.findMany({
       include: {
         _count: {
-          select: { employees: true },
+          select: {
+            employees: true,
+          },
+        },
+        employees: {
+          where: {
+            isActive: true,
+          },
+          select: {
+            id: true,
+          },
         },
       },
       orderBy: [
@@ -26,7 +35,18 @@ export const GET = auth(async function GET(req) {
         },
       ],
     });
-    return NextResponse.json(locations);
+
+    // Transform the data to include activeEmployees count
+    const locationsWithActiveCounts = locations.map((location) => ({
+      ...location,
+      _count: {
+        employees: location._count.employees,
+        activeEmployees: location.employees.length,
+      },
+      employees: undefined, // Remove the employees array from the response
+    }));
+
+    return NextResponse.json(locationsWithActiveCounts);
   } catch (error) {
     return NextResponse.json(
       {
@@ -37,7 +57,6 @@ export const GET = auth(async function GET(req) {
     );
   }
 });
-
 // POST new location
 export const POST = auth(async function POST(request) {
   // Check if the user is authenticated

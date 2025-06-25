@@ -66,7 +66,7 @@ export function DeleteDepartmentDialog({
           </div>
           <DialogDescription className="pt-2">
             This action cannot be undone. Are you sure you want to permanently
-            delete the department "{department?.name}"?
+            delete the department &quot;{department?.name}&quot;?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">

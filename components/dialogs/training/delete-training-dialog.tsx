@@ -74,7 +74,7 @@ export function DeleteTrainingDialog({
           </div>
           <DialogDescription className="pt-2">
             This action cannot be undone. Are you sure you want to permanently
-            delete the training course "{training?.title}"?
+            delete the training course &quot;{training?.title}&quot;?
           </DialogDescription>
         </DialogHeader>
 

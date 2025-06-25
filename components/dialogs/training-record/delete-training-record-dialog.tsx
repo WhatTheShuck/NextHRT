@@ -34,7 +34,6 @@ export function DeleteTrainingRecordDialog({
   employee,
 }: DeleteTrainingRecordDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleDelete = async () => {
     if (!trainingRecord) {
@@ -72,7 +71,8 @@ export function DeleteTrainingRecordDialog({
           </div>
           <DialogDescription className="pt-2">
             This action cannot be undone. Are you sure you want to permanently
-            delete the training record "{trainingRecord?.training?.title}"
+            delete the training record &quot;{trainingRecord?.training?.title}
+            &quot;
             {employee ? ` for ${employee.firstName} ${employee.lastName}` : ""}?
           </DialogDescription>
         </DialogHeader>
@@ -89,36 +89,26 @@ export function DeleteTrainingRecordDialog({
               </div>
             </div>
           </div>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <p className="text-sm text-muted-foreground">
-                Loading record details...
-              </p>
-            </div>
-          ) : (
-            trainingRecord && (
-              <div className="space-y-2">
-                <Label>Training record to be deleted:</Label>
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="font-medium">
-                    {trainingRecord.training?.title}
-                  </p>
+          {trainingRecord && (
+            <div className="space-y-2">
+              <Label>Training record to be deleted:</Label>
+              <div className="p-3 bg-muted rounded-md">
+                <p className="font-medium">{trainingRecord.training?.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  Category: {trainingRecord.training?.category}
+                </p>
+                {trainingRecord.trainer && (
                   <p className="text-sm text-muted-foreground">
-                    Category: {trainingRecord.training?.category}
+                    Trainer: {trainingRecord.trainer}
                   </p>
-                  {trainingRecord.trainer && (
-                    <p className="text-sm text-muted-foreground">
-                      Trainer: {trainingRecord.trainer}
-                    </p>
-                  )}
-                  {employee && (
-                    <p className="text-sm text-muted-foreground">
-                      Employee: {employee.firstName} {employee.lastName}
-                    </p>
-                  )}
-                </div>
+                )}
+                {employee && (
+                  <p className="text-sm text-muted-foreground">
+                    Employee: {employee.firstName} {employee.lastName}
+                  </p>
+                )}
               </div>
-            )
+            </div>
           )}
         </div>
         <DialogFooter>

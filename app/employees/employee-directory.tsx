@@ -31,6 +31,8 @@ import { EmployeeAddForm } from "@/components/forms/employee-add-form";
 import { EmployeeWithRelations } from "@/lib/types";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { AxiosError } from "axios";
 
 const EmployeeDirectory = () => {
@@ -41,6 +43,7 @@ const EmployeeDirectory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
   const isAdmin = session?.data?.user?.role === "Admin";
 
   useEffect(() => {
@@ -76,14 +79,19 @@ const EmployeeDirectory = () => {
   }, []);
 
   const filteredEmployees = employees.filter((employee) => {
+    // First filter by search term
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch =
       employee.firstName.toLowerCase().includes(searchLower) ||
       employee.lastName.toLowerCase().includes(searchLower) ||
       employee.title.toLowerCase().includes(searchLower) ||
       employee.department.name.toLowerCase().includes(searchLower) ||
-      employee.location.name.toLowerCase().includes(searchLower)
-    );
+      employee.location.name.toLowerCase().includes(searchLower);
+
+    // Then filter by active status if toggle is on
+    const matchesActiveFilter = showActiveOnly ? employee.isActive : true;
+
+    return matchesSearch && matchesActiveFilter;
   });
 
   const handleRowClick = (employeeId: number) => {
@@ -94,6 +102,7 @@ const EmployeeDirectory = () => {
     setIsSheetOpen(false);
     window.location.reload();
   };
+
   if (error) {
     return (
       <Card className="w-full max-w-4xl mx-auto">
@@ -117,22 +126,30 @@ const EmployeeDirectory = () => {
               Select an employee to view their records
             </CardDescription>
           </div>
-          {isAdmin && (
-            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-              <SheetTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Employee
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>Add New Employee</SheetTitle>
-                </SheetHeader>
-                <EmployeeAddForm onSuccess={handleSheetClose} />
-              </SheetContent>
-            </Sheet>
-          )}
+          <div className="flex justify-between items-center space-x-2">
+            <Switch
+              id="activeEmployees"
+              checked={showActiveOnly}
+              onCheckedChange={setShowActiveOnly}
+            />
+            <Label htmlFor="activeEmployees">Active Only</Label>
+            {isAdmin && (
+              <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Employee
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>Add New Employee</SheetTitle>
+                  </SheetHeader>
+                  <EmployeeAddForm onSuccess={handleSheetClose} />
+                </SheetContent>
+              </Sheet>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -169,7 +186,9 @@ const EmployeeDirectory = () => {
                   <TableCell colSpan={5} className="text-center py-8">
                     {searchTerm
                       ? "No employees match your search"
-                      : "No employees found"}
+                      : showActiveOnly
+                        ? "No active employees found"
+                        : "No employees found"}
                   </TableCell>
                 </TableRow>
               ) : (

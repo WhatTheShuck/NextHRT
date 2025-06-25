@@ -9,15 +9,23 @@ export const GET = auth(async function GET(req) {
   if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
-
   const userRole = req.auth.user?.role as UserRole;
-
   // All authenticated users can view departments (needed for dropdowns)
   try {
     const departments = await prisma.department.findMany({
       include: {
         _count: {
-          select: { employees: true },
+          select: {
+            employees: true,
+          },
+        },
+        employees: {
+          where: {
+            isActive: true,
+          },
+          select: {
+            id: true,
+          },
         },
         managers:
           userRole === "Admin"
@@ -35,7 +43,17 @@ export const GET = auth(async function GET(req) {
       },
     });
 
-    return NextResponse.json(departments);
+    // Transform the data to include activeEmployees count
+    const departmentsWithActiveCounts = departments.map((department) => ({
+      ...department,
+      _count: {
+        employees: department._count.employees,
+        activeEmployees: department.employees.length,
+      },
+      employees: undefined, // Remove the employees array from the response
+    }));
+
+    return NextResponse.json(departmentsWithActiveCounts);
   } catch (error) {
     return NextResponse.json(
       {

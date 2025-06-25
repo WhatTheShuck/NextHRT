@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Image from "next/image";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/axios";
 import { User } from "@/generated/prisma_client";
@@ -14,20 +13,18 @@ interface MainProfileCardProps {
 
 export default function MainProfileCard({ userId }: MainProfileCardProps) {
   const [userData, setUserData] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchUserData() {
       try {
-        setLoading(true);
         const response = await api.get(`/api/users/${userId}`);
         setUserData(response.data);
       } catch (err: any) {
         console.error("Error fetching user data:", err);
-        setError(err.response?.data?.message || "Failed to load user details");
+        console.log(
+          err.response?.data?.message || "Failed to load user details",
+        );
       } finally {
-        setLoading(false);
       }
     }
 

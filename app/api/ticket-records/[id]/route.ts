@@ -152,7 +152,6 @@ export const PUT = auth(async function PUT(
     const finalDateIssued = dateIssued
       ? new Date(dateIssued)
       : existingRecord.dateIssued;
-
     // Get ticket information for expiry calculation
     let ticket = null;
     if (ticketId || dateIssued) {
@@ -194,7 +193,7 @@ export const PUT = auth(async function PUT(
     }
 
     // Clear expiry date for tickets that never expire
-    if (ticket && ticket.renewal === null) {
+    if (ticket && ticket.renewal && expiryDate === null) {
       finalExpiryDate = null;
     }
 

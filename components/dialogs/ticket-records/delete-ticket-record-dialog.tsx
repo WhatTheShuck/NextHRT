@@ -69,8 +69,8 @@ export function DeleteTicketRecordDialog({
           </div>
           <DialogDescription className="pt-2">
             This action cannot be undone. Are you sure you want to permanently
-            delete the ticket record "{ticketRecord?.ticket?.ticketName}" for{" "}
-            {employee?.firstName} {employee?.lastName}?
+            delete the ticket record &quot;{ticketRecord?.ticket?.ticketName}
+            &quot; for {employee?.firstName} {employee?.lastName}?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">

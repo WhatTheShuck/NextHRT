@@ -56,20 +56,21 @@ export const POST = auth(async function POST(req) {
   try {
     const json = await req.json();
 
-    // Check for duplicate ticket code
-    const existingTicket = await prisma.ticket.findUnique({
-      where: { ticketCode: json.ticketCode },
-    });
+    // we don't care about unique ticket code for now
+    // // Check for duplicate ticket code
+    // const existingTicket = await prisma.ticket.findUnique({
+    //   where: { ticketCode: json.ticketCode },
+    // });
 
-    if (existingTicket) {
-      return NextResponse.json(
-        {
-          error: "Ticket code already exists",
-          code: "DUPLICATE_TICKET_CODE",
-        },
-        { status: 409 },
-      );
-    }
+    // if (existingTicket) {
+    //   return NextResponse.json(
+    //     {
+    //       error: "Ticket code already exists",
+    //       code: "DUPLICATE_TICKET_CODE",
+    //     },
+    //     { status: 409 },
+    //   );
+    // }
 
     // Create the ticket
     const ticket = await prisma.ticket.create({

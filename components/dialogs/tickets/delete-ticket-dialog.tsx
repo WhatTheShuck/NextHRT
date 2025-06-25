@@ -72,7 +72,7 @@ export function DeleteTicketDialog({
           </div>
           <DialogDescription className="pt-2">
             This action cannot be undone. Are you sure you want to permanently
-            delete the ticket "{ticket?.ticketName}"?
+            delete the ticket &quot;{ticket?.ticketName}&quot;?
           </DialogDescription>
         </DialogHeader>
 
