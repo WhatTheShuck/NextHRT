@@ -28,6 +28,7 @@ import { DeleteDepartmentDialog } from "@/components/dialogs/department/delete-d
 interface DepartmentWithCount extends Department {
   _count?: {
     employees: number;
+    activeEmployees: number;
   };
 }
 
@@ -99,7 +100,8 @@ const DepartmentsDirectory = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Department Name</TableHead>
-                  <TableHead>Employees Assigned</TableHead>
+                  <TableHead>Total Employees</TableHead>
+                  <TableHead>Active Employees</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -107,7 +109,7 @@ const DepartmentsDirectory = () => {
                 {departments.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={4}
                       className="text-center text-muted-foreground"
                     >
                       No departments found
@@ -116,6 +118,8 @@ const DepartmentsDirectory = () => {
                 ) : (
                   departments.map((record: DepartmentWithCount) => {
                     const employeeCount = record._count?.employees || 0;
+                    const activeEmployeeCount =
+                      record._count?.activeEmployees || 0;
                     return (
                       <TableRow key={record.id}>
                         <TableCell className="font-medium">
@@ -124,6 +128,10 @@ const DepartmentsDirectory = () => {
                         <TableCell>
                           {employeeCount}{" "}
                           {employeeCount === 1 ? "employee" : "employees"}
+                        </TableCell>
+                        <TableCell>
+                          {activeEmployeeCount}{" "}
+                          {activeEmployeeCount === 1 ? "employee" : "employees"}
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-1">
