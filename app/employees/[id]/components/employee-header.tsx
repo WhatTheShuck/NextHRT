@@ -41,7 +41,7 @@ export function EmployeeHeader() {
               <div className="flex items-center gap-2 text-muted-foreground">
                 <span>{employee.title}</span>
                 <span>•</span>
-                <span>{employee.businessArea}</span>
+                <span>{employee.department.name}</span>
               </div>
             </div>
           </div>

@@ -22,8 +22,6 @@ model Employee {
   departmentId    Int
   location        Location          @relation(fields: [locationId], references: [id])
   locationId      Int
-  businessArea    String
-  job             String
   notes           String?
   usi             String? //Universal Student Identifier
   isActive        Boolean           @default(true)
@@ -64,15 +62,17 @@ model TrainingRecords {
 }
 
 model Training {
-  id              Int               @id @default(autoincrement())
-  category        Category
-  title           String
+  id       Int      @id @default(autoincrement())
+  category Category
+  title    String
+
   trainingRecords TrainingRecords[]
 }
 
 enum Category {
   Internal
   External
+  SOP
 }
 
 enum UserRole {
@@ -85,23 +85,21 @@ model Ticket {
   id            Int             @id @default(autoincrement())
   ticketCode    String
   ticketName    String
-  renewal       Int?              // in years
+  renewal       Int? // in years
   ticketRecords TicketRecords[]
 }
 
 model TicketRecords {
-  id            Int      @id @default(autoincrement())
-  ticketHolder  Employee @relation(fields: [employeeId], references: [id])
+  id            Int       @id @default(autoincrement())
+  ticketHolder  Employee  @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateIssued    DateTime
-  ticket        Ticket   @relation(fields: [ticketId], references: [id])
+  ticket        Ticket    @relation(fields: [ticketId], references: [id])
   ticketId      Int
   licenseNumber String? // Optional unique number for the actual license instance
   expiryDate    DateTime?
   imagePath     String?
   imageType     String?
-
-  @@unique([employeeId, ticketId, dateIssued]) // Prevent duplicate records
 }
 
 model History {

@@ -59,8 +59,6 @@ export type EmployeeFormData = {
   title: string;
   departmentId: number; // Form has parsed numbers
   locationId: number; // Form has parsed numbers
-  businessArea: string;
-  job: string;
   notes: string | null;
   usi: string | null;
   isActive: boolean;

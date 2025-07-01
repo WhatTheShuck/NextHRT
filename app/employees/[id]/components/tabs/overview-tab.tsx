@@ -40,12 +40,6 @@ export function OverviewTab() {
             <span className="text-sm text-muted-foreground">Location</span>
             <span className="ml-auto">{employee.location.name}</span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Business Area</span>
-            <span className="ml-auto">{employee.businessArea}</span>
-          </div>
-
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Status</span>
             <Badge

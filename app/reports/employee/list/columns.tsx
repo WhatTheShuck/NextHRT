@@ -40,12 +40,6 @@ export const columns: ColumnDef<Employee>[] = [
   },
   { header: "Title", accessorKey: "title" },
   {
-    header: "Business Area",
-    accessorKey: "businessArea",
-    // Optional: Add format function if you want to transform the WorkAreaID
-    // format: (value: number) => `Area ${value}`,
-  },
-  {
     header: ({ column }) => {
       return (
         <Button

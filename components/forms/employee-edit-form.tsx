@@ -37,8 +37,6 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const [title, setTitle] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [locationId, setLocationId] = useState("");
-  const [businessArea, setBusinessArea] = useState("");
-  const [job, setJob] = useState("");
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [finishDate, setFinishDate] = useState<Date | null>(null);
   const [notes, setNotes] = useState("");
@@ -58,8 +56,6 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       setTitle(employee.title || "");
       setDepartmentId(employee.departmentId?.toString() || "");
       setLocationId(employee.locationId?.toString() || "");
-      setBusinessArea(employee.businessArea || "");
-      setJob(employee.job || "");
       setNotes(employee.notes || "");
       setUsi(employee.usi || "");
       setIsActive(employee.isActive ?? true);
@@ -102,8 +98,6 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       title,
       departmentId: departmentId ? parseInt(departmentId) : null,
       locationId: locationId ? parseInt(locationId) : null,
-      businessArea,
-      job,
       startDate: startDate,
       finishDate: finishDate || null,
       notes,
@@ -214,27 +208,6 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="businessArea">Business Area</Label>
-          <Input
-            id="businessArea"
-            value={businessArea}
-            onChange={(e) => setBusinessArea(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="job">Job *</Label>
-          <Input
-            id="job"
-            value={job}
-            onChange={(e) => setJob(e.target.value)}
-            required
-          />
         </div>
       </div>
 
