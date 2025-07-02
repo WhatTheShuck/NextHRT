@@ -147,8 +147,6 @@ export const POST = auth(async function POST(req) {
               title: emp.title,
               department: emp.department || "Unknown",
               location: emp.location || "Unknown",
-              job: emp.job,
-              businessArea: emp.businessArea,
               isActive: emp.isActive,
               startDate: emp.startDate,
               finishDate: emp.finishDate,
@@ -174,8 +172,6 @@ export const POST = auth(async function POST(req) {
         location: {
           connect: { id: json.locationId },
         },
-        businessArea: json.businessArea,
-        job: json.job,
         notes: json.notes,
         usi: json.usi,
         isActive: json.isActive ?? true,

@@ -66,6 +66,117 @@ export const GET = auth(async function GET(
     );
   }
 });
+// PATCH partial update employee (for things like notes)
+export const PATCH = auth(async function PATCH(
+  request,
+  props: { params: Promise<{ id: string }> },
+) {
+  if (!request.auth) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
+
+  const params = await props.params;
+  const userId = request.auth.user?.id;
+  const userRole = request.auth.user?.role as UserRole;
+  const employeeId = parseInt(params.id);
+
+  try {
+    // Check if user has access to this employee
+    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Not authorised to update this employee" },
+        { status: 403 },
+      );
+    }
+
+    // Get current employee data for history
+    const currentEmployee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+
+    if (!currentEmployee) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 404 },
+      );
+    }
+
+    const json = await request.json();
+
+    // Build update data object only with provided fields
+    const updateData: any = {};
+
+    // Allow partial updates for these fields
+    if (json.notes !== undefined) updateData.notes = json.notes;
+    if (json.firstName !== undefined) updateData.firstName = json.firstName;
+    if (json.lastName !== undefined) updateData.lastName = json.lastName;
+    if (json.title !== undefined) updateData.title = json.title;
+    if (json.usi !== undefined) updateData.usi = json.usi;
+    if (json.isActive !== undefined) updateData.isActive = json.isActive;
+
+    // Handle date fields
+    if (json.startDate !== undefined) {
+      updateData.startDate = json.startDate ? new Date(json.startDate) : null;
+    }
+    if (json.finishDate !== undefined) {
+      updateData.finishDate = json.finishDate
+        ? new Date(json.finishDate)
+        : null;
+    }
+
+    // Handle relational fields
+    if (json.departmentId !== undefined) {
+      updateData.department = { connect: { id: json.departmentId } };
+    }
+    if (json.locationId !== undefined) {
+      updateData.location = { connect: { id: json.locationId } };
+    }
+
+    const updatedEmployee = await prisma.employee.update({
+      where: { id: employeeId },
+      data: updateData,
+      include: {
+        department: true,
+        location: true,
+        trainingRecords: {
+          include: {
+            training: true,
+          },
+        },
+        ticketRecords: {
+          include: {
+            ticket: true,
+          },
+        },
+        User: true,
+      },
+    });
+
+    // Create history record
+    await prisma.history.create({
+      data: {
+        tableName: "Employee",
+        recordId: employeeId.toString(),
+        action: "PATCH",
+        oldValues: JSON.stringify(currentEmployee),
+        newValues: JSON.stringify(updateData), // Only log the changed fields
+        userId: userId,
+      },
+    });
+
+    return NextResponse.json(updatedEmployee);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Error updating employee",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
+});
 
 // PUT update employee
 export const PUT = auth(async function PUT(
@@ -120,8 +231,6 @@ export const PUT = auth(async function PUT(
         location: {
           connect: { id: json.locationId },
         },
-        businessArea: json.businessArea,
-        job: json.job,
         notes: json.notes,
         usi: json.usi,
         isActive: json.isActive ?? true,
@@ -204,7 +313,7 @@ export const DELETE = auth(async function DELETE(
       prisma.history.create({
         data: {
           tableName: "Employee",
-          recordId: employeeId,
+          recordId: employeeId.toString(),
           action: "DELETE",
           oldValues: JSON.stringify(currentEmployee),
           userId: userId,

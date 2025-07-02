@@ -14,6 +14,7 @@ import { AxiosError } from "axios";
 type EmployeeContextType = {
   employee: EmployeeWithRelations | null;
   setEmployee: (employee: EmployeeWithRelations | null) => void;
+  updateEmployee: (updates: Partial<EmployeeWithRelations>) => void;
   refreshData: () => Promise<void>;
   employeeId: number;
   isLoading: boolean;
@@ -65,6 +66,17 @@ export function EmployeeProvider({
     await fetchEmployeeData();
   }, [fetchEmployeeData]);
 
+  // Optimistically update employee data in context
+  const updateEmployee = useCallback(
+    (updates: Partial<EmployeeWithRelations>) => {
+      setEmployee((current) => {
+        if (!current) return current;
+        return { ...current, ...updates };
+      });
+    },
+    [],
+  );
+
   // Fetch data on mount and when employeeId changes
   useEffect(() => {
     fetchEmployeeData();
@@ -75,6 +87,7 @@ export function EmployeeProvider({
       value={{
         employee,
         setEmployee,
+        updateEmployee,
         refreshData,
         employeeId,
         isLoading,
