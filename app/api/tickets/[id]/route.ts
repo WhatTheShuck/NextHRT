@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-// GET single ticket by ID
+// GET single ticket by ID with optional filtering
 export const GET = auth(async function GET(
   req,
   props: { params: Promise<{ id: string }> },
@@ -13,6 +13,8 @@ export const GET = auth(async function GET(
   }
 
   const params = await props.params;
+  const { searchParams } = new URL(req.url);
+  const expirationDays = searchParams.get("expirationDays");
 
   try {
     const id = parseInt(params.id);
@@ -21,16 +23,40 @@ export const GET = auth(async function GET(
       return NextResponse.json({ error: "Invalid ticket ID" }, { status: 400 });
     }
 
+    // Build the where clause for ticketRecords filtering
+    let ticketRecordsWhere: any = {};
+
+    // Add expiration filtering if provided
+    if (expirationDays) {
+      const days = parseInt(expirationDays);
+      if (!isNaN(days)) {
+        const now = new Date();
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() + days);
+
+        ticketRecordsWhere.expiryDate = {
+          gt: now, // Must be in the future (not already expired)
+          lte: cutoffDate, // Must expire within the specified days
+          not: null, // Exclude records without expiry dates
+        };
+      }
+    }
+
     const ticket = await prisma.ticket.findUnique({
       where: { id },
       include: {
         ticketRecords: {
+          where:
+            Object.keys(ticketRecordsWhere).length > 0
+              ? ticketRecordsWhere
+              : undefined,
           include: {
             ticketHolder: {
               select: {
                 id: true,
                 firstName: true,
                 lastName: true,
+                title: true,
                 department: {
                   select: {
                     name: true,
@@ -99,23 +125,6 @@ export const PUT = auth(async function PUT(
 
     if (!existingTicket) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
-    }
-
-    // Check for duplicate ticket code if it's being updated
-    if (json.ticketCode && json.ticketCode !== existingTicket.ticketCode) {
-      const duplicateTicket = await prisma.ticket.findUnique({
-        where: { ticketCode: json.ticketCode },
-      });
-
-      if (duplicateTicket) {
-        return NextResponse.json(
-          {
-            error: "Ticket code already exists",
-            code: "DUPLICATE_TICKET_CODE",
-          },
-          { status: 409 },
-        );
-      }
     }
 
     // Update the ticket

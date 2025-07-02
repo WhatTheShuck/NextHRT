@@ -15,47 +15,65 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
-import { Training } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client";
+import { TicketRecordsWithRelations, TicketWithRelations } from "@/lib/types";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
 import { ExportButtons } from "@/components/ExportButtons";
 import api from "@/lib/axios";
-import { TrainingRecordsWithRelations } from "@/lib/types";
 
-export default function CompletedTrainingPage() {
-  const [trainingSelection, setTrainingSelection] = useState<Training[]>([]);
-  const [filteredTrainingRecords, setFilteredTrainingRecords] = useState<
-    TrainingRecordsWithRelations[]
+export default function ExpiringTicketRecordsPage() {
+  const [ticketSelection, setTicketSelection] = useState<Ticket[]>([]);
+  const [filteredTicketRecords, setFilteredTicketRecords] = useState<
+    TicketRecordsWithRelations[]
   >([]);
-  const [selectedTrainingId, setSelectedTrainingId] = useState<number | null>(
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+  const [selectedTicketTitle, setSelectedTicketTitle] = useState<string | null>(
     null,
   );
-  const [selectedTrainingTitle, setSelectedTrainingTitle] = useState<
-    string | null
-  >(null);
-  const [trainingRecords, setTrainingRecords] = useState<
-    TrainingRecordsWithRelations[]
+  const [ticketRecords, setTicketRecords] = useState<
+    TicketRecordsWithRelations[]
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<string[]>([]);
+  const expirationDates = ["30", "60", "90", "180", "360"];
+  const [selectedExpirationDays, setSelectedExpirationDays] =
+    useState<string>("30");
 
-  const fetchRecords = async (trainingID: number) => {
+  const fetchRecords = async (
+    ticketID: number,
+    expirationDays: string = "30",
+  ) => {
     setLoading(true);
     try {
-      const response = await api.get(`/api/training/${trainingID}`);
+      const params = new URLSearchParams();
+      params.append("expirationDays", expirationDays);
+      const response = await api.get<TicketWithRelations>(
+        `/api/tickets/${ticketID}?${params.toString()}`,
+      );
       const data = response.data;
-      const records = data.trainingRecords || [];
-      setTrainingRecords(records);
-      setSelectedTrainingId(Number(trainingID));
-      setFilteredTrainingRecords(records);
+      const records = data.ticketRecords || [];
+      setTicketRecords(records);
+      setSelectedTicketId(Number(ticketID));
+      setFilteredTicketRecords(records);
+      // Apply client-side location filter if one is selected
+      // This is to catch the case where they have filtered by location and then changed
+      // the expiry date. It will keep their location filter
+      const filteredRecords = selectedLocation
+        ? records.filter(
+            (rec) => rec.ticketHolder?.location.name === selectedLocation,
+          )
+        : records;
+
+      setFilteredTicketRecords(filteredRecords);
       // Extract unique locations
       const uniqueLocations = Array.from(
         new Set(
           records.map(
-            (rec: TrainingRecordsWithRelations) =>
-              rec.personTrained?.location.name,
+            (rec: TicketRecordsWithRelations) =>
+              rec.ticketHolder?.location.name,
           ),
         ),
       ).filter(Boolean) as string[]; // Filter out null/undefined values
@@ -68,12 +86,12 @@ export default function CompletedTrainingPage() {
     }
   };
   useEffect(() => {
-    const fetchTrainings = async () => {
-      const response = await fetch("/api/training");
+    const fetchTickets = async () => {
+      const response = await fetch("/api/tickets");
       const data = await response.json();
-      setTrainingSelection(data);
+      setTicketSelection(data);
     };
-    fetchTrainings();
+    fetchTickets();
   }, []);
 
   // Filter records by location
@@ -82,12 +100,12 @@ export default function CompletedTrainingPage() {
 
     if (location === null) {
       // Reset filter
-      setFilteredTrainingRecords(trainingRecords);
+      setFilteredTicketRecords(ticketRecords);
     } else {
       // Apply filter
-      setFilteredTrainingRecords(
-        trainingRecords.filter(
-          (rec) => rec.personTrained?.location.name === location,
+      setFilteredTicketRecords(
+        ticketRecords.filter(
+          (rec) => rec.ticketHolder?.location.name === location,
         ),
       );
     }
@@ -95,52 +113,77 @@ export default function CompletedTrainingPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Training Completion Records</h1>
+      <h1 className="text-2xl font-bold mb-6">Ticket Completion Records</h1>
 
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-4 mb-1">
         <Select
           onValueChange={(value) => {
-            const selectedTraining = trainingSelection.find(
-              (training) => training.id.toString() === value,
+            const selectedTicket = ticketSelection.find(
+              (ticket) => ticket.id.toString() === value,
             );
-            if (selectedTraining) {
-              setSelectedTrainingTitle(selectedTraining.title);
+            if (selectedTicket) {
+              setSelectedTicketTitle(selectedTicket.ticketName);
             }
-            fetchRecords(Number(value));
+            // Reset location filter when changing tickets
+            setSelectedLocation(null);
+            fetchRecords(Number(value), "30"); // Default to 30 days
           }}
         >
           <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="Select a training type" />
+            <SelectValue placeholder="Select a ticket type" />
           </SelectTrigger>
           <SelectContent>
-            {trainingSelection.map((training) => (
-              <SelectItem key={training.id} value={training.id.toString()}>
-                {training.title}
+            {ticketSelection.map((ticket) => (
+              <SelectItem key={ticket.id} value={ticket.id.toString()}>
+                {ticket.ticketName}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {selectedTicketId && !loading && !error && (
+          <Select
+            value={selectedExpirationDays}
+            onValueChange={(value) => {
+              setSelectedExpirationDays(value);
+              if (selectedTicketId) {
+                setSelectedLocation(null);
+                fetchRecords(selectedTicketId, value);
+              }
+            }}
+          >
+            <SelectTrigger className="w-[280px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {expirationDates.map((date) => (
+                <SelectItem key={date} value={date}>
+                  {date} days
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {loading ? (
-        <div className="text-center py-4">Loading Training Records...</div>
+        <div className="text-center py-4">Loading Ticket Records...</div>
       ) : null}
       {error ? (
         <div className="text-center py-4 text-red-500">Error: {error}</div>
       ) : null}
 
-      {selectedTrainingId && !loading && !error && (
+      {selectedTicketId && !loading && !error && (
         <div className="container py-10 mx-auto">
           <div className="flex justify-between items-center mb-4">
             <ExportButtons
-              data={filteredTrainingRecords}
+              data={filteredTicketRecords}
               columns={columns}
-              filename={`${selectedTrainingTitle}-completions`}
-              title={`${selectedTrainingTitle} - Completion Records`}
+              filename={`${selectedTicketTitle}-completions`}
+              title={`${selectedTicketTitle} - Completion Records`}
             />
             <p className="font-medium">
               {" "}
-              Record Count: {filteredTrainingRecords.length}{" "}
+              Record Count: {filteredTicketRecords.length}{" "}
             </p>
             <Popover>
               <PopoverTrigger asChild>
@@ -183,7 +226,7 @@ export default function CompletedTrainingPage() {
               </PopoverContent>
             </Popover>
           </div>
-          <DataTable columns={columns} data={filteredTrainingRecords} />
+          <DataTable columns={columns} data={filteredTicketRecords} />
         </div>
       )}
     </div>

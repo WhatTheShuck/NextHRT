@@ -42,8 +42,6 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
   const [title, setTitle] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [locationId, setLocationId] = useState("");
-  const [businessArea, setBusinessArea] = useState("");
-  const [job, setJob] = useState("");
   const [notes, setNotes] = useState("");
   const [usi, setUsi] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -88,8 +86,6 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
     title,
     departmentId: parseInt(departmentId),
     locationId: parseInt(locationId),
-    businessArea,
-    job,
     notes: notes || null,
     usi: usi || null,
     isActive,
@@ -97,15 +93,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
   });
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !firstName ||
-      !lastName ||
-      !title ||
-      !departmentId ||
-      !locationId ||
-      !businessArea ||
-      !job
-    ) {
+    if (!firstName || !lastName || !title || !departmentId || !locationId) {
       alert("Please fill in all required fields");
       return;
     }
@@ -118,8 +106,6 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
         title,
         departmentId: parseInt(departmentId),
         locationId: parseInt(locationId),
-        businessArea,
-        job,
         notes: notes || null,
         usi: usi || null,
         isActive,
@@ -234,28 +220,6 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="businessArea">Business Area *</Label>
-          <Input
-            id="businessArea"
-            value={businessArea}
-            onChange={(e) => setBusinessArea(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="job">Job *</Label>
-          <Input
-            id="job"
-            value={job}
-            onChange={(e) => setJob(e.target.value)}
-            required
-          />
         </div>
       </div>
 
