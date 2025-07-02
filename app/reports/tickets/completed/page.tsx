@@ -82,7 +82,7 @@ export default function CompletedTicketPage() {
 
     if (location === null) {
       // Reset filter
-      setFilteredTicketRecords(filteredTicketRecords);
+      setFilteredTicketRecords(ticketRecords);
     } else {
       // Apply filter
       setFilteredTicketRecords(

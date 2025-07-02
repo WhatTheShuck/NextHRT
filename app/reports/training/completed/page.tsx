@@ -82,7 +82,7 @@ export default function CompletedTrainingPage() {
 
     if (location === null) {
       // Reset filter
-      setFilteredTrainingRecords(filteredTrainingRecords);
+      setFilteredTrainingRecords(trainingRecords);
     } else {
       // Apply filter
       setFilteredTrainingRecords(
