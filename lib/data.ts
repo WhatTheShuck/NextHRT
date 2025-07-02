@@ -90,7 +90,7 @@ export const reportsNavigationItems: NavigationItem[] = [
     title: "Upcoming Ticket Expiration",
     description: "View upcoming expiring tickets for a specified period",
     icon: Settings,
-    href: "/reports/tickets/upcoming",
+    href: "/reports/tickets/expiring",
     requiresAdmin: false,
   },
   {
