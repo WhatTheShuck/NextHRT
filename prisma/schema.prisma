@@ -25,25 +25,47 @@ model Employee {
   notes           String?
   usi             String? //Universal Student Identifier
   isActive        Boolean           @default(true)
+  status          EmployeeStatus    @default(Permanent)
   trainingRecords TrainingRecords[]
   ticketRecords   TicketRecords[]
   User            User?
 }
 
+enum EmployeeStatus {
+  Permanent
+  Apprentice
+  LabourContractor
+  IndustryExperience
+  PartTimePermanent
+}
+
 model Location {
-  id        Int        @id @default(autoincrement())
-  name      String
-  state     String
-  employees Employee[]
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  state                String
+  employees            Employee[]
+  trainingRequirements TrainingRequirement[]
+  ticketRequirements   TicketRequirement[]
 
   @@unique([name, state])
 }
 
 model Department {
-  id        Int        @id @default(autoincrement())
-  name      String     @unique
-  employees Employee[]
-  managers  User[]     @relation("DepartmentManager")
+  id                   Int                   @id @default(autoincrement())
+  name                 String                @unique
+  employees            Employee[]
+  managers             User[]                @relation("DepartmentManager")
+  trainingRequirements TrainingRequirement[]
+  ticketRequirements   TicketRequirement[]
+}
+
+model Training {
+  id              Int                   @id @default(autoincrement())
+  category        Category
+  title           String
+  isActive        Boolean               @default(true)
+  trainingRecords TrainingRecords[]
+  requirements    TrainingRequirement[]
 }
 
 model TrainingRecords {
@@ -51,7 +73,6 @@ model TrainingRecords {
   personTrained Employee @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateCompleted DateTime
-  // expiryDate    DateTime?
   training      Training @relation(fields: [trainingId], references: [id])
   trainingId    Int
   trainer       String
@@ -61,12 +82,15 @@ model TrainingRecords {
   @@unique([employeeId, trainingId, dateCompleted])
 }
 
-model Training {
-  id       Int      @id @default(autoincrement())
-  category Category
-  title    String
+model TrainingRequirement {
+  trainingId   Int
+  departmentId Int
+  locationId   Int
+  training     Training   @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  location     Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
-  trainingRecords TrainingRecords[]
+  @@id([trainingId, departmentId, locationId])
 }
 
 enum Category {
@@ -75,18 +99,14 @@ enum Category {
   SOP
 }
 
-enum UserRole {
-  User
-  DepartmentManager
-  Admin
-}
-
 model Ticket {
-  id            Int             @id @default(autoincrement())
+  id            Int                 @id @default(autoincrement())
   ticketCode    String
   ticketName    String
   renewal       Int? // in years
+  isActive      Boolean             @default(true)
   ticketRecords TicketRecords[]
+  requirements  TicketRequirement[]
 }
 
 model TicketRecords {
@@ -100,6 +120,17 @@ model TicketRecords {
   expiryDate    DateTime?
   imagePath     String?
   imageType     String?
+}
+
+model TicketRequirement {
+  ticketId     Int
+  departmentId Int
+  locationId   Int
+  ticket       Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  location     Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([ticketId, departmentId, locationId])
 }
 
 model History {
@@ -130,6 +161,12 @@ model User {
   historyLogs        History[]
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+}
+
+enum UserRole {
+  User
+  DepartmentManager
+  Admin
 }
 
 model Account {
