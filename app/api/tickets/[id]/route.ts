@@ -31,6 +31,7 @@ export const GET = auth(async function GET(
                 id: true,
                 firstName: true,
                 lastName: true,
+                title: true,
                 department: {
                   select: {
                     name: true,

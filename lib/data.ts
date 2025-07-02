@@ -80,13 +80,6 @@ export const reportsNavigationItems: NavigationItem[] = [
     requiresAdmin: false,
   },
   {
-    title: "Upcoming Employee Training",
-    description: "View upcoming employee training in a specified period",
-    icon: Users,
-    href: "/reports/training/upcoming",
-    requiresAdmin: false,
-  },
-  {
     title: "Training Completion",
     description: "See who has completed a specific type of training",
     icon: ClipboardList,

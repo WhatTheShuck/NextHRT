@@ -40,12 +40,15 @@ export interface EmployeeWithRelations extends Employee {
 }
 export interface TrainingRecordsWithRelations extends TrainingRecords {
   training?: Training;
-  employee?: Employee;
+  personTrained?: EmployeeWithRelations;
 }
 
 export interface TicketRecordsWithRelations extends TicketRecords {
   ticket?: Ticket;
-  employee?: Employee;
+  ticketHolder?: EmployeeWithRelations;
+}
+export interface TicketWithRelations extends Ticket {
+  ticketRecords?: TicketRecordsWithRelations[];
 }
 
 export interface UserWithRelations extends User {
