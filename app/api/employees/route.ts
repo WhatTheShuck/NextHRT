@@ -102,7 +102,7 @@ export const POST = auth(async function POST(req) {
 
   // Only Admins can create new employees
   if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {

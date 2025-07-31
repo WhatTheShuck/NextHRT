@@ -6,16 +6,16 @@ import { hasAccessToEmployee } from "@/lib/apiRBAC";
 
 // GET single employee
 export const GET = auth(async function GET(
-  request,
+  req,
   props: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
   const params = await props.params;
-  const userId = request.auth.user?.id;
-  const userRole = request.auth.user?.role as UserRole;
+  const userId = req.auth.user?.id;
+  const userRole = req.auth.user?.role as UserRole;
   const employeeId = parseInt(params.id);
 
   try {
@@ -24,7 +24,7 @@ export const GET = auth(async function GET(
 
     if (!hasAccess) {
       return NextResponse.json(
-        { error: "Not authorized to view this employee" },
+        { error: "Not authorised to view this employee" },
         { status: 403 },
       );
     }

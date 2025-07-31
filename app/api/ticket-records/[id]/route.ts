@@ -6,6 +6,8 @@ import { existsSync } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
+import { UserRole } from "@/generated/prisma_client";
+import { hasAccessToEmployee } from "@/lib/apiRBAC";
 
 /**
  * Calculate expiry date based on issue date and ticket renewal period
@@ -37,6 +39,9 @@ export const GET = auth(async function GET(
   }
 
   const params = await props.params;
+  const userId = req.auth.user?.id;
+  const userRole = req.auth.user?.role as UserRole;
+  const employeeId = parseInt(params.id);
 
   try {
     const id = parseInt(params.id);
@@ -45,6 +50,15 @@ export const GET = auth(async function GET(
       return NextResponse.json(
         { error: "Invalid ticket record ID" },
         { status: 400 },
+      );
+    }
+    // Check if user has access to this employee
+    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Not authorised to view this employee" },
+        { status: 403 },
       );
     }
 
@@ -112,7 +126,12 @@ export const PUT = auth(async function PUT(
   }
 
   const params = await props.params;
+  const userRole = req.auth.user?.role as UserRole;
 
+  // Only Admins can edit employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+  }
   try {
     const id = parseInt(params.id);
 
@@ -402,6 +421,12 @@ export const DELETE = auth(async function DELETE(
   }
 
   const params = await props.params;
+  const userRole = req.auth.user?.role as UserRole;
+
+  // Only Admins can delete employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  }
 
   try {
     const id = parseInt(params.id);

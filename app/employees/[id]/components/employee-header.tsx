@@ -14,9 +14,12 @@ import {
 import { useEmployee } from "./employee-context";
 import { EmployeeEditForm } from "@/components/forms/employee-edit-form";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 export function EmployeeHeader() {
   const { employee } = useEmployee();
+  const session = useSession();
+  const isAdmin = session?.data?.user.role === "Admin";
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
@@ -45,20 +48,22 @@ export function EmployeeHeader() {
               </div>
             </div>
           </div>
-          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-            <SheetTrigger asChild>
-              <Button>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Profile
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Edit Profile</SheetTitle>
-              </SheetHeader>
-              <EmployeeEditForm onSuccess={() => setIsSheetOpen(false)} />
-            </SheetContent>
-          </Sheet>
+          {isAdmin && (
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+              <SheetTrigger asChild>
+                <Button>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Edit Profile</SheetTitle>
+                </SheetHeader>
+                <EmployeeEditForm onSuccess={() => setIsSheetOpen(false)} />
+              </SheetContent>
+            </Sheet>
+          )}
         </div>
       </div>
     </div>

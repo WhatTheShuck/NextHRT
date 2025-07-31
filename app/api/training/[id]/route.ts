@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { UserRole } from "@/generated/prisma_client";}
 
 // GET single training course
 export const GET = auth(async function GET(
@@ -62,14 +63,21 @@ export const GET = auth(async function GET(
 
 // PUT update training course
 export const PUT = auth(async function PUT(
-  request,
+  req,
   props: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
   const params = await props.params;
+
+  const userRole = req.auth.user?.role as UserRole;
+
+  // Only Admins can edit employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  }
   try {
     const id = parseInt(params.id);
 
@@ -80,7 +88,7 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    const json = await request.json();
+    const json = await req.json();
 
     // Get the current training record for history
     const currentTraining = await prisma.training.findUnique({
@@ -110,7 +118,7 @@ export const PUT = auth(async function PUT(
         action: "UPDATE",
         oldValues: JSON.stringify(currentTraining),
         newValues: JSON.stringify(updatedTraining),
-        userId: request.auth.user?.id,
+        userId: req.auth.user?.id,
       },
     });
 
@@ -128,14 +136,21 @@ export const PUT = auth(async function PUT(
 
 // DELETE training course
 export const DELETE = auth(async function DELETE(
-  request,
+  req,
   props: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
   const params = await props.params;
+
+  const userRole = req.auth.user?.role as UserRole;
+
+   // Only Admins can delete employee records
+   if (userRole !== "Admin") {
+     return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+   }
   try {
     const id = parseInt(params.id);
 
@@ -184,7 +199,7 @@ export const DELETE = auth(async function DELETE(
         recordId: id.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(currentTraining),
-        userId: request.auth.user?.id,
+        userId: req.auth.user?.id,
       },
     });
 

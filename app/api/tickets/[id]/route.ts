@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { UserRole } from "@/generated/prisma_client";
 
 // GET single ticket by ID with optional filtering
 export const GET = auth(async function GET(
@@ -109,6 +110,13 @@ export const PUT = auth(async function PUT(
 
   const params = await props.params;
 
+  const userRole = req.auth.user?.role as UserRole;
+
+  // Only Admins can edit employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+  }
+
   try {
     const id = parseInt(params.id);
 
@@ -171,6 +179,12 @@ export const DELETE = auth(async function DELETE(
   }
 
   const params = await props.params;
+  const userRole = req.auth.user?.role as UserRole;
+
+  // Only Admins can delete employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  }
 
   try {
     const id = parseInt(params.id);
@@ -216,7 +230,7 @@ export const DELETE = auth(async function DELETE(
     await prisma.history.create({
       data: {
         tableName: "Ticket",
-        recordId: id,
+        recordId: id.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(existingTicket),
         userId: req.auth.user?.id,

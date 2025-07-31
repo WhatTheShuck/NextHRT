@@ -6,6 +6,7 @@ import { existsSync } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
+import { UserRole } from "@/generated/prisma_client";
 
 /**
  * Calculate expiry date based on issue date and ticket renewal period
@@ -34,41 +35,169 @@ export const GET = auth(async function GET(req) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  try {
-    const ticketRecords = await prisma.ticketRecords.findMany({
-      include: {
-        ticketHolder: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            title: true,
-            department: {
-              select: {
-                name: true,
-              },
-            },
-            location: {
-              select: {
-                name: true,
-                state: true,
-              },
-            },
-          },
-        },
-        ticket: {
-          select: {
-            id: true,
-            ticketCode: true,
-            ticketName: true,
-            renewal: true,
-          },
-        },
-      },
-      orderBy: [{ dateIssued: "desc" }, { ticketHolder: { lastName: "asc" } }],
-    });
+  const userRole = req.auth.user?.role as UserRole;
+  const userId = req.auth.user?.id;
 
-    return NextResponse.json(ticketRecords);
+  try {
+    // Different query based on user role
+    if (userRole === "Admin") {
+      // Admins can see all employee records
+      const ticketRecords = await prisma.ticketRecords.findMany({
+        include: {
+          ticketHolder: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              title: true,
+              department: {
+                select: {
+                  name: true,
+                },
+              },
+              location: {
+                select: {
+                  name: true,
+                  state: true,
+                },
+              },
+            },
+          },
+          ticket: {
+            select: {
+              id: true,
+              ticketCode: true,
+              ticketName: true,
+              renewal: true,
+            },
+          },
+        },
+        orderBy: [
+          { dateIssued: "desc" },
+          { ticketHolder: { lastName: "asc" } },
+        ],
+      });
+
+      return NextResponse.json(ticketRecords);
+    } else if (userRole === "DepartmentManager") {
+      // Department managers can see employees in their departments
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { managedDepartments: true },
+      });
+
+      if (!user) {
+        return NextResponse.json(
+          { message: "User not found" },
+          { status: 404 },
+        );
+      }
+
+      const departmentIds = user.managedDepartments.map((dept) => dept.id);
+
+      const employees = await prisma.employee.findMany({
+        where: {
+          departmentId: { in: departmentIds },
+        },
+        include: {
+          department: true,
+          location: true,
+        },
+        orderBy: {
+          lastName: "asc",
+        },
+      });
+      const employeeIds = employees.map((emp) => emp.id);
+
+      const ticketRecords = await prisma.ticketRecords.findMany({
+        where: { employeeId: { in: employeeIds } },
+        include: {
+          ticketHolder: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              title: true,
+              department: {
+                select: {
+                  name: true,
+                },
+              },
+              location: {
+                select: {
+                  name: true,
+                  state: true,
+                },
+              },
+            },
+          },
+          ticket: {
+            select: {
+              id: true,
+              ticketCode: true,
+              ticketName: true,
+              renewal: true,
+            },
+          },
+        },
+        orderBy: [
+          { dateIssued: "desc" },
+          { ticketHolder: { lastName: "asc" } },
+        ],
+      });
+      return NextResponse.json([ticketRecords]);
+    } else {
+      // Regular users can only see themselves
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { employee: true },
+      });
+
+      if (!user || !user.employee) {
+        return NextResponse.json(
+          { message: "No associated employee record" },
+          { status: 403 },
+        );
+      }
+
+      const ticketRecords = await prisma.ticketRecords.findMany({
+        where: { employeeId: user.employee.id },
+        include: {
+          ticketHolder: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              title: true,
+              department: {
+                select: {
+                  name: true,
+                },
+              },
+              location: {
+                select: {
+                  name: true,
+                  state: true,
+                },
+              },
+            },
+          },
+          ticket: {
+            select: {
+              id: true,
+              ticketCode: true,
+              ticketName: true,
+              renewal: true,
+            },
+          },
+        },
+        orderBy: [
+          { dateIssued: "desc" },
+          { ticketHolder: { lastName: "asc" } },
+        ],
+      });
+      return NextResponse.json([ticketRecords]); // Return as array for consistent frontend handling
+    }
   } catch (error) {
     return NextResponse.json(
       {
@@ -86,7 +215,12 @@ export const POST = auth(async function POST(req) {
   if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+  const userRole = req.auth.user?.role as UserRole;
 
+  // Only Admins can create employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+  }
   try {
     const formData = await req.formData();
 
