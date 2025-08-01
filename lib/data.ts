@@ -7,6 +7,7 @@ import {
   Settings,
   FileText,
   ShieldCheck,
+  CalendarPlus,
   Building2,
   GraduationCap,
   MapPin,
@@ -45,7 +46,7 @@ export const landingPageNavigationItems: NavigationItem[] = [
     description: "Add and manage training for multiple users",
     icon: ClipboardList,
     href: "/bulk-training",
-    requiresAdmin: false,
+    requiresAdmin: true,
   },
   {
     title: "Dropdown Items",
@@ -62,12 +63,11 @@ export const landingPageNavigationItems: NavigationItem[] = [
     requiresAdmin: true,
   },
   {
-    title: "Authentication",
-    description:
-      "Authentication Page so I don't have to keep typing it into the url bar",
-    icon: ShieldCheck,
-    href: "/auth",
-    requiresAdmin: true,
+    title: "Training Request",
+    description: "Request approval to attending training",
+    icon: CalendarPlus,
+    href: "/training-request",
+    requiresAdmin: false,
   },
 ];
 
