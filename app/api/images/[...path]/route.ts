@@ -3,8 +3,11 @@ import { auth } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import prisma from "@/lib/prisma";
+import { UserRole } from "@/generated/prisma_client";
+import { hasAccessToEmployee } from "@/lib/apiRBAC";
 
-// GET serve image files
+// GET serve image files with RBAC
 export const GET = auth(async function GET(
   request,
   props: { params: Promise<{ path: string[] }> },
@@ -14,6 +17,9 @@ export const GET = auth(async function GET(
   }
 
   const params = await props.params;
+  const userId = request.auth.user?.id;
+  const userRole = request.auth.user?.role as UserRole;
+
   try {
     // Reconstruct the file path from the dynamic route segments
     const filePath = params.path.join("/");
@@ -21,6 +27,90 @@ export const GET = auth(async function GET(
     // Security: Prevent directory traversal attacks
     if (filePath.includes("..") || filePath.includes("\\")) {
       return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+    }
+
+    // Extract the filename from the path to search in database
+    const fileName = path.basename(filePath);
+
+    // Check if this is a ticket image (based on folder structure)
+    if (filePath.startsWith("tickets/")) {
+      // Find the ticket record that owns this image
+      const ticketRecord = await prisma.ticketRecords.findFirst({
+        where: {
+          imagePath: filePath,
+        },
+        include: {
+          ticketHolder: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              departmentId: true,
+            },
+          },
+        },
+      });
+
+      if (!ticketRecord) {
+        return NextResponse.json({ error: "Image not found" }, { status: 404 });
+      }
+
+      // Check if user has access to this employee's records
+      const hasAccess = await hasAccessToEmployee(
+        userId,
+        ticketRecord.ticketHolder.id,
+        userRole,
+      );
+
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "Not authorised to view this image" },
+          { status: 403 },
+        );
+      }
+    }
+    // Add similar checks for training images if needed
+    else if (filePath.startsWith("training/")) {
+      // Find the training record that owns this image
+      const trainingRecord = await prisma.trainingRecords.findFirst({
+        where: {
+          imagePath: filePath,
+        },
+        include: {
+          personTrained: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              departmentId: true,
+            },
+          },
+        },
+      });
+
+      if (!trainingRecord) {
+        return NextResponse.json({ error: "Image not found" }, { status: 404 });
+      }
+
+      // Check if user has access to this employee's records
+      const hasAccess = await hasAccessToEmployee(
+        userId,
+        trainingRecord.personTrained.id,
+        userRole,
+      );
+
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "Not authorised to view this image" },
+          { status: 403 },
+        );
+      }
+    } else {
+      // Unknown image type - deny access
+      return NextResponse.json(
+        { error: "Unauthorised image access" },
+        { status: 403 },
+      );
     }
 
     // Construct full file path
@@ -59,7 +149,7 @@ export const GET = auth(async function GET(
       headers: {
         "Content-Type": contentType,
         "Content-Length": fileBuffer.length.toString(),
-        "Cache-Control": "public, max-age=31536000, immutable", // Cache for 1 year
+        "Cache-Control": "private, max-age=3600", // Cache for 1 hour, but mark as private
       },
     });
   } catch (error) {
