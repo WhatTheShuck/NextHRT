@@ -36,8 +36,8 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
   const [ticketId, setTicketId] = useState("");
   const [licenceNum, setLicenceNum] = useState("");
   const [dateIssued, setDateIssued] = useState<Date>(new Date());
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string>("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
 
   // Expiry date state
   const [manualExpiryOverride, setManualExpiryOverride] = useState(false);
@@ -115,28 +115,36 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setFileError("");
+    const files = Array.from(e.target.files || []);
+    const newErrors: string[] = [];
+    const validFiles: File[] = [];
 
-    if (!file) {
-      setSelectedFile(null);
-      return;
-    }
+    files.forEach((file, index) => {
+      const error = validateFile(file);
+      if (error) {
+        newErrors.push(`${file.name}: ${error}`);
+      } else {
+        validFiles.push(file);
+      }
+    });
 
-    const error = validateFile(file);
-    if (error) {
-      setFileError(error);
-      setSelectedFile(null);
-      e.target.value = "";
-      return;
-    }
+    // Add valid files to existing selection
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
+    setFileErrors(newErrors);
 
-    setSelectedFile(file);
+    // Clear the input to allow selecting the same files again if needed
+    e.target.value = "";
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
-    setFileError("");
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFileErrors((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Add a function to clear all files
+  const clearAllFiles = () => {
+    setSelectedFiles([]);
+    setFileErrors([]);
     const fileInput = document.getElementById(
       "image-upload",
     ) as HTMLInputElement;
@@ -167,9 +175,10 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
       // Add manual override flag
       formData.append("manualExpiryOverride", manualExpiryOverride.toString());
 
-      if (selectedFile) {
-        formData.append("image", selectedFile);
-      }
+      // Add multiple images
+      selectedFiles.forEach((file, index) => {
+        formData.append(`images`, file);
+      });
 
       await api.post("/api/ticket-records", formData, {
         headers: {
@@ -181,8 +190,8 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
       setTicketId("");
       setLicenceNum("");
       setDateIssued(new Date());
-      setSelectedFile(null);
-      setFileError("");
+      setSelectedFiles([]);
+      setFileErrors([]);
       setManualExpiryOverride(false);
       setManualExpiryDate(null);
 
@@ -350,7 +359,7 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
       {/* File Upload Section */}
       <div className="space-y-2">
         <Label htmlFor="image-upload">
-          Ticket Certificate/Image (Optional)
+          Ticket Certificate/Images (Optional)
         </Label>
         <div className="space-y-3">
           <div className="flex items-center justify-center w-full">
@@ -375,37 +384,68 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
               className="hidden"
               accept={FILE_UPLOAD_CONFIG.ALLOWED_TYPES.join(",")}
               onChange={handleFileChange}
+              multiple
             />
           </div>
 
-          {fileError && (
-            <div className="text-sm text-red-600 dark:text-red-400">
-              {fileError}
+          {fileErrors.length > 0 && (
+            <div className="space-y-1">
+              {fileErrors.map((error, index) => (
+                <div
+                  key={index}
+                  className="text-sm text-red-600 dark:text-red-400"
+                >
+                  {error}
+                </div>
+              ))}
             </div>
           )}
 
-          {selectedFile && !fileError && (
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <FileImage className="w-5 h-5 text-gray-500" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {formatFileSize(selectedFile.size)}
-                  </p>
-                </div>
+          {selectedFiles.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Selected Images ({selectedFiles.length})
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFiles}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  Clear All
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={removeFile}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <X className="w-4 h-4" />
-              </Button>
+              <div className="grid grid-cols-1 gap-2 max-h-128 overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg min-w-0"
+                  >
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <FileImage className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0 ml-2"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

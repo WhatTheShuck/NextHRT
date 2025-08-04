@@ -94,6 +94,7 @@ export const GET = auth(async function GET(
             renewal: true,
           },
         },
+        images: true,
       },
     });
 
@@ -163,7 +164,10 @@ export const PUT = auth(async function PUT(
     const licenseNumber = formData.get("licenseNumber") as string;
     const expiryDate = formData.get("expiryDate") as string;
     const imageFile = formData.get("image") as File | null;
-    const removeImage = formData.get("removeImage") === "true";
+    const removedImageIdsString = formData.get("removedImageIds") as string;
+    const removedImageIds = removedImageIdsString
+      ? JSON.parse(removedImageIdsString)
+      : [];
 
     // Use existing values if new ones aren't provided
     const finalEmployeeId = employeeId || existingRecord.employeeId;
@@ -259,39 +263,44 @@ export const PUT = auth(async function PUT(
       }
     }
 
-    // Handle file operations
-    let imagePath: string | null = existingRecord.imagePath;
-    let imageType: string | null = existingRecord.imageType;
-    let oldImagePath: string | null = null;
+    const imageFiles = formData.getAll("images") as File[];
+    const savedImages: Array<{
+      imagePath: string;
+      imageType: string;
+      originalName: string;
+    }> = [];
 
-    // If removing image or uploading new one, prepare to delete old file
-    if (removeImage || (imageFile && imageFile.size > 0)) {
-      oldImagePath = existingRecord.imagePath;
-      imagePath = null;
-      imageType = null;
+    // Detect if images are removed and remove them
+    if (removedImageIds.length > 0) {
+      // Get the specific images to remove (for file cleanup)
+      const imagesToRemove = await prisma.ticketImage.findMany({
+        where: {
+          id: { in: removedImageIds },
+        },
+      });
+
+      // Delete the physical files
+      for (const image of imagesToRemove) {
+        try {
+          const fullPath = path.join(process.cwd(), "uploads", image.imagePath);
+          if (existsSync(fullPath)) {
+            await unlink(fullPath);
+          }
+        } catch (cleanupError) {
+          console.error("Error cleaning up file:", cleanupError);
+        }
+      }
+
+      // Delete the database records
+      await prisma.ticketImage.deleteMany({
+        where: {
+          id: { in: removedImageIds },
+        },
+      });
     }
 
-    // Process new file upload if present
-    if (imageFile && imageFile.size > 0) {
-      // Validate file
-      if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
-        return NextResponse.json(
-          {
-            error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
-          },
-          { status: 400 },
-        );
-      }
-
-      if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
-        return NextResponse.json(
-          {
-            error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
-          },
-          { status: 400 },
-        );
-      }
-
+    // Process new file uploads
+    if (imageFiles.length > 0) {
       try {
         // Create upload directory if it doesn't exist
         const uploadDir = path.join(process.cwd(), "uploads", "tickets");
@@ -299,23 +308,50 @@ export const PUT = auth(async function PUT(
           await mkdir(uploadDir, { recursive: true });
         }
 
-        // Generate unique filename
-        const fileExtension = path.extname(imageFile.name);
-        const uniqueFilename = `${uuidv4()}${fileExtension}`;
-        const filePath = path.join(uploadDir, uniqueFilename);
+        // Process each file
+        for (const imageFile of imageFiles) {
+          if (imageFile && imageFile.size > 0) {
+            // Validate file
+            if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
+              return NextResponse.json(
+                {
+                  error: `Invalid file type for ${imageFile.name}. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
+                },
+                { status: 400 },
+              );
+            }
 
-        // Convert file to buffer and save
-        const bytes = await imageFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        await writeFile(filePath, buffer);
+            if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
+              return NextResponse.json(
+                {
+                  error: `File ${imageFile.name} is too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
+                },
+                { status: 400 },
+              );
+            }
 
-        // Store relative path for database
-        imagePath = `tickets/${uniqueFilename}`;
-        imageType = imageFile.type;
+            // Generate unique filename
+            const fileExtension = path.extname(imageFile.name);
+            const uniqueFilename = `${uuidv4()}${fileExtension}`;
+            const filePath = path.join(uploadDir, uniqueFilename);
+
+            // Convert file to buffer and save
+            const bytes = await imageFile.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            await writeFile(filePath, buffer);
+
+            // Store relative path for database
+            savedImages.push({
+              imagePath: `tickets/${uniqueFilename}`,
+              imageType: imageFile.type,
+              originalName: imageFile.name,
+            });
+          }
+        }
       } catch (fileError) {
         return NextResponse.json(
           {
-            error: "Error saving file",
+            error: "Error saving files",
             details:
               fileError instanceof Error
                 ? fileError.message
@@ -336,10 +372,16 @@ export const PUT = auth(async function PUT(
         expiryDate: finalExpiryDate,
         licenseNumber:
           licenseNumber !== undefined ? licenseNumber || null : undefined,
-        imagePath:
-          imagePath !== existingRecord.imagePath ? imagePath : undefined,
-        imageType:
-          imageType !== existingRecord.imageType ? imageType : undefined,
+        // Remove the old imagePath and imageType fields
+        ...(savedImages.length > 0 && {
+          images: {
+            create: savedImages.map((img) => ({
+              imagePath: img.imagePath,
+              imageType: img.imageType,
+              originalName: img.originalName,
+            })),
+          },
+        }),
       },
       include: {
         ticketHolder: {
@@ -371,21 +413,9 @@ export const PUT = auth(async function PUT(
             renewal: true,
           },
         },
+        images: true, // Include images in response
       },
     });
-
-    // Clean up old file if it was replaced or removed
-    if (oldImagePath) {
-      try {
-        const oldFullPath = path.join(process.cwd(), "uploads", oldImagePath);
-        if (existsSync(oldFullPath)) {
-          await unlink(oldFullPath);
-        }
-      } catch (cleanupError) {
-        // Log error but don't fail the request
-        console.error("Error cleaning up old file:", cleanupError);
-      }
-    }
 
     // Create history record
     await prisma.history.create({
@@ -454,6 +484,7 @@ export const DELETE = auth(async function DELETE(
             ticketName: true,
           },
         },
+        images: true,
       },
     });
 
@@ -469,20 +500,20 @@ export const DELETE = auth(async function DELETE(
       where: { id },
     });
 
-    // Clean up associated file if it exists
-    if (existingRecord.imagePath) {
-      try {
-        const filePath = path.join(
-          process.cwd(),
-          "uploads",
-          existingRecord.imagePath,
-        );
-        if (existsSync(filePath)) {
-          await unlink(filePath);
+    // Clean up associated files
+    if (existingRecord?.images && existingRecord.images.length > 0) {
+      for (const image of existingRecord.images) {
+        try {
+          const filePath = path.join(process.cwd(), "uploads", image.imagePath);
+          if (existsSync(filePath)) {
+            await unlink(filePath);
+          }
+        } catch (cleanupError) {
+          console.error(
+            "Error cleaning up file during deletion:",
+            cleanupError,
+          );
         }
-      } catch (cleanupError) {
-        // Log error but don't fail the request since record is already deleted
-        console.error("Error cleaning up file during deletion:", cleanupError);
       }
     }
 

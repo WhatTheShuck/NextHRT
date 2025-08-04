@@ -42,6 +42,7 @@ export const GET = auth(async function GET(
         ticketRecords: {
           include: {
             ticket: true,
+            images: true,
           },
         },
         User: true,

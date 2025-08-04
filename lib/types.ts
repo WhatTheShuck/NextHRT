@@ -9,6 +9,7 @@ import {
   Ticket,
   User,
   History,
+  TicketImage,
 } from "@/generated/prisma_client";
 
 export type CompanyDetails = {
@@ -46,6 +47,7 @@ export interface TrainingRecordsWithRelations extends TrainingRecords {
 export interface TicketRecordsWithRelations extends TicketRecords {
   ticket?: Ticket;
   ticketHolder?: EmployeeWithRelations;
+  images?: TicketImage[];
 }
 export interface TicketWithRelations extends Ticket {
   ticketRecords?: TicketRecordsWithRelations[];

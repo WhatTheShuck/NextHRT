@@ -34,31 +34,35 @@ export const GET = auth(async function GET(
 
     // Check if this is a ticket image (based on folder structure)
     if (filePath.startsWith("tickets/")) {
-      // Find the ticket record that owns this image
-      const ticketRecord = await prisma.ticketRecords.findFirst({
+      // Find the ticket image record that matches this file path
+      const ticketImage = await prisma.ticketImage.findFirst({
         where: {
           imagePath: filePath,
         },
         include: {
-          ticketHolder: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              departmentId: true,
+          ticketRecord: {
+            include: {
+              ticketHolder: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  departmentId: true,
+                },
+              },
             },
           },
         },
       });
 
-      if (!ticketRecord) {
+      if (!ticketImage) {
         return NextResponse.json({ error: "Image not found" }, { status: 404 });
       }
 
       // Check if user has access to this employee's records
       const hasAccess = await hasAccessToEmployee(
         userId,
-        ticketRecord.ticketHolder.id,
+        ticketImage.ticketRecord.ticketHolder.id,
         userRole,
       );
 
@@ -69,7 +73,7 @@ export const GET = auth(async function GET(
         );
       }
     }
-    // Add similar checks for training images if needed
+    // Handle training images (these still use the old structure based on your schema)
     else if (filePath.startsWith("training/")) {
       // Find the training record that owns this image
       const trainingRecord = await prisma.trainingRecords.findFirst({

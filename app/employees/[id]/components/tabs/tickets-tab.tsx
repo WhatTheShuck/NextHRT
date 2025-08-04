@@ -190,8 +190,14 @@ export function TicketTab() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {record.imagePath ? (
-                          <FileImage className="h-4 w-4 text-blue-600" />
+                        {record.images && record.images.length > 0 ? (
+                          <div className="flex items-center gap-1">
+                            <FileImage className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm text-blue-600">
+                              {record.images.length} image
+                              {record.images.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
                         ) : (
                           <span className="text-muted-foreground text-sm">
                             —

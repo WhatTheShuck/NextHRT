@@ -37,10 +37,10 @@ export function TicketEditForm({
   const [licenceNum, setLicenceNum] = useState("");
   const [dateIssued, setDateIssued] = useState<Date>(new Date());
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string>("");
-  const [removeExistingImage, setRemoveExistingImage] = useState(false);
-
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
+  const [removeExistingImages, setRemoveExistingImages] = useState(false);
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
   // Expiry recalculation state
   const [showExpiryDialog, setShowExpiryDialog] = useState(false);
   const [pendingExpiryDate, setPendingExpiryDate] = useState<Date | null>(null);
@@ -163,29 +163,35 @@ export function TicketEditForm({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setFileError("");
+    const files = Array.from(e.target.files || []);
+    const newErrors: string[] = [];
+    const validFiles: File[] = [];
 
-    if (!file) {
-      setSelectedFile(null);
-      return;
-    }
+    files.forEach((file) => {
+      const error = validateFile(file);
+      if (error) {
+        newErrors.push(`${file.name}: ${error}`);
+      } else {
+        validFiles.push(file);
+      }
+    });
 
-    const error = validateFile(file);
-    if (error) {
-      setFileError(error);
-      setSelectedFile(null);
-      e.target.value = "";
-      return;
-    }
+    // Add valid files to existing selection
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
+    setFileErrors(newErrors);
 
-    setSelectedFile(file);
-    setRemoveExistingImage(false);
+    // Clear the input to allow selecting the same files again
+    e.target.value = "";
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
-    setFileError("");
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFileErrors((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setSelectedFiles([]);
+    setFileErrors([]);
     const fileInput = document.getElementById(
       "image-upload-edit",
     ) as HTMLInputElement;
@@ -194,16 +200,29 @@ export function TicketEditForm({
     }
   };
 
-  const handleRemoveExistingImage = () => {
-    setRemoveExistingImage(true);
-    setSelectedFile(null);
-    setFileError("");
+  const handleRemoveAllExistingImages = () => {
+    if (ticketRecord.images) {
+      const allImageIds = ticketRecord.images.map((img) => img.id);
+      setRemovedImageIds((prev) => [...new Set([...prev, ...allImageIds])]);
+    }
+    setSelectedFiles([]);
+    setFileErrors([]);
     const fileInput = document.getElementById(
       "image-upload-edit",
     ) as HTMLInputElement;
     if (fileInput) {
       fileInput.value = "";
     }
+  };
+  const handleRemoveExistingImage = (imageId: number) => {
+    setRemovedImageIds((prev) => [...prev, imageId]);
+  };
+
+  const handleRestoreExistingImage = (imageId: number) => {
+    setRemovedImageIds((prev) => prev.filter((id) => id !== imageId));
+  };
+  const isPDF = (filename: string) => {
+    return filename.toLowerCase().endsWith(".pdf");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -220,13 +239,13 @@ export function TicketEditForm({
         formData.append("expiryDate", expiryDate.toISOString());
       }
 
-      if (removeExistingImage) {
-        formData.append("removeImage", "true");
+      if (removedImageIds.length > 0) {
+        formData.append("removedImageIds", JSON.stringify(removedImageIds));
       }
 
-      if (selectedFile) {
-        formData.append("image", selectedFile);
-      }
+      selectedFiles.forEach((file) => {
+        formData.append("images", file);
+      });
 
       await api.put(`/api/ticket-records/${ticketRecord.id}`, formData, {
         headers: {
@@ -250,9 +269,11 @@ export function TicketEditForm({
       </div>
     );
   }
-
-  const hasExistingImage = ticketRecord.imagePath && !removeExistingImage;
-  const willShowNewImage = selectedFile && !fileError;
+  const hasExistingImages =
+    ticketRecord.images &&
+    ticketRecord.images.length > 0 &&
+    !removeExistingImages;
+  const willShowNewImages = selectedFiles.length > 0;
   const currentTicket = tickets.find((t) => t.id.toString() === ticketId);
   const pendingTicket = tickets.find(
     (t) => t.id.toString() === pendingTicketId,
@@ -311,129 +332,292 @@ export function TicketEditForm({
             </div>
           )}
         </div>
-
-        {/* File Upload Section - same as before */}
         <div className="space-y-2">
           <Label htmlFor="image-upload-edit">Ticket Certificate/Image</Label>
-
-          {hasExistingImage && (
-            <div className="space-y-3">
-              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <FileImage className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                        Current Image Attached
-                      </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">
-                        {ticketRecord.imageType === "application/pdf"
-                          ? "PDF Document"
-                          : "Image File"}
-                      </p>
+          {ticketRecord.images &&
+            ticketRecord.images.length > 0 &&
+            !removeExistingImages && (
+              <div className="space-y-3">
+                <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <FileImage className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                          Current Images (
+                          {
+                            ticketRecord.images.filter(
+                              (img) => !removedImageIds.includes(img.id),
+                            ).length
+                          }
+                          )
+                        </p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                          Click to view individual files
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex space-x-2">
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() =>
-                        window.open(
-                          `/api/images/${ticketRecord.imagePath}`,
-                          "_blank",
-                        )
-                      }
-                      className="text-blue-600 hover:text-blue-700"
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      View
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRemoveExistingImage}
+                      onClick={handleRemoveAllExistingImages}
                       className="text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="w-4 h-4 mr-1" />
-                      Remove
+                      Remove All
                     </Button>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
 
-          {(!hasExistingImage || willShowNewImage) && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-center w-full">
-                <label
-                  htmlFor="image-upload-edit"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-gray-500"
-                >
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" />
-                    <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                      <span className="font-semibold">
-                        {hasExistingImage ? "Replace image" : "Click to upload"}
-                      </span>
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY} (MAX.{" "}
-                      {FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY})
-                    </p>
+                  {/* Image Grid */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {ticketRecord.images
+                      .filter((img) => !removedImageIds.includes(img.id))
+                      .slice(0, 6)
+                      .map((image, index) => (
+                        <div key={image.id} className="relative group">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              window.open(
+                                `/api/images/${image.imagePath}`,
+                                "_blank",
+                              )
+                            }
+                            className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full"
+                          >
+                            {isPDF(image.originalName) ? (
+                              // PDF preview
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 dark:bg-red-900/20">
+                                <div className="text-red-600 dark:text-red-400 text-2xl mb-1">
+                                  📄
+                                </div>
+                                <div className="text-xs text-red-600 dark:text-red-400 font-medium px-1 text-center">
+                                  PDF
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 px-1 text-center truncate w-full">
+                                  {image.originalName.replace(".pdf", "")}
+                                </div>
+                              </div>
+                            ) : (
+                              // Image preview
+                              <img
+                                src={`/api/images/${image.imagePath}`}
+                                alt={image.originalName}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Fallback for broken images
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = `
+                                            <div class="w-full h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800">
+                                              <div class="text-gray-400 text-xl mb-1">📄</div>
+                                              <div class="text-xs text-gray-500 px-1 text-center">
+                                                ${image.originalName}
+                                              </div>
+                                            </div>
+                                          `;
+                                  }
+                                }}
+                              />
+                            )}
+                            {index === 5 &&
+                              ticketRecord.images!.filter(
+                                (img) => !removedImageIds.includes(img.id),
+                              ).length > 6 && (
+                                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white text-xs font-medium">
+                                  +
+                                  {ticketRecord.images!.filter(
+                                    (img) => !removedImageIds.includes(img.id),
+                                  ).length - 6}
+                                </div>
+                              )}
+                          </button>
+
+                          {/* Individual remove button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveExistingImage(image.id);
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            title="Remove this file"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
                   </div>
-                </label>
-                <input
-                  id="image-upload-edit"
-                  type="file"
-                  className="hidden"
-                  accept={FILE_UPLOAD_CONFIG.ALLOWED_TYPES.join(",")}
-                  onChange={handleFileChange}
-                />
-              </div>
 
-              {fileError && (
-                <div className="text-sm text-red-600 dark:text-red-400">
-                  {fileError}
-                </div>
-              )}
-
-              {willShowNewImage && (
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <FileImage className="w-5 h-5 text-gray-500" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {selectedFile!.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {formatFileSize(selectedFile!.size)}
-                      </p>
+                  {/* Show removed images with restore option */}
+                  {removedImageIds.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-blue-200 dark:border-blue-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                          Files marked for removal ({removedImageIds.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setRemovedImageIds([])}
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Restore all
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {ticketRecord.images
+                          .filter((img) => removedImageIds.includes(img.id))
+                          .map((image) => (
+                            <div
+                              key={`removed-${image.id}`}
+                              className="relative group"
+                            >
+                              <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden opacity-50 relative">
+                                {isPDF(image.originalName) ? (
+                                  <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 dark:bg-red-900/20">
+                                    <div className="text-red-600 dark:text-red-400 text-lg">
+                                      📄
+                                    </div>
+                                    <div className="text-xs text-red-600 dark:text-red-400">
+                                      PDF
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <img
+                                    src={`/api/images/${image.imagePath}`}
+                                    alt={image.originalName}
+                                    className="w-full h-full object-cover"
+                                  />
+                                )}
+                                <div className="absolute inset-0 bg-red-500 bg-opacity-20 flex items-center justify-center">
+                                  <X className="w-4 h-4 text-red-600" />
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRestoreExistingImage(image.id)
+                                }
+                                className="absolute -top-2 -right-2 bg-green-500 hover:bg-green-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                title="Restore this file"
+                              >
+                                <Eye className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                      </div>
                     </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+          {/* New File Upload */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-center w-full">
+              <label
+                htmlFor="image-upload-edit"
+                className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-gray-500"
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" />
+                  <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span className="font-semibold">
+                      {ticketRecord.images &&
+                      ticketRecord.images.length > 0 &&
+                      !removeExistingImages
+                        ? "Add more images"
+                        : "Click to upload images"}
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY} (MAX.{" "}
+                    {FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY} each)
+                  </p>
+                </div>
+              </label>
+              <input
+                id="image-upload-edit"
+                type="file"
+                className="hidden"
+                accept={FILE_UPLOAD_CONFIG.ALLOWED_TYPES.join(",")}
+                onChange={handleFileChange}
+                multiple
+              />
+            </div>
+
+            {fileErrors.length > 0 && (
+              <div className="space-y-1">
+                {fileErrors.map((error, index) => (
+                  <div
+                    key={index}
+                    className="text-sm text-red-600 dark:text-red-400"
+                  >
+                    {error}
                   </div>
+                ))}
+              </div>
+            )}
+
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    New Images ({selectedFiles.length})
+                  </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={removeFile}
+                    onClick={clearAllFiles}
                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   >
-                    <X className="w-4 h-4" />
+                    Clear All
                   </Button>
                 </div>
-              )}
-            </div>
-          )}
+                <div className="grid grid-cols-1 gap-2 max-h-128 overflow-y-auto">
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg min-w-0"
+                    >
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <FileImage className="w-5 h-5 text-gray-500" />
+                        <div className="flex-1 min-w-0 ">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatFileSize(file.size)}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-          {removeExistingImage && !selectedFile && (
+          {removeExistingImages && (
             <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
               <p className="text-sm text-red-800 dark:text-red-200">
-                Current image will be removed when you save.{" "}
+                All current images will be removed when you save.{" "}
                 <button
                   type="button"
-                  onClick={() => setRemoveExistingImage(false)}
+                  onClick={() => setRemoveExistingImages(false)}
                   className="underline hover:no-underline"
                 >
                   Undo

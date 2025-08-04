@@ -71,6 +71,7 @@ export const GET = auth(async function GET(req) {
               renewal: true,
             },
           },
+          images: true,
         },
         orderBy: [
           { dateIssued: "desc" },
@@ -139,6 +140,7 @@ export const GET = auth(async function GET(req) {
               renewal: true,
             },
           },
+          images: true,
         },
         orderBy: [
           { dateIssued: "desc" },
@@ -190,6 +192,7 @@ export const GET = auth(async function GET(req) {
               renewal: true,
             },
           },
+          images: true,
         },
         orderBy: [
           { dateIssued: "desc" },
@@ -285,30 +288,14 @@ export const POST = auth(async function POST(req) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
-    // Process file upload if present
-    let imagePath: string | null = null;
-    let imageType: string | null = null;
+    const imageFiles = formData.getAll("images") as File[];
+    const savedImages: Array<{
+      imagePath: string;
+      imageType: string;
+      originalName: string;
+    }> = [];
 
-    if (imageFile && imageFile.size > 0) {
-      // Validate file
-      if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
-        return NextResponse.json(
-          {
-            error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
-          },
-          { status: 400 },
-        );
-      }
-
-      if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
-        return NextResponse.json(
-          {
-            error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
-          },
-          { status: 400 },
-        );
-      }
-
+    if (imageFiles.length > 0) {
       try {
         // Create upload directory if it doesn't exist
         const uploadDir = path.join(process.cwd(), "uploads", "tickets");
@@ -316,23 +303,50 @@ export const POST = auth(async function POST(req) {
           await mkdir(uploadDir, { recursive: true });
         }
 
-        // Generate unique filename
-        const fileExtension = path.extname(imageFile.name);
-        const uniqueFilename = `${uuidv4()}${fileExtension}`;
-        const filePath = path.join(uploadDir, uniqueFilename);
+        // Process each file
+        for (const imageFile of imageFiles) {
+          if (imageFile && imageFile.size > 0) {
+            // Validate file
+            if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
+              return NextResponse.json(
+                {
+                  error: `Invalid file type for ${imageFile.name}. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
+                },
+                { status: 400 },
+              );
+            }
 
-        // Convert file to buffer and save
-        const bytes = await imageFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        await writeFile(filePath, buffer);
+            if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
+              return NextResponse.json(
+                {
+                  error: `File ${imageFile.name} is too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
+                },
+                { status: 400 },
+              );
+            }
 
-        // Store relative path for database
-        imagePath = `tickets/${uniqueFilename}`;
-        imageType = imageFile.type;
+            // Generate unique filename
+            const fileExtension = path.extname(imageFile.name);
+            const uniqueFilename = `${uuidv4()}${fileExtension}`;
+            const filePath = path.join(uploadDir, uniqueFilename);
+
+            // Convert file to buffer and save
+            const bytes = await imageFile.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            await writeFile(filePath, buffer);
+
+            // Store relative path for database
+            savedImages.push({
+              imagePath: `tickets/${uniqueFilename}`,
+              imageType: imageFile.type,
+              originalName: imageFile.name,
+            });
+          }
+        }
       } catch (fileError) {
         return NextResponse.json(
           {
-            error: "Error saving file",
+            error: "Error saving files",
             details:
               fileError instanceof Error
                 ? fileError.message
@@ -389,8 +403,14 @@ export const POST = auth(async function POST(req) {
         dateIssued: issuedDate,
         expiryDate: finalExpiryDate,
         licenseNumber: licenseNumber || null,
-        imagePath: imagePath,
-        imageType: imageType,
+        // Remove the old imagePath and imageType fields
+        images: {
+          create: savedImages.map((img) => ({
+            imagePath: img.imagePath,
+            imageType: img.imageType,
+            originalName: img.originalName,
+          })),
+        },
       },
       include: {
         ticketHolder: {
@@ -420,6 +440,7 @@ export const POST = auth(async function POST(req) {
             renewal: true,
           },
         },
+        images: true, // Include the images in the response
       },
     });
 
