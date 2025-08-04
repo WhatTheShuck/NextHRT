@@ -390,11 +390,6 @@ export const POST = auth(async function POST(req) {
       );
     }
 
-    // For tickets that never expire, clear any expiry date
-    if (ticket.renewal === null) {
-      finalExpiryDate = null;
-    }
-
     // Create the ticket record
     const ticketRecord = await prisma.ticketRecords.create({
       data: {

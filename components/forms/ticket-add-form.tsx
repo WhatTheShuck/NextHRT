@@ -311,35 +311,33 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
           </div>
 
           {/* Manual Override Section */}
-          {currentTicket.renewal !== null && (
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="manual-expiry"
-                  checked={manualExpiryOverride}
-                  onCheckedChange={handleManualOverrideChange}
-                />
-                <Label htmlFor="manual-expiry" className="text-sm font-normal">
-                  Manually set expiry date
-                </Label>
-              </div>
-
-              {manualExpiryOverride && (
-                <div className="space-y-2 pl-6">
-                  <Label htmlFor="manual-expiry-date">Custom Expiry Date</Label>
-                  <DateSelector
-                    selectedDate={manualExpiryDate}
-                    onDateSelect={setManualExpiryDate}
-                    optional={true}
-                  />
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    This will override the calculated expiry date for special
-                    cases
-                  </div>
-                </div>
-              )}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="manual-expiry"
+                checked={manualExpiryOverride}
+                onCheckedChange={handleManualOverrideChange}
+              />
+              <Label htmlFor="manual-expiry" className="text-sm font-normal">
+                Manually set expiry date
+              </Label>
             </div>
-          )}
+
+            {manualExpiryOverride && (
+              <div className="space-y-2 pl-6">
+                <Label htmlFor="manual-expiry-date">Custom Expiry Date</Label>
+                <DateSelector
+                  selectedDate={manualExpiryDate}
+                  onDateSelect={setManualExpiryDate}
+                  optional={true}
+                />
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  This will override the calculated expiry date for special
+                  cases
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Final Expiry Summary */}
           <div className="flex items-center gap-2 text-sm">
