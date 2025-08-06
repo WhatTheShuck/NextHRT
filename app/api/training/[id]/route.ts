@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { UserRole } from "@/generated/prisma_client";}
+import { UserRole } from "@/generated/prisma_client";
 
 // GET single training course
 export const GET = auth(async function GET(
@@ -13,6 +13,9 @@ export const GET = auth(async function GET(
   }
 
   const params = await props.params;
+  const { searchParams } = new URL(request.url);
+  const activeOnly = searchParams.get("activeOnly") === "true";
+
   try {
     const id = parseInt(params.id);
 
@@ -35,6 +38,13 @@ export const GET = auth(async function GET(
               },
             },
           },
+          where: activeOnly
+            ? {
+                personTrained: {
+                  isActive: true,
+                },
+              }
+            : undefined,
           orderBy: {
             dateCompleted: "desc",
           },
@@ -147,10 +157,10 @@ export const DELETE = auth(async function DELETE(
 
   const userRole = req.auth.user?.role as UserRole;
 
-   // Only Admins can delete employee records
-   if (userRole !== "Admin") {
-     return NextResponse.json({ message: "Not authorized" }, { status: 403 });
-   }
+  // Only Admins can delete employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  }
   try {
     const id = parseInt(params.id);
 
