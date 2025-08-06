@@ -117,6 +117,7 @@ export const PUT = auth(async function PUT(
       data: {
         category: json.category,
         title: json.title,
+        isActive: json.isActive,
       },
     });
 

@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Training, Category } from "@/generated/prisma_client";
+import { Switch } from "@/components/ui/switch";
 
 interface EditTrainingDialogProps {
   open: boolean;
@@ -31,6 +32,7 @@ export function EditTrainingDialog({
 }: EditTrainingDialogProps) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Internal");
+  const [isActive, setIsActive] = useState<boolean>(true); // Fixed: boolean type and consistent naming
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,10 +41,12 @@ export function EditTrainingDialog({
     if (open && training) {
       setTitle(training.title || "");
       setCategory(training.category || "Internal");
+      setIsActive(training.isActive ?? true); // Fixed: use nullish coalescing and consistent property name
       setError("");
     } else if (!open) {
       setTitle("");
       setCategory("Internal");
+      setIsActive(true);
       setError("");
     }
   }, [open, training]);
@@ -65,6 +69,7 @@ export function EditTrainingDialog({
       const response = await api.put<Training>(`/api/training/${training.id}`, {
         title: title.trim(),
         category,
+        isActive, // Fixed: use consistent property name
       });
 
       onTrainingUpdated?.(response.data);
@@ -128,6 +133,23 @@ export function EditTrainingDialog({
                 <Label htmlFor="external">External</Label>
               </div>
             </RadioGroup>
+          </div>
+
+          {/* Improved styling for the switch */}
+          <div className="flex items-center justify-between space-x-2 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="isActive" className="text-sm font-medium">
+                Training Active
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enable or disable this training course
+              </p>
+            </div>
+            <Switch
+              id="isActive"
+              checked={isActive}
+              onCheckedChange={setIsActive}
+            />
           </div>
         </div>
 
