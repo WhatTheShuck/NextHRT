@@ -43,6 +43,7 @@ model Location {
   id                   Int                   @id @default(autoincrement())
   name                 String
   state                String
+  isActive             Boolean               @default(true)
   employees            Employee[]
   trainingRequirements TrainingRequirement[]
   ticketRequirements   TicketRequirement[]
@@ -53,6 +54,7 @@ model Location {
 model Department {
   id                   Int                   @id @default(autoincrement())
   name                 String                @unique
+  isActive             Boolean               @default(true)
   employees            Employee[]
   managers             User[]                @relation("DepartmentManager")
   trainingRequirements TrainingRequirement[]
