@@ -69,7 +69,9 @@ export function TicketEditForm({
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: ticketsRes } = await api.get("/api/tickets");
+        const { data: ticketsRes } = await api.get(
+          "/api/tickets?activeOnly=true",
+        );
         setTickets(ticketsRes);
 
         // Set the old ticket for comparison

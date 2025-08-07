@@ -70,8 +70,8 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       try {
         setIsLoadingOptions(true);
         const [deptResponse, locResponse] = await Promise.all([
-          api.get<Department[]>("/api/departments"),
-          api.get<Location[]>("/api/locations"),
+          api.get<Department[]>("/api/departments?activeOnly=true"),
+          api.get<Location[]>("/api/locations?isActive=true"),
         ]);
 
         setDepartments(deptResponse.data);

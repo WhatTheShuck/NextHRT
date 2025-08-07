@@ -53,7 +53,9 @@ export function TrainingEditForm({
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: trainingsRes } = await api.get("/api/training");
+        const { data: trainingsRes } = await api.get(
+          "/api/training?activeOnly=true",
+        );
         setTrainings(trainingsRes);
       } catch (err) {
         console.error("API error:", err);

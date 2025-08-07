@@ -55,7 +55,9 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: ticketsRes } = await api.get("/api/tickets");
+        const { data: ticketsRes } = await api.get(
+          "/api/tickets?activeOnly=true",
+        );
         setTickets(ticketsRes);
       } catch (err) {
         console.error("API error:", err);

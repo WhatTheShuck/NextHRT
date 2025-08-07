@@ -66,8 +66,8 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
       setIsLoading(true);
       try {
         const [departmentsRes, locationsRes] = await Promise.all([
-          api.get<Department[]>("/api/departments"),
-          api.get<Location[]>("/api/locations"),
+          api.get<Department[]>("/api/departments?activeOnly=true"),
+          api.get<Location[]>("/api/locations?activeOnly=true"),
         ]);
         setDepartments(departmentsRes.data);
         setLocations(locationsRes.data);
