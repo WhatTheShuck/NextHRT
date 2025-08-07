@@ -194,7 +194,7 @@ export function TicketRecordDetailsDialog({
                               className="mt-3"
                               onClick={() =>
                                 window.open(
-                                  `/api/images/${record.imagePath}`,
+                                  `/api/images/${currentImage.imagePath}`,
                                   "_blank",
                                 )
                               }
