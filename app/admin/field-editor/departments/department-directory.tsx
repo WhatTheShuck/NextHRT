@@ -102,6 +102,7 @@ const DepartmentsDirectory = () => {
                   <TableHead>Department Name</TableHead>
                   <TableHead>Total Employees</TableHead>
                   <TableHead>Active Employees</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -116,52 +117,70 @@ const DepartmentsDirectory = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  departments.map((record: DepartmentWithCount) => {
-                    const employeeCount = record._count?.employees || 0;
-                    const activeEmployeeCount =
-                      record._count?.activeEmployees || 0;
-                    return (
-                      <TableRow key={record.id}>
-                        <TableCell className="font-medium">
-                          {record.name}
-                        </TableCell>
-                        <TableCell>
-                          {employeeCount}{" "}
-                          {employeeCount === 1 ? "employee" : "employees"}
-                        </TableCell>
-                        <TableCell>
-                          {activeEmployeeCount}{" "}
-                          {activeEmployeeCount === 1 ? "employee" : "employees"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditDepartment(record)}
+                  departments
+                    .sort((a, b) =>
+                      a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1,
+                    )
+                    .map((record: DepartmentWithCount) => {
+                      const employeeCount = record._count?.employees || 0;
+                      const activeEmployeeCount =
+                        record._count?.activeEmployees || 0;
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-medium">
+                            {record.name}
+                          </TableCell>
+                          <TableCell>
+                            {employeeCount}{" "}
+                            {employeeCount === 1 ? "employee" : "employees"}
+                          </TableCell>
+                          <TableCell>
+                            {activeEmployeeCount}{" "}
+                            {activeEmployeeCount === 1
+                              ? "employee"
+                              : "employees"}
+                          </TableCell>
+                          <TableCell>
+                            {" "}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs ${
+                                record.isActive
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
                             >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteDepartment(record)}
-                              disabled={employeeCount > 0}
-                              title={
-                                employeeCount > 0
-                                  ? "Cannot delete department with assigned employees"
-                                  : "Delete department"
-                              }
-                            >
-                              <Trash className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                              {record.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditDepartment(record)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteDepartment(record)}
+                                disabled={employeeCount > 0}
+                                title={
+                                  employeeCount > 0
+                                    ? "Cannot delete department with assigned employees"
+                                    : "Delete department"
+                                }
+                              >
+                                <Trash className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                 )}
               </TableBody>
             </Table>

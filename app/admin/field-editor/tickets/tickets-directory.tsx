@@ -101,6 +101,7 @@ const TicketsDirectory = () => {
                   <TableHead>Code</TableHead>
                   <TableHead>Renewal Period</TableHead>
                   <TableHead>Employees with Ticket</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -115,54 +116,70 @@ const TicketsDirectory = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  tickets.map((record: TicketWithCount) => {
-                    const recordCount = record._count?.ticketRecords || 0;
-                    return (
-                      <TableRow key={record.id}>
-                        <TableCell className="font-medium">
-                          {record.ticketName}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {record.ticketCode}
-                        </TableCell>
-                        <TableCell>
-                          {record.renewal
-                            ? `${record.renewal} year${record.renewal !== 1 ? "s" : ""}`
-                            : "No expiry"}
-                        </TableCell>
-                        <TableCell>
-                          {recordCount}{" "}
-                          {recordCount === 1 ? "employee" : "employees"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditTicket(record)}
+                  tickets
+                    .sort((a, b) =>
+                      a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1,
+                    )
+                    .map((record: TicketWithCount) => {
+                      const recordCount = record._count?.ticketRecords || 0;
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-medium">
+                            {record.ticketName}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {record.ticketCode}
+                          </TableCell>
+                          <TableCell>
+                            {record.renewal
+                              ? `${record.renewal} year${record.renewal !== 1 ? "s" : ""}`
+                              : "No expiry"}
+                          </TableCell>
+                          <TableCell>
+                            {recordCount}{" "}
+                            {recordCount === 1 ? "employee" : "employees"}
+                          </TableCell>
+                          <TableCell>
+                            {" "}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs ${
+                                record.isActive
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
                             >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteTicket(record)}
-                              disabled={recordCount > 0}
-                              title={
-                                recordCount > 0
-                                  ? "Cannot delete ticket type with existing records"
-                                  : "Delete ticket type"
-                              }
-                            >
-                              <Trash className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                              {record.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditTicket(record)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteTicket(record)}
+                                disabled={recordCount > 0}
+                                title={
+                                  recordCount > 0
+                                    ? "Cannot delete ticket type with existing records"
+                                    : "Delete ticket type"
+                                }
+                              >
+                                <Trash className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                 )}
               </TableBody>
             </Table>

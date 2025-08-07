@@ -100,6 +100,7 @@ const TrainingDirectory = () => {
                   <TableHead>Training Title</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Training Records</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -114,47 +115,63 @@ const TrainingDirectory = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  trainings.map((record: TrainingWithCount) => {
-                    const recordCount = record._count?.trainingRecords || 0;
-                    return (
-                      <TableRow key={record.id}>
-                        <TableCell className="font-medium">
-                          {record.title}
-                        </TableCell>
-                        <TableCell>{record.category}</TableCell>
-                        <TableCell>
-                          {recordCount}{" "}
-                          {recordCount === 1 ? "record" : "records"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditTraining(record)}
+                  trainings
+                    .sort((a, b) =>
+                      a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1,
+                    )
+                    .map((record: TrainingWithCount) => {
+                      const recordCount = record._count?.trainingRecords || 0;
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-medium">
+                            {record.title}
+                          </TableCell>
+                          <TableCell>{record.category}</TableCell>
+                          <TableCell>
+                            {recordCount}{" "}
+                            {recordCount === 1 ? "record" : "records"}
+                          </TableCell>
+                          <TableCell>
+                            {" "}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs ${
+                                record.isActive
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
                             >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteTraining(record)}
-                              disabled={recordCount > 0}
-                              title={
-                                recordCount > 0
-                                  ? "Cannot delete training course with existing training records"
-                                  : "Delete training course"
-                              }
-                            >
-                              <Trash className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                              {record.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditTraining(record)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteTraining(record)}
+                                disabled={recordCount > 0}
+                                title={
+                                  recordCount > 0
+                                    ? "Cannot delete training course with existing training records"
+                                    : "Delete training course"
+                                }
+                              >
+                                <Trash className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                 )}
               </TableBody>
             </Table>
