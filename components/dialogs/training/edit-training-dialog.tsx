@@ -32,7 +32,7 @@ export function EditTrainingDialog({
 }: EditTrainingDialogProps) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Internal");
-  const [isActive, setIsActive] = useState<boolean>(true); // Fixed: boolean type and consistent naming
+  const [isActive, setIsActive] = useState<boolean>(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,7 +41,7 @@ export function EditTrainingDialog({
     if (open && training) {
       setTitle(training.title || "");
       setCategory(training.category || "Internal");
-      setIsActive(training.isActive ?? true); // Fixed: use nullish coalescing and consistent property name
+      setIsActive(training.isActive ?? true);
       setError("");
     } else if (!open) {
       setTitle("");
@@ -69,7 +69,7 @@ export function EditTrainingDialog({
       const response = await api.put<Training>(`/api/training/${training.id}`, {
         title: title.trim(),
         category,
-        isActive, // Fixed: use consistent property name
+        isActive,
       });
 
       onTrainingUpdated?.(response.data);
@@ -135,7 +135,6 @@ export function EditTrainingDialog({
             </RadioGroup>
           </div>
 
-          {/* Improved styling for the switch */}
           <div className="flex items-center justify-between space-x-2 py-2">
             <div className="space-y-1">
               <Label htmlFor="isActive" className="text-sm font-medium">

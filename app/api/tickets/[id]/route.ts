@@ -16,6 +16,7 @@ export const GET = auth(async function GET(
   const params = await props.params;
   const { searchParams } = new URL(req.url);
   const expirationDays = searchParams.get("expirationDays");
+  const activeOnly = searchParams.get("activeOnly") === "true";
 
   try {
     const id = parseInt(params.id);
@@ -41,6 +42,11 @@ export const GET = auth(async function GET(
           not: null, // Exclude records without expiry dates
         };
       }
+    }
+    if (activeOnly) {
+      ticketRecordsWhere.ticketHolder = {
+        isActive: true,
+      };
     }
 
     const ticket = await prisma.ticket.findUnique({
@@ -142,6 +148,7 @@ export const PUT = auth(async function PUT(
         ticketCode: json.ticketCode,
         ticketName: json.ticketName,
         renewal: json.renewal,
+        isActive: json.isActive,
       },
     });
 

@@ -4,12 +4,21 @@ import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET all departments
-export const GET = auth(async function GET(req) {
+
+export const GET = auth(async function GET(
+  request,
+  props: { params: Promise<{ id: string }> },
+) {
   // Check if the user is authenticated
-  if (!req.auth) {
+  if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
-  const userRole = req.auth.user?.role as UserRole;
+
+  const params = await props.params;
+  const { searchParams } = new URL(request.url);
+  const activeOnly = searchParams.get("activeOnly") === "true";
+
+  const userRole = request.auth.user?.role as UserRole;
   // All authenticated users can view departments (needed for dropdowns)
   try {
     const departments = await prisma.department.findMany({
@@ -38,6 +47,11 @@ export const GET = auth(async function GET(req) {
               }
             : false,
       },
+      where: activeOnly
+        ? {
+            isActive: true,
+          }
+        : undefined,
       orderBy: {
         name: "asc",
       },

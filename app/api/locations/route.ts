@@ -3,11 +3,18 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
-export const GET = auth(async function GET(req) {
+export const GET = auth(async function GET(
+  request,
+  props: { params: Promise<{ id: string }> },
+) {
   // Check if the user is authenticated
-  if (!req.auth) {
+  if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+
+  const params = await props.params;
+  const { searchParams } = new URL(request.url);
+  const activeOnly = searchParams.get("activeOnly") === "true";
 
   try {
     const locations = await prisma.location.findMany({
@@ -26,6 +33,11 @@ export const GET = auth(async function GET(req) {
           },
         },
       },
+      where: activeOnly
+        ? {
+            isActive: true,
+          }
+        : undefined,
       orderBy: [
         {
           state: "asc",

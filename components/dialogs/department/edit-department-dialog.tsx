@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Department } from "@/generated/prisma_client";
+import { Switch } from "@/components/ui/switch";
 
 interface EditDepartmentDialogProps {
   open: boolean;
@@ -30,13 +31,16 @@ export function EditDepartmentDialog({
 }: EditDepartmentDialogProps) {
   const [departmentName, setDepartmentName] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isActive, setIsActive] = useState<boolean>(true);
 
   // Reset form when dialog opens/closes or department changes
   useEffect(() => {
     if (open && department) {
       setDepartmentName(department.name || "");
+      setIsActive(department.isActive ?? true);
     } else if (!open) {
       setDepartmentName("");
+      setIsActive(true);
     }
   }, [open, department]);
 
@@ -57,6 +61,7 @@ export function EditDepartmentDialog({
         `/api/departments/${department.id}`,
         {
           name: departmentName.trim(),
+          isActive,
         },
       );
 
@@ -98,6 +103,21 @@ export function EditDepartmentDialog({
                   handleUpdate();
                 }
               }}
+            />
+          </div>
+          <div className="flex items-center justify-between space-x-2 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="isActive" className="text-sm font-medium">
+                Department Active
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enable or disable this Department
+              </p>
+            </div>
+            <Switch
+              id="isActive"
+              checked={isActive}
+              onCheckedChange={setIsActive}
             />
           </div>
         </div>
