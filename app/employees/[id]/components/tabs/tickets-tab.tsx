@@ -33,9 +33,12 @@ import { DeleteTicketRecordDialog } from "@/components/dialogs/ticket-records/de
 import { TicketRecordDetailsDialog } from "@/components/dialogs/ticket-records/ticket-record-details-dialog";
 import { TicketRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 export function TicketTab() {
   const { employee } = useEmployee();
+  const session = useSession();
+  const isAdmin = session?.data?.user.role === "Admin";
   const ticketRecords = useEmployeeTicketRecords();
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -65,12 +68,16 @@ export function TicketTab() {
   };
 
   const handleEditRecord = (record: TicketRecordsWithRelations) => {
-    setEditingRecord(record);
-    setIsEditSheetOpen(true);
+    if (isAdmin) {
+      setEditingRecord(record);
+      setIsEditSheetOpen(true);
+    }
   };
   const handleDeleteRecord = (record: TicketRecordsWithRelations) => {
-    setDeletingRecord(record);
-    setIsDeleteDialogOpen(true);
+    if (isAdmin) {
+      setDeletingRecord(record);
+      setIsDeleteDialogOpen(true);
+    }
   };
 
   const getTicketStatus = (record: TicketRecordsWithRelations) => {
@@ -117,20 +124,22 @@ export function TicketTab() {
                 {ticketRecords.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
-              <SheetTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Ticket
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>Add Ticket</SheetTitle>
-                </SheetHeader>
-                <TicketAddForm onSuccess={handleAddSheetClose} />
-              </SheetContent>
-            </Sheet>
+            {isAdmin && (
+              <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Ticket
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>Add Ticket</SheetTitle>
+                  </SheetHeader>
+                  <TicketAddForm onSuccess={handleAddSheetClose} />
+                </SheetContent>
+              </Sheet>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -181,8 +190,14 @@ export function TicketTab() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {record.imagePath ? (
-                          <FileImage className="h-4 w-4 text-blue-600" />
+                        {record.images && record.images.length > 0 ? (
+                          <div className="flex items-center gap-1">
+                            <FileImage className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm text-blue-600">
+                              {record.images.length} image
+                              {record.images.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
                         ) : (
                           <span className="text-muted-foreground text-sm">
                             —
@@ -203,6 +218,7 @@ export function TicketTab() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEditRecord(record)}
+                            disabled={!isAdmin}
                           >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
@@ -211,6 +227,7 @@ export function TicketTab() {
                             variant="destructive"
                             size="sm"
                             onClick={() => handleDeleteRecord(record)}
+                            disabled={!isAdmin}
                           >
                             <Trash className="h-4 w-4 mr-1" />
                             Delete

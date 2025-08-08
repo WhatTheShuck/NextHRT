@@ -6,29 +6,111 @@ import { existsSync } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
+import { UserRole } from "@/generated/prisma_client";
 
 // GET all training records
-export const GET = auth(async function GET(request) {
-  if (!request.auth) {
+export const GET = auth(async function GET(req) {
+  if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
-
+  const userRole = req.auth.user?.role as UserRole;
+  const userId = req.auth.user?.id;
   try {
-    const trainingRecords = await prisma.trainingRecords.findMany({
-      include: {
-        personTrained: {
-          include: {
-            department: true,
-            location: true,
+    // Different query based on user role
+    if (userRole === "Admin") {
+      // Admins can see all employee records
+      const trainingRecords = await prisma.trainingRecords.findMany({
+        include: {
+          personTrained: {
+            include: {
+              department: true,
+              location: true,
+            },
           },
+          training: true,
         },
-        training: true,
-      },
-      orderBy: {
-        dateCompleted: "desc",
-      },
-    });
-    return NextResponse.json(trainingRecords);
+        orderBy: {
+          dateCompleted: "desc",
+        },
+      });
+      return NextResponse.json(trainingRecords);
+    } else if (userRole === "DepartmentManager") {
+      // Department managers can see employees in their departments
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { managedDepartments: true },
+      });
+
+      if (!user) {
+        return NextResponse.json(
+          { message: "User not found" },
+          { status: 404 },
+        );
+      }
+
+      const departmentIds = user.managedDepartments.map((dept) => dept.id);
+
+      const employees = await prisma.employee.findMany({
+        where: {
+          departmentId: { in: departmentIds },
+        },
+        include: {
+          department: true,
+          location: true,
+        },
+        orderBy: {
+          lastName: "asc",
+        },
+      });
+      const employeeIds = employees.map((emp) => emp.id);
+
+      const trainingRecords = await prisma.trainingRecords.findMany({
+        where: { employeeId: { in: employeeIds } },
+        include: {
+          personTrained: {
+            include: {
+              department: true,
+              location: true,
+            },
+          },
+          training: true,
+        },
+        orderBy: {
+          dateCompleted: "desc",
+        },
+      });
+      return NextResponse.json([trainingRecords]);
+    } else {
+      // Regular users can only see themselves
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { employee: true },
+      });
+
+      if (!user || !user.employee) {
+        return NextResponse.json(
+          { message: "No associated employee record" },
+          { status: 403 },
+        );
+      }
+
+      const trainingRecords = await prisma.trainingRecords.findMany({
+        where: { employeeId: user.employee.id },
+        include: {
+          personTrained: {
+            include: {
+              department: true,
+              location: true,
+            },
+          },
+          training: true,
+        },
+        orderBy: {
+          dateCompleted: "desc",
+        },
+      });
+      return NextResponse.json([trainingRecords]);
+    }
   } catch (error) {
     return NextResponse.json(
       {
@@ -41,13 +123,18 @@ export const GET = auth(async function GET(request) {
 });
 
 // POST new training record
-export const POST = auth(async function POST(request) {
-  if (!request.auth) {
+export const POST = auth(async function POST(req) {
+  if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+  const userRole = req.auth.user?.role as UserRole;
 
+  // Only Admins can create employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+  }
   try {
-    const formData = await request.formData();
+    const formData = await req.formData();
 
     // Extract form fields
     const employeeId = parseInt(formData.get("employeeId") as string);
@@ -186,7 +273,7 @@ export const POST = auth(async function POST(request) {
         recordId: trainingRecord.id.toString(),
         action: "CREATE",
         newValues: JSON.stringify(trainingRecord),
-        userId: request.auth.user?.id,
+        userId: req.auth.user?.id,
       },
     });
 

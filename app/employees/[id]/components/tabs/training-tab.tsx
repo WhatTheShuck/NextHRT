@@ -32,9 +32,12 @@ import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-recor
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
 import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
+import { useSession } from "next-auth/react";
 
 export function TrainingTab() {
-  const { employee } = useEmployee(); // Add this line
+  const { employee } = useEmployee();
+  const session = useSession();
+  const isAdmin = session?.data?.user.role === "Admin";
   const trainingRecords = useEmployeeTrainingRecords();
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -63,12 +66,16 @@ export function TrainingTab() {
     setIsDetailsOpen(true);
   };
   const handleDeleteRecord = (record: TrainingRecordsWithRelations) => {
-    setDeletingRecord(record);
-    setIsDeleteDialogOpen(true);
+    if (isAdmin) {
+      setDeletingRecord(record);
+      setIsDeleteDialogOpen(true);
+    }
   };
   const handleEditRecord = (record: TrainingRecordsWithRelations) => {
-    setEditingRecord(record);
-    setIsEditSheetOpen(true);
+    if (isAdmin) {
+      setEditingRecord(record);
+      setIsEditSheetOpen(true);
+    }
   };
   return (
     <>
@@ -82,20 +89,22 @@ export function TrainingTab() {
                 {trainingRecords.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
-              <SheetTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Training
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>Add Training</SheetTitle>
-                </SheetHeader>
-                <TrainingAddForm onSuccess={handleAddSheetClose} />
-              </SheetContent>
-            </Sheet>
+            {isAdmin && (
+              <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Training
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>Add Training</SheetTitle>
+                  </SheetHeader>
+                  <TrainingAddForm onSuccess={handleAddSheetClose} />
+                </SheetContent>
+              </Sheet>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -155,6 +164,7 @@ export function TrainingTab() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEditRecord(record)}
+                            disabled={!isAdmin}
                           >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
@@ -163,6 +173,7 @@ export function TrainingTab() {
                             variant="destructive"
                             size="sm"
                             onClick={() => handleDeleteRecord(record)}
+                            disabled={!isAdmin}
                           >
                             <Trash className="h-4 w-4 mr-1" />
                             Delete

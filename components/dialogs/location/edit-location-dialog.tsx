@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Location } from "@/generated/prisma_client";
+import { Switch } from "@/components/ui/switch";
 
 interface EditLocationDialogProps {
   open: boolean;
@@ -31,15 +32,17 @@ export function EditLocationDialog({
   const [locationName, setLocationName] = useState("");
   const [locationState, setLocationState] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
-
+  const [isActive, setIsActive] = useState<boolean>(true);
   // Reset form when dialog opens/closes or location changes
   useEffect(() => {
     if (open && location) {
       setLocationName(location.name || "");
       setLocationState(location.state || "");
+      setIsActive(location.isActive ?? true); // Fixed: use nullish coalescing and consistent property name
     } else if (!open) {
       setLocationName("");
       setLocationState("");
+      setIsActive(true);
     }
   }, [open, location]);
 
@@ -65,6 +68,7 @@ export function EditLocationDialog({
         {
           name: locationName.trim(),
           state: locationState.trim(),
+          isActive,
         },
       );
 
@@ -115,6 +119,21 @@ export function EditLocationDialog({
                   handleUpdate();
                 }
               }}
+            />
+          </div>
+          <div className="flex items-center justify-between space-x-2 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="isActive" className="text-sm font-medium">
+                Location Active
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enable or disable this location
+              </p>
+            </div>
+            <Switch
+              id="isActive"
+              checked={isActive}
+              onCheckedChange={setIsActive}
             />
           </div>
         </div>

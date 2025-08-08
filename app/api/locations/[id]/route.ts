@@ -13,6 +13,8 @@ export const GET = auth(async function GET(
   }
 
   const params = await props.params;
+  const { searchParams } = new URL(request.url);
+  const activeOnly = searchParams.get("activeOnly") === "true";
 
   try {
     const id = parseInt(params.id);
@@ -30,8 +32,12 @@ export const GET = auth(async function GET(
                 name: true,
               },
             },
-            isActive: true,
           },
+          where: activeOnly
+            ? {
+                isActive: true,
+              }
+            : undefined,
         },
         _count: {
           select: { employees: true },
@@ -176,7 +182,7 @@ export const DELETE = auth(async function DELETE(
       prisma.history.create({
         data: {
           tableName: "Location",
-          recordId: id,
+          recordId: id.toString(),
           action: "DELETE",
           oldValues: JSON.stringify(currentLocation),
           userId: userId,

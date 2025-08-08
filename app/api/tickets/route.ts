@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { UserRole } from "@/generated/prisma_client";
 
 // GET all tickets
-export const GET = auth(async function GET(req) {
+
+export const GET = auth(async function GET(
+  request,
+  props: { params: Promise<{ id: string }> },
+) {
   // Check if the user is authenticated
-  if (!req.auth) {
+  if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+
+  const params = await props.params;
+  const { searchParams } = new URL(request.url);
+  const activeOnly = searchParams.get("activeOnly") === "true";
 
   try {
     const tickets = await prisma.ticket.findMany({
@@ -23,12 +32,18 @@ export const GET = auth(async function GET(req) {
             },
           },
         },
+
         _count: {
           select: {
             ticketRecords: true,
           },
         },
       },
+      where: activeOnly
+        ? {
+            isActive: true,
+          }
+        : undefined,
       orderBy: {
         ticketName: "asc",
       },
@@ -53,6 +68,12 @@ export const POST = auth(async function POST(req) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
+  const userRole = req.auth.user?.role as UserRole;
+
+  // Only Admins can create employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+  }
   try {
     const json = await req.json();
 

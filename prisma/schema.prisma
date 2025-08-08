@@ -43,6 +43,7 @@ model Location {
   id                   Int                   @id @default(autoincrement())
   name                 String
   state                String
+  isActive             Boolean               @default(true)
   employees            Employee[]
   trainingRequirements TrainingRequirement[]
   ticketRequirements   TicketRequirement[]
@@ -53,6 +54,7 @@ model Location {
 model Department {
   id                   Int                   @id @default(autoincrement())
   name                 String                @unique
+  isActive             Boolean               @default(true)
   employees            Employee[]
   managers             User[]                @relation("DepartmentManager")
   trainingRequirements TrainingRequirement[]
@@ -110,16 +112,27 @@ model Ticket {
 }
 
 model TicketRecords {
-  id            Int       @id @default(autoincrement())
-  ticketHolder  Employee  @relation(fields: [employeeId], references: [id])
+  id            Int           @id @default(autoincrement())
+  ticketHolder  Employee      @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateIssued    DateTime
-  ticket        Ticket    @relation(fields: [ticketId], references: [id])
+  ticket        Ticket        @relation(fields: [ticketId], references: [id])
   ticketId      Int
   licenseNumber String? // Optional unique number for the actual license instance
   expiryDate    DateTime?
-  imagePath     String?
-  imageType     String?
+  images        TicketImage[]
+}
+
+model TicketImage {
+  id             Int           @id @default(autoincrement())
+  ticketRecord   TicketRecords @relation(fields: [ticketRecordId], references: [id], onDelete: Cascade)
+  ticketRecordId Int
+  imagePath      String
+  imageType      String
+  originalName   String
+  uploadedAt     DateTime      @default(now())
+
+  @@index([ticketRecordId])
 }
 
 model TicketRequirement {

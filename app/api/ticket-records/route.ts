@@ -6,6 +6,7 @@ import { existsSync } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
+import { UserRole } from "@/generated/prisma_client";
 
 /**
  * Calculate expiry date based on issue date and ticket renewal period
@@ -34,41 +35,172 @@ export const GET = auth(async function GET(req) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  try {
-    const ticketRecords = await prisma.ticketRecords.findMany({
-      include: {
-        ticketHolder: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            title: true,
-            department: {
-              select: {
-                name: true,
-              },
-            },
-            location: {
-              select: {
-                name: true,
-                state: true,
-              },
-            },
-          },
-        },
-        ticket: {
-          select: {
-            id: true,
-            ticketCode: true,
-            ticketName: true,
-            renewal: true,
-          },
-        },
-      },
-      orderBy: [{ dateIssued: "desc" }, { ticketHolder: { lastName: "asc" } }],
-    });
+  const userRole = req.auth.user?.role as UserRole;
+  const userId = req.auth.user?.id;
 
-    return NextResponse.json(ticketRecords);
+  try {
+    // Different query based on user role
+    if (userRole === "Admin") {
+      // Admins can see all employee records
+      const ticketRecords = await prisma.ticketRecords.findMany({
+        include: {
+          ticketHolder: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              title: true,
+              department: {
+                select: {
+                  name: true,
+                },
+              },
+              location: {
+                select: {
+                  name: true,
+                  state: true,
+                },
+              },
+            },
+          },
+          ticket: {
+            select: {
+              id: true,
+              ticketCode: true,
+              ticketName: true,
+              renewal: true,
+            },
+          },
+          images: true,
+        },
+        orderBy: [
+          { dateIssued: "desc" },
+          { ticketHolder: { lastName: "asc" } },
+        ],
+      });
+
+      return NextResponse.json(ticketRecords);
+    } else if (userRole === "DepartmentManager") {
+      // Department managers can see employees in their departments
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { managedDepartments: true },
+      });
+
+      if (!user) {
+        return NextResponse.json(
+          { message: "User not found" },
+          { status: 404 },
+        );
+      }
+
+      const departmentIds = user.managedDepartments.map((dept) => dept.id);
+
+      const employees = await prisma.employee.findMany({
+        where: {
+          departmentId: { in: departmentIds },
+        },
+        include: {
+          department: true,
+          location: true,
+        },
+        orderBy: {
+          lastName: "asc",
+        },
+      });
+      const employeeIds = employees.map((emp) => emp.id);
+
+      const ticketRecords = await prisma.ticketRecords.findMany({
+        where: { employeeId: { in: employeeIds } },
+        include: {
+          ticketHolder: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              title: true,
+              department: {
+                select: {
+                  name: true,
+                },
+              },
+              location: {
+                select: {
+                  name: true,
+                  state: true,
+                },
+              },
+            },
+          },
+          ticket: {
+            select: {
+              id: true,
+              ticketCode: true,
+              ticketName: true,
+              renewal: true,
+            },
+          },
+          images: true,
+        },
+        orderBy: [
+          { dateIssued: "desc" },
+          { ticketHolder: { lastName: "asc" } },
+        ],
+      });
+      return NextResponse.json([ticketRecords]);
+    } else {
+      // Regular users can only see themselves
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { employee: true },
+      });
+
+      if (!user || !user.employee) {
+        return NextResponse.json(
+          { message: "No associated employee record" },
+          { status: 403 },
+        );
+      }
+
+      const ticketRecords = await prisma.ticketRecords.findMany({
+        where: { employeeId: user.employee.id },
+        include: {
+          ticketHolder: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              title: true,
+              department: {
+                select: {
+                  name: true,
+                },
+              },
+              location: {
+                select: {
+                  name: true,
+                  state: true,
+                },
+              },
+            },
+          },
+          ticket: {
+            select: {
+              id: true,
+              ticketCode: true,
+              ticketName: true,
+              renewal: true,
+            },
+          },
+          images: true,
+        },
+        orderBy: [
+          { dateIssued: "desc" },
+          { ticketHolder: { lastName: "asc" } },
+        ],
+      });
+      return NextResponse.json([ticketRecords]); // Return as array for consistent frontend handling
+    }
   } catch (error) {
     return NextResponse.json(
       {
@@ -86,7 +218,12 @@ export const POST = auth(async function POST(req) {
   if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+  const userRole = req.auth.user?.role as UserRole;
 
+  // Only Admins can create employee records
+  if (userRole !== "Admin") {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+  }
   try {
     const formData = await req.formData();
 
@@ -151,30 +288,14 @@ export const POST = auth(async function POST(req) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
-    // Process file upload if present
-    let imagePath: string | null = null;
-    let imageType: string | null = null;
+    const imageFiles = formData.getAll("images") as File[];
+    const savedImages: Array<{
+      imagePath: string;
+      imageType: string;
+      originalName: string;
+    }> = [];
 
-    if (imageFile && imageFile.size > 0) {
-      // Validate file
-      if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
-        return NextResponse.json(
-          {
-            error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
-          },
-          { status: 400 },
-        );
-      }
-
-      if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
-        return NextResponse.json(
-          {
-            error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
-          },
-          { status: 400 },
-        );
-      }
-
+    if (imageFiles.length > 0) {
       try {
         // Create upload directory if it doesn't exist
         const uploadDir = path.join(process.cwd(), "uploads", "tickets");
@@ -182,23 +303,50 @@ export const POST = auth(async function POST(req) {
           await mkdir(uploadDir, { recursive: true });
         }
 
-        // Generate unique filename
-        const fileExtension = path.extname(imageFile.name);
-        const uniqueFilename = `${uuidv4()}${fileExtension}`;
-        const filePath = path.join(uploadDir, uniqueFilename);
+        // Process each file
+        for (const imageFile of imageFiles) {
+          if (imageFile && imageFile.size > 0) {
+            // Validate file
+            if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
+              return NextResponse.json(
+                {
+                  error: `Invalid file type for ${imageFile.name}. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
+                },
+                { status: 400 },
+              );
+            }
 
-        // Convert file to buffer and save
-        const bytes = await imageFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        await writeFile(filePath, buffer);
+            if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
+              return NextResponse.json(
+                {
+                  error: `File ${imageFile.name} is too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
+                },
+                { status: 400 },
+              );
+            }
 
-        // Store relative path for database
-        imagePath = `tickets/${uniqueFilename}`;
-        imageType = imageFile.type;
+            // Generate unique filename
+            const fileExtension = path.extname(imageFile.name);
+            const uniqueFilename = `${uuidv4()}${fileExtension}`;
+            const filePath = path.join(uploadDir, uniqueFilename);
+
+            // Convert file to buffer and save
+            const bytes = await imageFile.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            await writeFile(filePath, buffer);
+
+            // Store relative path for database
+            savedImages.push({
+              imagePath: `tickets/${uniqueFilename}`,
+              imageType: imageFile.type,
+              originalName: imageFile.name,
+            });
+          }
+        }
       } catch (fileError) {
         return NextResponse.json(
           {
-            error: "Error saving file",
+            error: "Error saving files",
             details:
               fileError instanceof Error
                 ? fileError.message
@@ -242,11 +390,6 @@ export const POST = auth(async function POST(req) {
       );
     }
 
-    // For tickets that never expire, clear any expiry date
-    if (ticket.renewal === null) {
-      finalExpiryDate = null;
-    }
-
     // Create the ticket record
     const ticketRecord = await prisma.ticketRecords.create({
       data: {
@@ -255,8 +398,14 @@ export const POST = auth(async function POST(req) {
         dateIssued: issuedDate,
         expiryDate: finalExpiryDate,
         licenseNumber: licenseNumber || null,
-        imagePath: imagePath,
-        imageType: imageType,
+        // Remove the old imagePath and imageType fields
+        images: {
+          create: savedImages.map((img) => ({
+            imagePath: img.imagePath,
+            imageType: img.imageType,
+            originalName: img.originalName,
+          })),
+        },
       },
       include: {
         ticketHolder: {
@@ -286,6 +435,7 @@ export const POST = auth(async function POST(req) {
             renewal: true,
           },
         },
+        images: true, // Include the images in the response
       },
     });
 

@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Ticket } from "@/generated/prisma_client";
+import { Switch } from "@/components/ui/switch";
 
 interface EditTicketDialogProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function EditTicketDialog({
   const [ticketCode, setTicketCode] = useState("");
   const [renewal, setRenewal] = useState("5");
   const [noExpiry, setNoExpiry] = useState(false);
+  const [isActive, setIsActive] = useState<boolean>(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,12 +45,14 @@ export function EditTicketDialog({
       setTicketCode(ticket.ticketCode || "");
       setRenewal(ticket.renewal ? ticket.renewal.toString() : "5");
       setNoExpiry(ticket.renewal === null);
+      setIsActive(ticket.isActive ?? true);
       setError("");
     } else if (!open) {
       setTicketName("");
       setTicketCode("");
       setRenewal("5");
       setNoExpiry(false);
+      setIsActive(true);
       setError("");
     }
   }, [open, ticket]);
@@ -76,6 +80,7 @@ export function EditTicketDialog({
         ticketName: ticketName.trim(),
         ticketCode: ticketCode.trim(),
         renewal: noExpiry ? null : parseInt(renewal) || 0,
+        isActive,
       });
 
       onTicketUpdated?.(response.data);
@@ -157,6 +162,21 @@ export function EditTicketDialog({
                 </Label>
               </div>
             </div>
+          </div>
+          <div className="flex items-center justify-between space-x-2 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="isActive" className="text-sm font-medium">
+                Ticket Active
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enable or disable this Ticket
+              </p>
+            </div>
+            <Switch
+              id="isActive"
+              checked={isActive}
+              onCheckedChange={setIsActive}
+            />
           </div>
         </div>
 

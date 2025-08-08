@@ -4,6 +4,7 @@ import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { Pencil, Save, X } from "lucide-react";
 import { useSession } from "next-auth/react";
+import api from "@/lib/axios";
 
 interface NotesEditorProps {
   employeeId: number;
@@ -35,7 +36,7 @@ export default function NotesEditor({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/employees/${employeeId}`, {
+      const response = await api.patch(`api/employees/${employeeId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -43,7 +44,7 @@ export default function NotesEditor({
         body: JSON.stringify({ notes: editedNotes }),
       });
 
-      if (!response.ok) {
+      if (!response) {
         throw new Error("Failed to update notes");
       }
 
@@ -111,7 +112,8 @@ export default function NotesEditor({
               <p className="whitespace-pre-wrap">{notes}</p>
             ) : (
               <p className="text-muted-foreground italic">
-                No notes added yet. Click the edit button to add some.
+                No notes added yet.{" "}
+                {isAdmin && "Click the edit button to add some."}
               </p>
             )}
           </div>
