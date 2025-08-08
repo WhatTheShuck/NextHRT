@@ -14,7 +14,7 @@ import { Training } from "@/generated/prisma_client";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
 import { ExportButtons } from "@/components/ExportButtons";
-import { TrainingCombobox } from "./training-combobox";
+import { TrainingCombobox } from "../../../../components/combobox/training-combobox";
 import api from "@/lib/axios";
 import { TrainingRecordsWithRelations } from "@/lib/types";
 
