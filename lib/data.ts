@@ -15,15 +15,19 @@ import {
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
-  name: "KSB Australia",
+  name: process.env.NEXT_PUBLIC_COMPANY_NAME || "Please fill in ENV file",
   logoPath: "/logo.svg",
-  domain_extension: "ksb.com.au",
+  domain_extension:
+    process.env.NEXT_PUBLIC_COMPANY_DOMAIN_EXTENSION ||
+    "Please fill in ENV file",
 };
 export const contactDetails: ContactDetails = {
-  name: "Brandon Wiedman",
-  phoneNumber: "+61417734155",
-  emailAdress: "Brandon.Wiedman@ksb.com.au",
-  role: "IT Supervisor",
+  name: process.env.NEXT_PUBLIC_CONTACT_NAME || "Please fill in ENV File",
+  phoneNumber:
+    process.env.NEXT_PUBLIC_CONTACT_PHONE || "Please fill in ENV File",
+  emailAdress:
+    process.env.NEXT_PUBLIC_CONTACT_EMAIL || "Please fill in ENV File",
+  role: process.env.NEXT_PUBLIC_CONTACT_ROLE || "Please fill in ENV File",
 };
 
 export const landingPageNavigationItems: NavigationItem[] = [
@@ -32,42 +36,42 @@ export const landingPageNavigationItems: NavigationItem[] = [
     description: "View and generate reports",
     icon: FileText,
     href: "/reports",
-    requiresAdmin: false,
+    allowedRoles: ["DepartmentManager", "Admin"], // Department managers and admins can see reports
   },
   {
     title: "User Profile",
     description: "View and edit user information",
     icon: Users,
     href: "/employees",
-    requiresAdmin: false,
+    allowedRoles: ["User", "DepartmentManager", "Admin"], // All roles can access their profile
   },
   {
     title: "Training Management",
     description: "Add and manage training for multiple users",
     icon: ClipboardList,
     href: "/bulk-training",
-    requiresAdmin: true,
+    allowedRoles: ["Admin"], // Only admins can bulk manage training
   },
   {
     title: "Dropdown Items",
     description: "Edit and manage dropdown menu items",
     icon: Settings,
     href: "/admin/field-editor",
-    requiresAdmin: true,
+    allowedRoles: ["Admin"], // Only admins can edit system configuration
   },
   {
     title: "User Permissions",
     description: "Manage user roles and permissions",
     icon: ShieldCheck,
     href: "/admin/permissions",
-    requiresAdmin: true,
+    allowedRoles: ["Admin"], // Only admins can manage permissions
   },
   {
     title: "Training Request",
     description: "Request approval to attending training",
     icon: CalendarPlus,
     href: "/training-request",
-    requiresAdmin: false,
+    allowedRoles: ["User", "DepartmentManager", "Admin"], // All roles can request training
   },
 ];
 
@@ -77,28 +81,28 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "View the current employees. Useful for evacuation list",
     icon: Users,
     href: "/reports/employee/list",
-    requiresAdmin: false,
+    allowedRoles: ["DepartmentManager", "Admin"],
   },
   {
     title: "Training Completion",
     description: "See who has completed a specific type of training",
     icon: ClipboardList,
     href: "/reports/training/completed",
-    requiresAdmin: false,
+    allowedRoles: ["DepartmentManager", "Admin"],
   },
   {
     title: "Upcoming Ticket Expiration",
     description: "View upcoming expiring tickets for a specified period",
     icon: Settings,
     href: "/reports/tickets/expiring",
-    requiresAdmin: false,
+    allowedRoles: ["DepartmentManager", "Admin"],
   },
   {
     title: "Ticket Completion",
     description: "See who holds a specific type of ticket",
     icon: ShieldCheck,
     href: "/reports/tickets/completed",
-    requiresAdmin: false,
+    allowedRoles: ["DepartmentManager", "Admin"],
   },
 ];
 
@@ -108,27 +112,27 @@ export const fieldEditorNavigationItems: NavigationItem[] = [
     description: "Manage and organise department information",
     href: "/admin/field-editor/departments",
     icon: Building2,
-    requiresAdmin: false,
+    allowedRoles: ["Admin"],
   },
   {
     title: "Locations",
     description: "Configure and maintain location data",
     href: "/admin/field-editor/locations",
     icon: MapPin,
-    requiresAdmin: false,
+    allowedRoles: ["Admin"],
   },
   {
     title: "Training",
     description: "Administer training programmes and records",
     href: "/admin/field-editor/training",
     icon: GraduationCap,
-    requiresAdmin: false,
+    allowedRoles: ["Admin"],
   },
   {
     title: "Tickets",
     description: "Set up ticket categories and configurations",
     href: "/admin/field-editor/tickets",
     icon: IdCard,
-    requiresAdmin: false,
+    allowedRoles: ["Admin"],
   },
 ];

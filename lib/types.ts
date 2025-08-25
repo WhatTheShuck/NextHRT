@@ -30,7 +30,7 @@ export interface NavigationItem {
   description?: string;
   icon: LucideIcon;
   href: string;
-  requiresAdmin: boolean;
+  allowedRoles: ("User" | "DepartmentManager" | "Admin")[];
 }
 
 export interface EmployeeWithRelations extends Employee {

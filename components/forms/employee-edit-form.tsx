@@ -135,7 +135,8 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
           <Input
             id="firstName"
             name="firstName"
-            defaultValue={firstName}
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
             required
           />
         </div>
@@ -144,7 +145,8 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
           <Input
             id="lastName"
             name="lastName"
-            defaultValue={lastName}
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
             required
           />
         </div>
@@ -152,9 +154,14 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="title">Title</Label>
-        <Input id="title" name="title" defaultValue={title} required />
+        <Input
+          id="title"
+          name="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+        />
       </div>
-
       <div className="grid grid-cols-1 gap-4">
         <div className="space-y-2">
           <Label htmlFor="department">Department</Label>
