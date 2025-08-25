@@ -20,10 +20,12 @@ export const companyDetails: CompanyDetails = {
   domain_extension: "ksb.com.au",
 };
 export const contactDetails: ContactDetails = {
-  name: "Brandon Wiedman",
-  phoneNumber: "+61417734155",
-  emailAdress: "Brandon.Wiedman@ksb.com.au",
-  role: "IT Supervisor",
+  name: process.env.NEXT_PUBLIC_CONTACT_NAME || "Please fill in ENV File",
+  phoneNumber:
+    process.env.NEXT_PUBLIC_CONTACT_PHONE || "Please fill in ENV File",
+  emailAdress:
+    process.env.NEXT_PUBLIC_CONTACT_EMAIL || "Please fill in ENV File",
+  role: process.env.NEXT_PUBLIC_CONTACT_ROLE || "Please fill in ENV File",
 };
 
 export const landingPageNavigationItems: NavigationItem[] = [
