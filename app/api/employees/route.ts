@@ -2,16 +2,23 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
+import { isAsyncFunction } from "node:util/types";
 
 // GET all employees
-export const GET = auth(async function GET(req) {
+export const GET = auth(async function GET(
+  request,
+  props: { params: Promise<{}> },
+) {
   // Check if the user is authenticated
-  if (!req.auth) {
+  if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const userId = req.auth.user?.id;
+  const params = await props.params;
+  const { searchParams } = new URL(request.url);
+  const activeOnly = searchParams.get("activeOnly") === "true";
+  const userRole = request.auth.user?.role as UserRole;
+  const userId = request.auth.user?.id;
 
   try {
     // Different query based on user role
@@ -22,6 +29,12 @@ export const GET = auth(async function GET(req) {
           department: true,
           location: true,
         },
+        where: activeOnly
+          ? {
+              isActive: true,
+            }
+          : undefined,
+
         orderBy: {
           lastName: "asc",
         },
@@ -42,11 +55,17 @@ export const GET = auth(async function GET(req) {
       }
 
       const departmentIds = user.managedDepartments.map((dept) => dept.id);
+      // Build where clause with department filter and optional active filter
+      const whereClause: any = {
+        departmentId: { in: departmentIds },
+      };
 
+      // Add activeOnly filter if requested
+      if (activeOnly) {
+        whereClause.isActive = true;
+      }
       const employees = await prisma.employee.findMany({
-        where: {
-          departmentId: { in: departmentIds },
-        },
+        where: whereClause,
         include: {
           department: true,
           location: true,
