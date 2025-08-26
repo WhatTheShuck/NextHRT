@@ -36,42 +36,42 @@ export const landingPageNavigationItems: NavigationItem[] = [
     description: "View and generate reports",
     icon: FileText,
     href: "/reports",
-    allowedRoles: ["DepartmentManager", "Admin"], // Department managers and admins can see reports
+    minimumAllowedRole: "EmployeeViewer",
   },
   {
     title: "User Profile",
     description: "View and edit user information",
     icon: Users,
     href: "/employees",
-    allowedRoles: ["User", "DepartmentManager", "Admin"], // All roles can access their profile
+    minimumAllowedRole: "User",
   },
   {
     title: "Training Management",
     description: "Add and manage training for multiple users",
     icon: ClipboardList,
     href: "/bulk-training",
-    allowedRoles: ["Admin"], // Only admins can bulk manage training
+    minimumAllowedRole: "Admin",
   },
   {
     title: "Dropdown Items",
     description: "Edit and manage dropdown menu items",
     icon: Settings,
     href: "/admin/field-editor",
-    allowedRoles: ["Admin"], // Only admins can edit system configuration
+    minimumAllowedRole: "Admin",
   },
   {
     title: "User Permissions",
     description: "Manage user roles and permissions",
     icon: ShieldCheck,
     href: "/admin/permissions",
-    allowedRoles: ["Admin"], // Only admins can manage permissions
+    minimumAllowedRole: "Admin",
   },
   {
     title: "Training Request",
     description: "Request approval to attending training",
     icon: CalendarPlus,
     href: "/training-request",
-    allowedRoles: ["User", "DepartmentManager", "Admin"], // All roles can request training
+    minimumAllowedRole: "User",
   },
 ];
 
@@ -81,28 +81,28 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "View the current employees. Useful for evacuation list",
     icon: Users,
     href: "/reports/employee/list",
-    allowedRoles: ["DepartmentManager", "Admin"],
+    minimumAllowedRole: "EmployeeViewer",
   },
   {
     title: "Training Completion",
     description: "See who has completed a specific type of training",
     icon: ClipboardList,
     href: "/reports/training/completed",
-    allowedRoles: ["DepartmentManager", "Admin"],
+    minimumAllowedRole: "DepartmentManager",
   },
   {
     title: "Upcoming Ticket Expiration",
     description: "View upcoming expiring tickets for a specified period",
     icon: Settings,
     href: "/reports/tickets/expiring",
-    allowedRoles: ["DepartmentManager", "Admin"],
+    minimumAllowedRole: "DepartmentManager",
   },
   {
     title: "Ticket Completion",
     description: "See who holds a specific type of ticket",
     icon: ShieldCheck,
     href: "/reports/tickets/completed",
-    allowedRoles: ["DepartmentManager", "Admin"],
+    minimumAllowedRole: "DepartmentManager",
   },
 ];
 
@@ -112,27 +112,27 @@ export const fieldEditorNavigationItems: NavigationItem[] = [
     description: "Manage and organise department information",
     href: "/admin/field-editor/departments",
     icon: Building2,
-    allowedRoles: ["Admin"],
+    minimumAllowedRole: "Admin",
   },
   {
     title: "Locations",
     description: "Configure and maintain location data",
     href: "/admin/field-editor/locations",
     icon: MapPin,
-    allowedRoles: ["Admin"],
+    minimumAllowedRole: "Admin",
   },
   {
     title: "Training",
     description: "Administer training programmes and records",
     href: "/admin/field-editor/training",
     icon: GraduationCap,
-    allowedRoles: ["Admin"],
+    minimumAllowedRole: "Admin",
   },
   {
     title: "Tickets",
     description: "Set up ticket categories and configurations",
     href: "/admin/field-editor/tickets",
     icon: IdCard,
-    allowedRoles: ["Admin"],
+    minimumAllowedRole: "Admin",
   },
 ];

@@ -178,6 +178,8 @@ model User {
 
 enum UserRole {
   User
+  EmployeeViewer
+  FireWarden
   DepartmentManager
   Admin
 }

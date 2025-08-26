@@ -1,9 +1,17 @@
-"use client";
-import React from "react";
-import { NavigationCard } from "@/components/navigation-card";
-import { reportsNavigationItems } from "@/lib/data";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import ReportsContent from "./reportsContent";
+import { hasRoleAccess } from "@/lib/apiRBAC";
 
-const LandingPage: React.FC = () => {
+export default async function LandingPage() {
+  const session = await auth();
+  if (!session) redirect("/auth");
+  const userRole = session?.user?.role || "User";
+  if (!hasRoleAccess(userRole, "EmployeeViewer")) {
+    redirect("/");
+    // should probably return a 403 or something before the redirect?
+  }
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -18,19 +26,9 @@ const LandingPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Regular User Navigation */}
-      {reportsNavigationItems && (
-        <div className="space-y-6">
-          <br />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reportsNavigationItems.map((item) => (
-              <NavigationCard key={item.href} {...item} />
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="max-w-6xl mx-auto space-y-8">
+        <ReportsContent />
+      </div>
     </div>
   );
-};
-
-export default LandingPage;
+}

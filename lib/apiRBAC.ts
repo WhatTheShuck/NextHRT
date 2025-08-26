@@ -1,6 +1,13 @@
 import { UserRole } from "@/generated/prisma_client";
 import prisma from "@/lib/prisma";
 
+const roleHierarchy: Record<UserRole, UserRole[]> = {
+  Admin: ["DepartmentManager", "FireWarden", "EmployeeViewer", "User"],
+  DepartmentManager: ["EmployeeViewer", "User"],
+  FireWarden: ["EmployeeViewer", "User"],
+  EmployeeViewer: ["User"],
+  User: [],
+};
 export async function hasAccessToEmployee(
   userId: string | undefined,
   employeeId: number,
@@ -66,4 +73,13 @@ export async function getUserEmployeeId(userId: string) {
   });
 
   return user?.employeeId;
+}
+
+export function hasRoleAccess(
+  userRole: UserRole,
+  requiredRole: UserRole,
+): boolean {
+  if (userRole === requiredRole) return true;
+
+  return roleHierarchy[userRole]?.includes(requiredRole) || false;
 }
