@@ -20,13 +20,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Search, LinkIcon, Link2Off } from "lucide-react";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Search,
+  LinkIcon,
+  Link2Off,
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
@@ -45,6 +57,7 @@ export function UserEmployeeMapping() {
   );
   const [openDialog, setOpenDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   // Fetch users and employees
   useEffect(() => {
@@ -61,8 +74,9 @@ export function UserEmployeeMapping() {
         setFilteredUsers(usersResponse.data);
 
         // Fetch employees
-        const employeesResponse =
-          await api.get<EmployeeWithRelations[]>("/api/employees");
+        const employeesResponse = await api.get<EmployeeWithRelations[]>(
+          "/api/employees?activeOnly=true",
+        );
         setEmployees(employeesResponse.data);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -196,6 +210,17 @@ export function UserEmployeeMapping() {
       : "Unknown Employee";
   };
 
+  // Get selected employee display name
+  const getSelectedEmployeeDisplay = () => {
+    if (!selectedEmployeeId) return null;
+    const employee = employees.find(
+      (emp) => emp.id.toString() === selectedEmployeeId,
+    );
+    return employee
+      ? `${employee.firstName} ${employee.lastName} - ${employee.title}`
+      : null;
+  };
+
   if (loading && users.length === 0) {
     return <div className="flex justify-center my-8">Loading data...</div>;
   }
@@ -309,26 +334,93 @@ export function UserEmployeeMapping() {
               <label htmlFor="employee-select" className="text-sm font-medium">
                 Employee
               </label>
-              <Select
-                value={selectedEmployeeId || ""}
-                onValueChange={setSelectedEmployeeId}
-              >
-                <SelectTrigger id="employee-select">
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {/* <SelectItem value="">-- None (Remove Mapping) --</SelectItem> */}
-                  {employees.map((employee) => (
-                    <SelectItem
-                      key={employee.id}
-                      value={employee.id.toString()}
-                    >
-                      {employee.firstName} {employee.lastName} -{" "}
-                      {employee.title} ({employee.department.name})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between min-w-0"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {selectedEmployeeId ? (
+                        <span className="truncate">
+                          {getSelectedEmployeeDisplay()}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground flex items-center gap-2">
+                          <Search className="h-4 w-4 flex-shrink-0" />
+                          Select Employee
+                        </span>
+                      )}
+                    </div>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="p-0"
+                  align="start"
+                  style={{ width: "var(--radix-popover-trigger-width)" }}
+                  onWheel={(e) => e.stopPropagation()}
+                >
+                  <Command>
+                    <CommandInput
+                      placeholder="Search employees..."
+                      className="h-9"
+                    />
+                    <CommandList className="max-h-[200px] overflow-y-auto">
+                      <CommandEmpty>No employees found.</CommandEmpty>
+                      <CommandGroup>
+                        {/* Option to clear selection */}
+                        <CommandItem
+                          value="clear"
+                          onSelect={() => {
+                            setSelectedEmployeeId(null);
+                            setOpen(false);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 flex-shrink-0 ${
+                              !selectedEmployeeId ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
+                          <span className="text-muted-foreground truncate min-w-0">
+                            No employee (unlink)
+                          </span>
+                        </CommandItem>
+                        {employees.map((employee) => (
+                          <CommandItem
+                            key={employee.id}
+                            value={`${employee.firstName} ${employee.lastName} ${employee.title} ${employee.department.name}`}
+                            onSelect={() => {
+                              setSelectedEmployeeId(employee.id.toString());
+                              setOpen(false);
+                            }}
+                            className="cursor-pointer min-w-0"
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 flex-shrink-0 ${
+                                selectedEmployeeId === employee.id.toString()
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              }`}
+                            />
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className="truncate min-w-0">
+                                {employee.firstName} {employee.lastName}
+                              </span>
+                              <span className="text-sm text-muted-foreground truncate min-w-0">
+                                {employee.title} - {employee.department.name}
+                              </span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 

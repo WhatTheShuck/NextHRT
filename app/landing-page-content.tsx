@@ -3,52 +3,21 @@ import React from "react";
 import { NavigationCard } from "@/components/navigation-card";
 import { landingPageNavigationItems } from "@/lib/data";
 import { useSession } from "next-auth/react";
+import { hasRoleAccess } from "@/lib/apiRBAC";
 
 export function LandingPageContent() {
   const session = useSession();
   const userRole = session?.data?.user?.role || "User";
   const visibleItems = landingPageNavigationItems.filter((item) =>
-    item.allowedRoles.includes(userRole),
+    hasRoleAccess(userRole, item.minimumAllowedRole),
   );
 
-  const userItems = visibleItems.filter(
-    (item) =>
-      item.allowedRoles.includes("User") &&
-      !item.allowedRoles.includes("Admin") &&
-      !item.allowedRoles.includes("DepartmentManager"),
+  const nonAdminItems = visibleItems.filter(
+    (item) => item.minimumAllowedRole !== "Admin",
   );
-
-  const departmentManagerItems = visibleItems.filter(
-    (item) =>
-      item.allowedRoles.includes("DepartmentManager") &&
-      !item.allowedRoles.includes("Admin"),
-  );
-
   const adminItems = visibleItems.filter(
-    (item) =>
-      item.allowedRoles.includes("Admin") && item.allowedRoles.length === 1, // Only admin-specific items
+    (item) => item.minimumAllowedRole === "Admin",
   );
-
-  const sharedItems = visibleItems.filter(
-    (item) =>
-      item.allowedRoles.length > 1 && // Items shared across multiple roles
-      !adminItems.includes(item) &&
-      !departmentManagerItems.includes(item) &&
-      !userItems.includes(item),
-  );
-
-  const getSectionTitle = () => {
-    switch (userRole) {
-      case "Admin":
-        return "Quick Actions";
-      case "DepartmentManager":
-        return "Department Management";
-      case "User":
-        return "My Actions";
-      default:
-        return "Quick Actions";
-    }
-  };
 
   const getWelcomeMessage = () => {
     switch (userRole) {
@@ -56,6 +25,8 @@ export function LandingPageContent() {
         return "Access and manage all system resources from one central location";
       case "DepartmentManager":
         return "Manage your department and access reports from one central location";
+      case "FireWarden":
+        return "Access your personal resources and fire safety tools";
       case "User":
         return "Access your personal resources and training information";
       default:
@@ -74,32 +45,19 @@ export function LandingPageContent() {
           </div>
         </div>
 
-        {/* Shared Items (available to multiple roles) */}
-        {sharedItems.length > 0 && (
+        {/* User Level Items - show for everyone who has User access */}
+        {nonAdminItems.length > 0 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold">{getSectionTitle()}</h2>
+            <h2 className="text-2xl font-semibold">My Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sharedItems.map((item) => (
+              {nonAdminItems.map((item) => (
                 <NavigationCard key={item.href} {...item} />
               ))}
             </div>
           </div>
         )}
 
-        {/* Department Manager Specific Items */}
-        {departmentManagerItems.length > 0 &&
-          userRole === "DepartmentManager" && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold">Department Tools</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {departmentManagerItems.map((item) => (
-                  <NavigationCard key={item.href} {...item} />
-                ))}
-              </div>
-            </div>
-          )}
-
-        {/* Admin Specific Items */}
+        {/* Admin Specific Items - show only for Admins */}
         {adminItems.length > 0 && userRole === "Admin" && (
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Administrative Tools</h2>

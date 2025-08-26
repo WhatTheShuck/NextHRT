@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { EmployeeWithRelations } from "@/lib/types";
 import api from "@/lib/axios";
+import { AxiosError } from "axios";
 
 export default function Page() {
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
@@ -26,8 +27,9 @@ export default function Page() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response =
-          await api.get<EmployeeWithRelations[]>("/api/employees");
+        const response = await api.get<EmployeeWithRelations[]>(
+          "/api/employees?reportType=evacuation",
+        );
         const data = response.data;
         const activeEmployees = data.filter(
           (emp: EmployeeWithRelations) => emp.isActive,
@@ -45,7 +47,7 @@ export default function Page() {
 
         setLocations(uniqueLocations);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+        setError(err instanceof AxiosError ? err.message : "An error occurred");
       } finally {
         setLoading(false);
       }

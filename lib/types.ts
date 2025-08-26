@@ -10,6 +10,7 @@ import {
   User,
   History,
   TicketImage,
+  UserRole,
 } from "@/generated/prisma_client";
 
 export type CompanyDetails = {
@@ -30,7 +31,7 @@ export interface NavigationItem {
   description?: string;
   icon: LucideIcon;
   href: string;
-  allowedRoles: ("User" | "DepartmentManager" | "Admin")[];
+  minimumAllowedRole: UserRole;
 }
 
 export interface EmployeeWithRelations extends Employee {

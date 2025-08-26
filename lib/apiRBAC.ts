@@ -1,6 +1,13 @@
 import { UserRole } from "@/generated/prisma_client";
 import prisma from "@/lib/prisma";
 
+const roleHierarchy: Record<UserRole, UserRole[]> = {
+  Admin: ["DepartmentManager", "FireWarden", "EmployeeViewer", "User"],
+  DepartmentManager: ["EmployeeViewer", "User"],
+  FireWarden: ["EmployeeViewer", "User"],
+  EmployeeViewer: ["User"],
+  User: [],
+};
 export async function hasAccessToEmployee(
   userId: string | undefined,
   employeeId: number,
@@ -10,11 +17,11 @@ export async function hasAccessToEmployee(
     console.error("hasAccessToEmployee: userId is undefined");
     return false;
   }
-  if (userRole === "Admin") {
+  if (hasRoleAccess(userRole, "Admin")) {
     return true;
   }
 
-  if (userRole === "DepartmentManager") {
+  if (hasRoleAccess(userRole, "DepartmentManager")) {
     // Check if employee is in one of the departments managed by this user
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -35,7 +42,7 @@ export async function hasAccessToEmployee(
     return departmentIds.includes(employee.departmentId);
   }
 
-  if (userRole === "User") {
+  if (hasRoleAccess(userRole, "User")) {
     // Check if this employee is linked to the user
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -66,4 +73,13 @@ export async function getUserEmployeeId(userId: string) {
   });
 
   return user?.employeeId;
+}
+
+export function hasRoleAccess(
+  userRole: UserRole,
+  requiredRole: UserRole,
+): boolean {
+  if (userRole === requiredRole) return true;
+
+  return roleHierarchy[userRole]?.includes(requiredRole) || false;
 }

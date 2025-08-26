@@ -2,32 +2,88 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
+import { isAsyncFunction } from "node:util/types";
+import { hasRoleAccess } from "@/lib/apiRBAC";
 
 // GET all employees
-export const GET = auth(async function GET(req) {
+export const GET = auth(async function GET(
+  request,
+  props: { params: Promise<{}> },
+) {
   // Check if the user is authenticated
-  if (!req.auth) {
+  if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const userId = req.auth.user?.id;
+  const params = await props.params;
+  const { searchParams } = new URL(request.url);
+  const activeOnly = searchParams.get("activeOnly") === "true";
+  const reportType = searchParams.get("reportType"); // "evacuation",
+  const userRole = request.auth.user?.role as UserRole;
+  const userId = request.auth.user?.id;
 
   try {
     // Different query based on user role
-    if (userRole === "Admin") {
+    if (hasRoleAccess(userRole, "Admin")) {
       // Admins can see all employees
       const employees = await prisma.employee.findMany({
         include: {
           department: true,
           location: true,
         },
+        where: activeOnly
+          ? {
+              isActive: true,
+            }
+          : undefined,
+
         orderBy: {
           lastName: "asc",
         },
       });
       return NextResponse.json(employees);
-    } else if (userRole === "DepartmentManager") {
+    } else if (reportType === "evacuation") {
+      if (hasRoleAccess(userRole, "EmployeeViewer")) {
+        const employees = await prisma.employee.findMany({
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            title: true,
+            isActive: true,
+            department: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            location: {
+              select: {
+                id: true,
+                name: true,
+                state: true,
+              },
+            },
+          },
+          where: activeOnly
+            ? {
+                isActive: true,
+              }
+            : undefined,
+
+          orderBy: {
+            lastName: "asc",
+          },
+        });
+
+        return NextResponse.json(employees);
+      } else {
+        return NextResponse.json(
+          { message: "No Employee Viewer access to run this report" },
+          { status: 403 },
+        );
+      }
+    } else if (hasRoleAccess(userRole, "DepartmentManager")) {
       // Department managers can see employees in their departments
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -42,11 +98,17 @@ export const GET = auth(async function GET(req) {
       }
 
       const departmentIds = user.managedDepartments.map((dept) => dept.id);
+      // Build where clause with department filter and optional active filter
+      const whereClause: any = {
+        departmentId: { in: departmentIds },
+      };
 
+      // Add activeOnly filter if requested
+      if (activeOnly) {
+        whereClause.isActive = true;
+      }
       const employees = await prisma.employee.findMany({
-        where: {
-          departmentId: { in: departmentIds },
-        },
+        where: whereClause,
         include: {
           department: true,
           location: true,
