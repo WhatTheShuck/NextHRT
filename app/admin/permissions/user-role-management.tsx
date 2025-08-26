@@ -298,6 +298,7 @@ export function UserRoleManagement() {
                 <SelectContent>
                   <SelectItem value="NONE">No Role</SelectItem>
                   <SelectItem value="User">User</SelectItem>
+                  <SelectItem value="FireWarden">Fire Warden</SelectItem>
                   <SelectItem value="DepartmentManager">
                     Department Manager
                   </SelectItem>
@@ -362,6 +363,8 @@ function getRoleBadgeVariant(
     case "Admin":
       return "destructive";
     case "DepartmentManager":
+      return "secondary";
+    case "FireWarden":
       return "secondary";
     case "User":
       return "default";
