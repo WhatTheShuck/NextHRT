@@ -17,11 +17,11 @@ export async function hasAccessToEmployee(
     console.error("hasAccessToEmployee: userId is undefined");
     return false;
   }
-  if (userRole === "Admin") {
+  if (hasRoleAccess(userRole, "Admin")) {
     return true;
   }
 
-  if (userRole === "DepartmentManager") {
+  if (hasRoleAccess(userRole, "DepartmentManager")) {
     // Check if employee is in one of the departments managed by this user
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -42,7 +42,7 @@ export async function hasAccessToEmployee(
     return departmentIds.includes(employee.departmentId);
   }
 
-  if (userRole === "User") {
+  if (hasRoleAccess(userRole, "User")) {
     // Check if this employee is linked to the user
     const user = await prisma.user.findUnique({
       where: { id: userId },
