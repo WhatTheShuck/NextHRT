@@ -8,7 +8,10 @@ import React, {
   useEffect,
 } from "react";
 import api from "@/lib/axios";
-import { EmployeeWithRelations } from "@/lib/types";
+import {
+  EmployeeWithRelations,
+  TrainingRecordsWithRelations,
+} from "@/lib/types";
 import { AxiosError } from "axios";
 
 type EmployeeContextType = {
@@ -108,10 +111,11 @@ export const useEmployee = () => {
 };
 
 // Convenience hooks for specific data
-export const useEmployeeTrainingRecords = () => {
-  const { employee } = useEmployee();
-  return employee?.trainingRecords || [];
-};
+export const useEmployeeTrainingRecords =
+  (): TrainingRecordsWithRelations[] => {
+    const { employee } = useEmployee();
+    return employee?.trainingRecords || ([] as TrainingRecordsWithRelations[]);
+  };
 
 export const useEmployeeTicketRecords = () => {
   const { employee } = useEmployee();

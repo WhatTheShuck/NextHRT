@@ -34,11 +34,13 @@ import { useState } from "react";
 import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
 import { useSession } from "next-auth/react";
 
-export function TrainingTab() {
+export function InternalTrainingTab() {
   const { employee } = useEmployee();
   const session = useSession();
   const isAdmin = session?.data?.user.role === "Admin";
-  const trainingRecords = useEmployeeTrainingRecords();
+  const trainingRecords = useEmployeeTrainingRecords().filter(
+    (record) => record.training?.category === "Internal",
+  );
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] =
