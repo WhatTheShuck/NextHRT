@@ -70,7 +70,7 @@ export function TicketCombobox({
             className="h-9"
           />
           <CommandList>
-            <CommandEmpty>No ticket courses found.</CommandEmpty>
+            <CommandEmpty>No ticket found.</CommandEmpty>
             <CommandGroup>
               {tickets.map((ticket) => (
                 <CommandItem
