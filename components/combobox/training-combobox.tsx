@@ -90,7 +90,9 @@ export function TrainingCombobox({
                     }`}
                   />
                   <div className="flex flex-col">
-                    <span className="font-medium">{training.title}</span>
+                    <span className="font-medium">
+                      {training.title} ({training.category})
+                    </span>
                   </div>
                 </CommandItem>
               ))}

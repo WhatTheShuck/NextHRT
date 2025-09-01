@@ -103,7 +103,10 @@ export function ExternalTrainingTab() {
                   <SheetHeader>
                     <SheetTitle>Add Training</SheetTitle>
                   </SheetHeader>
-                  <TrainingAddForm onSuccess={handleAddSheetClose} />
+                  <TrainingAddForm
+                    onSuccess={handleAddSheetClose}
+                    categoryHint="External"
+                  />
                 </SheetContent>
               </Sheet>
             )}

@@ -15,7 +15,14 @@ export const GET = auth(async function GET(
   const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
-
+  const category = searchParams.get("category");
+  const whereClause: any = {};
+  if (activeOnly) {
+    whereClause.isActive = true;
+  }
+  if (category) {
+    whereClause.category = category;
+  }
   try {
     const trainings = await prisma.training.findMany({
       include: {
@@ -23,11 +30,7 @@ export const GET = auth(async function GET(
           select: { trainingRecords: true },
         },
       },
-      where: activeOnly
-        ? {
-            isActive: true,
-          }
-        : undefined,
+      where: whereClause,
       orderBy: {
         title: "asc",
       },
@@ -52,25 +55,51 @@ export const POST = auth(async function POST(request) {
 
   try {
     const json = await request.json();
-    const training = await prisma.training.create({
-      data: {
-        category: json.category,
-        title: json.title,
-      },
-    });
+    if (json.category === "SOP") {
+      const training = await prisma.training.create({
+        data: {
+          category: json.category,
+          title: json.title + " - Task Sheet",
+        },
+      });
+      await prisma.training.create({
+        data: {
+          category: json.category,
+          title: json.title + " - Practical",
+        },
+      });
+      // Create history record
+      await prisma.history.create({
+        data: {
+          tableName: "Training",
+          recordId: training.id.toString(),
+          action: "CREATE",
+          newValues: JSON.stringify(training),
+          userId: request.auth.user?.id,
+        },
+      });
 
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "Training",
-        recordId: training.id.toString(),
-        action: "CREATE",
-        newValues: JSON.stringify(training),
-        userId: request.auth.user?.id,
-      },
-    });
+      return NextResponse.json(training);
+    } else {
+      const training = await prisma.training.create({
+        data: {
+          category: json.category,
+          title: json.title,
+        },
+      });
+      // Create history record
+      await prisma.history.create({
+        data: {
+          tableName: "Training",
+          recordId: training.id.toString(),
+          action: "CREATE",
+          newValues: JSON.stringify(training),
+          userId: request.auth.user?.id,
+        },
+      });
 
-    return NextResponse.json(training);
+      return NextResponse.json(training);
+    }
   } catch (error) {
     return NextResponse.json(
       {

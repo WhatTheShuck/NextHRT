@@ -104,7 +104,10 @@ export function SOPTrainingTab() {
                   <SheetHeader>
                     <SheetTitle>Add SOP</SheetTitle>
                   </SheetHeader>
-                  <TrainingAddForm onSuccess={handleAddSheetClose} />
+                  <TrainingAddForm
+                    onSuccess={handleAddSheetClose}
+                    categoryHint="SOP"
+                  />
                 </SheetContent>
               </Sheet>
             )}
