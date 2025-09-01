@@ -128,7 +128,7 @@ export function InternalTrainingTab() {
                     colSpan={8}
                     className="text-center text-muted-foreground"
                   >
-                    No training records found
+                    No internal training records found
                   </TableCell>
                 </TableRow>
               ) : (

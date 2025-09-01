@@ -97,12 +97,12 @@ export function SOPTrainingTab() {
                 <SheetTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Training
+                    Add SOP
                   </Button>
                 </SheetTrigger>
                 <SheetContent>
                   <SheetHeader>
-                    <SheetTitle>Add Training</SheetTitle>
+                    <SheetTitle>Add SOP</SheetTitle>
                   </SheetHeader>
                   <TrainingAddForm onSuccess={handleAddSheetClose} />
                 </SheetContent>
@@ -129,7 +129,7 @@ export function SOPTrainingTab() {
                     colSpan={8}
                     className="text-center text-muted-foreground"
                   >
-                    No training records found
+                    No SOPs found
                   </TableCell>
                 </TableRow>
               ) : (
