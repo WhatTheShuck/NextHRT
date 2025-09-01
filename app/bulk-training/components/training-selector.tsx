@@ -36,7 +36,7 @@ export function TrainingSelector({
   const [open, setOpen] = useState(false);
 
   const selectedTraining = trainings.find(
-    (training) => training.id === selectedTrainingId,
+    (training) => training.id.toString() === selectedTrainingId?.toString(),
   );
 
   return (
@@ -64,11 +64,10 @@ export function TrainingSelector({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className={`w-full justify-between ${!selectedTraining ? "text-muted-foreground" : ""}`}
           >
             {selectedTraining ? (
-              <span className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
+              <span>
                 {selectedTraining.title} ({selectedTraining.category})
               </span>
             ) : (
