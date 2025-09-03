@@ -3,10 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { User, Award, FileText, Clock } from "lucide-react";
+import {
+  User,
+  FileText,
+  Clock,
+  GraduationCap,
+  BookOpen,
+  IdCard,
+} from "lucide-react";
 import { useEmployee } from "./employee-context";
 import { OverviewTab } from "./tabs/overview-tab";
-import { TrainingTab } from "./tabs/training-tab";
+import { InternalTrainingTab } from "./tabs/training-internal-tab";
+import { ExternalTrainingTab } from "./tabs/training-external-tab";
+import { SOPTrainingTab } from "./tabs/training-sop-tab";
 import { TicketTab } from "./tabs/tickets-tab";
 import { HistoryTab } from "./tabs/history-tab";
 
@@ -57,12 +66,20 @@ export function EmployeeTabs() {
           <User className="h-4 w-4 mr-2" />
           Overview
         </TabsTrigger>
-        <TabsTrigger value="training">
-          <Award className="h-4 w-4 mr-2" />
-          Training
+        <TabsTrigger value="external-training">
+          <GraduationCap className="h-4 w-4 mr-2" />
+          External Training
+        </TabsTrigger>
+        <TabsTrigger value="internal-training">
+          <BookOpen className="h-4 w-4 mr-2" />
+          Internal Training
+        </TabsTrigger>
+        <TabsTrigger value="sop-training">
+          <FileText className="h-4 w-4 mr-2" />
+          SOPs
         </TabsTrigger>
         <TabsTrigger value="tickets">
-          <FileText className="h-4 w-4 mr-2" />
+          <IdCard className="h-4 w-4 mr-2" />
           Tickets
         </TabsTrigger>
         <TabsTrigger value="history">
@@ -75,10 +92,15 @@ export function EmployeeTabs() {
         <OverviewTab />
       </TabsContent>
 
-      <TabsContent value="training">
-        <TrainingTab />
+      <TabsContent value="external-training">
+        <ExternalTrainingTab />
       </TabsContent>
-
+      <TabsContent value="internal-training">
+        <InternalTrainingTab />
+      </TabsContent>
+      <TabsContent value="sop-training">
+        <SOPTrainingTab />
+      </TabsContent>
       <TabsContent value="tickets">
         <TicketTab />
       </TabsContent>

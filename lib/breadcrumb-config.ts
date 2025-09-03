@@ -49,6 +49,10 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "Completed Tickets",
     parent: "/reports/tickets",
   },
+  "/reports/tickets/expiring": {
+    label: "Expiring Tickets",
+    parent: "/reports/tickets",
+  },
   "/reports/training": { label: "Training Reports", parent: "/reports" },
   "/reports/training/completed": {
     label: "Completed Training",

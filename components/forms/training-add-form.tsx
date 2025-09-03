@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { Training } from "@/generated/prisma_client";
+import { Category, Training } from "@/generated/prisma_client";
 import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
 import { DateSelector } from "@/components/date-selector";
 import api from "@/lib/axios";
@@ -18,9 +18,13 @@ import {
 
 interface TrainingAddFormProps {
   onSuccess?: () => void;
+  categoryHint: Category;
 }
 
-export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
+export function TrainingAddForm({
+  onSuccess,
+  categoryHint,
+}: TrainingAddFormProps) {
   const { employee } = useEmployee();
 
   // Form state
@@ -43,7 +47,7 @@ export function TrainingAddForm({ onSuccess }: TrainingAddFormProps) {
       setIsLoading(true);
       try {
         const { data: trainingsRes } = await api.get(
-          "/api/training?activeOnly=true",
+          `/api/training?activeOnly=true&category=${categoryHint}`,
         );
         setTrainings(trainingsRes);
       } catch (err) {

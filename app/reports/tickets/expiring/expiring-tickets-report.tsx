@@ -183,7 +183,7 @@ export function ExpiringTicketRecordsPage() {
             />
             <Label htmlFor="legacy-ticket" className="flex items-center gap-2">
               <Archive className="h-4 w-4" />
-              Include legacy ticket courses
+              Include legacy tickets
             </Label>
           </div>
 

@@ -4,7 +4,7 @@ import { ExpiringTicketRecordsPage } from "./expiring-tickets-report";
 export default async function CompletedTrainingPage() {
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Ticket Completion Records</h1>
+      <h1 className="text-2xl font-bold mb-6">Expiring Ticket Records</h1>
 
       <ExpiringTicketRecordsPage />
     </div>
