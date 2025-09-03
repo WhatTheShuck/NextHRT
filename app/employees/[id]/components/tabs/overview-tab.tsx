@@ -10,6 +10,8 @@ import {
   Briefcase,
   NotepadText,
   GraduationCap,
+  Activity,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import NotesEditor from "@/components/notes-editor";
@@ -55,11 +57,19 @@ export function OverviewTab() {
               <span className="ml-auto">{employee.location.name}</span>
             </div>
             <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Employment Status
+              </span>
+              <span className="ml-auto">{employee.status}</span>
+            </div>
+            <div className="flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">USI</span>
               <span className="ml-auto">{employee.usi}</span>
             </div>
             <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Status</span>
               <Badge
                 variant={employee.isActive ? "default" : "secondary"}

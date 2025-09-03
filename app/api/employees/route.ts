@@ -236,6 +236,7 @@ export const POST = auth(async function POST(req) {
         },
         notes: json.notes,
         usi: json.usi,
+        status: json.status,
         isActive: json.isActive ?? true,
       },
     });

@@ -17,7 +17,11 @@ import { Loader2, Plus } from "lucide-react";
 import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
 import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
 import api from "@/lib/axios";
-import { Department, Location } from "@/generated/prisma_client";
+import {
+  Department,
+  EmployeeStatus,
+  Location,
+} from "@/generated/prisma_client";
 import { Textarea } from "@/components/ui/textarea";
 import { DateSelector } from "@/components/date-selector";
 
@@ -41,6 +45,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const [finishDate, setFinishDate] = useState<Date | null>(null);
   const [notes, setNotes] = useState("");
   const [usi, setUsi] = useState("");
+  const [status, setStatus] = useState<EmployeeStatus>("Permanent");
   const [isActive, setIsActive] = useState(true);
 
   // Options data
@@ -58,6 +63,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       setLocationId(employee.locationId?.toString() || "");
       setNotes(employee.notes || "");
       setUsi(employee.usi || "");
+      setStatus(employee.status || "Permanent");
       setIsActive(employee.isActive ?? true);
       setStartDate(employee.startDate || new Date());
       setFinishDate(employee.finishDate || null);
@@ -101,6 +107,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       startDate: startDate,
       finishDate: finishDate || null,
       notes,
+      status,
       usi,
       isActive,
     };
@@ -227,7 +234,26 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
           placeholder="Unique Student Identifier"
         />
       </div>
-
+      <div className="space-y-2">
+        <Label htmlFor="status">Employment Status *</Label>
+        <Select
+          value={status}
+          onValueChange={(value) => setStatus(value as EmployeeStatus)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Permanent">Permanent</SelectItem>
+            <SelectItem value="Apprentice">Apprentice</SelectItem>
+            <SelectItem value="LabourContractor">LabourContractor</SelectItem>
+            <SelectItem value="IndustryExperience">
+              IndustryExperience
+            </SelectItem>
+            <SelectItem value="PartTimePermanent">PartTimePermanent</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="startDate">Start Date</Label>
