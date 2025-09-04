@@ -141,7 +141,7 @@ const EmployeeDirectory = () => {
                     Add Employee
                   </Button>
                 </SheetTrigger>
-                <SheetContent>
+                <SheetContent className="overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>Add New Employee</SheetTitle>
                   </SheetHeader>

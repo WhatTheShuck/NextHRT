@@ -253,7 +253,7 @@ export function SOPTrainingTab() {
                     Add SOP
                   </Button>
                 </SheetTrigger>
-                <SheetContent>
+                <SheetContent className="overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>Add SOP</SheetTitle>
                   </SheetHeader>
@@ -457,7 +457,7 @@ export function SOPTrainingTab() {
 
       {/* Edit Training Sheet */}
       <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
-        <SheetContent>
+        <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Edit Training Record</SheetTitle>
           </SheetHeader>

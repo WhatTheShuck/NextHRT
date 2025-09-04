@@ -132,7 +132,7 @@ export function TicketTab() {
                     Add Ticket
                   </Button>
                 </SheetTrigger>
-                <SheetContent>
+                <SheetContent className="overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>Add Ticket</SheetTitle>
                   </SheetHeader>

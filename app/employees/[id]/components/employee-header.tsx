@@ -56,7 +56,7 @@ export function EmployeeHeader() {
                   Edit Profile
                 </Button>
               </SheetTrigger>
-              <SheetContent>
+              <SheetContent className="overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle>Edit Profile</SheetTitle>
                 </SheetHeader>
