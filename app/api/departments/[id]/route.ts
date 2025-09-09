@@ -110,24 +110,30 @@ export const PUT = auth(async function PUT(
     }
 
     const json = await request.json();
+    // Check for duplicate based on unique constraint
+    const existingRecord = await prisma.department.findFirst({
+      where: {
+        name: json.name,
+        id: { not: id },
+      },
+    });
 
+    if (existingRecord) {
+      return NextResponse.json(
+        {
+          error: "Duplicate record found",
+          code: "DUPLICATE_DEPARTMENT",
+          message: "A department with this name already exists",
+        },
+        { status: 409 },
+      );
+    }
     const updatedDepartment = await prisma.department.update({
       where: { id },
       data: {
         name: json.name,
         isActive: json.isActive,
-      },
-      include: {
-        _count: {
-          select: { employees: true },
-        },
-        managers: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        parentDepartmentId: json.parentDepartmentId || null,
       },
     });
 

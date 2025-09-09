@@ -41,10 +41,11 @@ enum EmployeeStatus {
 }
 
 model Location {
-  id                   Int                   @id @default(autoincrement())
-  name                 String
-  state                String
-  isActive             Boolean               @default(true)
+  id       Int     @id @default(autoincrement())
+  name     String
+  state    String
+  isActive Boolean @default(true)
+
   employees            Employee[]
   trainingRequirements TrainingRequirement[]
   ticketRequirements   TicketRequirement[]
@@ -53,9 +54,17 @@ model Location {
 }
 
 model Department {
-  id                   Int                   @id @default(autoincrement())
-  name                 String                @unique
-  isActive             Boolean               @default(true)
+  id                 Int          @id @default(autoincrement())
+  name               String       @unique
+  isActive           Boolean      @default(true)
+  // Self-referential relationship for tiered departments
+  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id])
+  parentDepartmentId Int?
+  childDepartments   Department[] @relation("DepartmentHierarchy")
+
+  // Computed field to determine hierarchy level (0 = root, 1 = first level, etc.)
+  level Int @default(0)
+
   employees            Employee[]
   managers             User[]                @relation("DepartmentManager")
   trainingRequirements TrainingRequirement[]
@@ -194,25 +203,28 @@ model History {
 }
 
 model User {
-  id                 String       @id @default(cuid())
-  name               String?
-  email              String?      @unique
-  emailVerified      DateTime?
-  image              String?
-  role               UserRole?    @default(User)
-  managedDepartments Department[] @relation("DepartmentManager")
-  employee           Employee?    @relation(fields: [employeeId], references: [id])
-  employeeId         Int?         @unique // Link to employee if user represents an employee
-  accounts           Account[]
-  sessions           Session[]
-  historyLogs        History[]
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id                           String       @id @default(cuid())
+  name                         String?
+  email                        String?      @unique
+  emailVerified                DateTime?
+  image                        String?
+  role                         UserRole?    @default(User)
+  managedDepartments           Department[] @relation("DepartmentManager")
+  canManageChildrenDepartments Boolean      @default(false) // Can manage child departments
+  employee                     Employee?    @relation(fields: [employeeId], references: [id])
+  employeeId                   Int?         @unique // Link to employee if user represents an employee
+  accounts                     Account[]
+  sessions                     Session[]
+  historyLogs                  History[]
+  createdAt                    DateTime     @default(now())
+  updatedAt                    DateTime     @updatedAt
 }
 
 enum UserRole {
   User
   DepartmentManager
+  EmployeeViewer
+  FireWarden
   Admin
 }
 
