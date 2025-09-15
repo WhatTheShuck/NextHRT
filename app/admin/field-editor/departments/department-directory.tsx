@@ -100,6 +100,7 @@ const DepartmentsDirectory = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Department Name</TableHead>
+                  <TableHead>Parent Department</TableHead>
                   <TableHead>Total Employees</TableHead>
                   <TableHead>Active Employees</TableHead>
                   <TableHead>Status</TableHead>
@@ -131,6 +132,14 @@ const DepartmentsDirectory = () => {
                             {record.name}
                           </TableCell>
                           <TableCell>
+                            {record.parentDepartmentId
+                              ? departments.find(
+                                  (dept) =>
+                                    dept.id === record.parentDepartmentId,
+                                )?.name || "N/A"
+                              : "N/A"}
+                          </TableCell>
+                          <TableCell>
                             {employeeCount}{" "}
                             {employeeCount === 1 ? "employee" : "employees"}
                           </TableCell>
@@ -152,6 +161,7 @@ const DepartmentsDirectory = () => {
                               {record.isActive ? "Active" : "Inactive"}
                             </span>
                           </TableCell>
+
                           <TableCell>
                             <div className="flex space-x-1">
                               <Button
@@ -194,6 +204,7 @@ const DepartmentsDirectory = () => {
         onDepartmentAdded={(dept) => {
           setDepartments([...departments, dept]);
         }}
+        departments={departments}
       />
 
       <EditDepartmentDialog
@@ -207,6 +218,7 @@ const DepartmentsDirectory = () => {
             ),
           );
         }}
+        departments={departments}
       />
 
       <DeleteDepartmentDialog

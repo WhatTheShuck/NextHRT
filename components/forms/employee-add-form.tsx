@@ -14,7 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Department, Location } from "@/generated/prisma_client";
+import {
+  Department,
+  EmployeeStatus,
+  Location,
+} from "@/generated/prisma_client";
 import { Plus } from "lucide-react";
 import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
 import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
@@ -44,6 +48,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
   const [locationId, setLocationId] = useState("");
   const [notes, setNotes] = useState("");
   const [usi, setUsi] = useState("");
+  const [status, setStatus] = useState<EmployeeStatus>("Permanent");
   const [isActive, setIsActive] = useState(true);
   const [startDate, setStartDate] = useState<Date>(new Date());
 
@@ -108,6 +113,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
         locationId: parseInt(locationId),
         notes: notes || null,
         usi: usi || null,
+        status: status || "Permanent",
         isActive,
         startDate: startDate?.toISOString() || null,
       });
@@ -223,6 +229,26 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
         </div>
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="status">Employment Status *</Label>
+        <Select
+          value={status}
+          onValueChange={(value) => setStatus(value as EmployeeStatus)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Permanent">Permanent</SelectItem>
+            <SelectItem value="Apprentice">Apprentice</SelectItem>
+            <SelectItem value="LabourContractor">LabourContractor</SelectItem>
+            <SelectItem value="IndustryExperience">
+              IndustryExperience
+            </SelectItem>
+            <SelectItem value="PartTimePermanent">PartTimePermanent</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="startDate">Start Date</Label>
         <DateSelector selectedDate={startDate} onDateSelect={setStartDate} />

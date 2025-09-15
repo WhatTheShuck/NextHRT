@@ -234,6 +234,7 @@ export const PUT = auth(async function PUT(
         },
         notes: json.notes,
         usi: json.usi,
+        status: json.status,
         isActive: json.isActive ?? true,
       },
     });

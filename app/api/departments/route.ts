@@ -96,21 +96,29 @@ export const POST = auth(async function POST(req) {
   try {
     const json = await req.json();
 
+    // Check for duplicate based on unique constraint
+    const existingRecord = await prisma.department.findFirst({
+      where: {
+        name: json.name,
+      },
+    });
+
+    if (existingRecord) {
+      return NextResponse.json(
+        {
+          error: "Duplicate record found",
+          code: "DUPLICATE_DEPARTMENT",
+          message: "A department with this name already exists",
+        },
+        { status: 409 },
+      );
+    }
     const department = await prisma.department.create({
       data: {
         name: json.name,
-      },
-      include: {
-        _count: {
-          select: { employees: true },
-        },
-        managers: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        parentDepartmentId: json.parentDepartmentId || null,
+        isActive: json.isActive,
+        level: json.parentDepartmentId ? 1 : 0,
       },
     });
 

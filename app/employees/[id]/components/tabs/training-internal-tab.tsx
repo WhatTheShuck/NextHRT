@@ -99,7 +99,7 @@ export function InternalTrainingTab() {
                     Add Training
                   </Button>
                 </SheetTrigger>
-                <SheetContent>
+                <SheetContent className="overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>Add Training</SheetTitle>
                   </SheetHeader>
@@ -196,7 +196,7 @@ export function InternalTrainingTab() {
 
       {/* Edit Training Sheet */}
       <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
-        <SheetContent>
+        <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Edit Training Record</SheetTitle>
           </SheetHeader>

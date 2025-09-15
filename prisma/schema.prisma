@@ -12,23 +12,24 @@ datasource db {
 }
 
 model Employee {
-  id              Int               @id @default(autoincrement())
-  firstName       String
-  lastName        String
-  title           String
-  startDate       DateTime?
-  finishDate      DateTime?
-  department      Department        @relation(fields: [departmentId], references: [id])
-  departmentId    Int
-  location        Location          @relation(fields: [locationId], references: [id])
-  locationId      Int
-  notes           String?
-  usi             String? //Universal Student Identifier
-  isActive        Boolean           @default(true)
-  status          EmployeeStatus    @default(Permanent)
-  trainingRecords TrainingRecords[]
-  ticketRecords   TicketRecords[]
-  User            User?
+  id                       Int                       @id @default(autoincrement())
+  firstName                String
+  lastName                 String
+  title                    String
+  startDate                DateTime?
+  finishDate               DateTime?
+  department               Department                @relation(fields: [departmentId], references: [id])
+  departmentId             Int
+  location                 Location                  @relation(fields: [locationId], references: [id])
+  locationId               Int
+  notes                    String?
+  usi                      String? //Universal Student Identifier
+  isActive                 Boolean                   @default(true)
+  status                   EmployeeStatus            @default(Permanent)
+  trainingRecords          TrainingRecords[]
+  ticketRecords            TicketRecords[]
+  trainingTicketExemptions TrainingTicketExemption[]
+  User                     User?
 }
 
 enum EmployeeStatus {
@@ -40,10 +41,11 @@ enum EmployeeStatus {
 }
 
 model Location {
-  id                   Int                   @id @default(autoincrement())
-  name                 String
-  state                String
-  isActive             Boolean               @default(true)
+  id       Int     @id @default(autoincrement())
+  name     String
+  state    String
+  isActive Boolean @default(true)
+
   employees            Employee[]
   trainingRequirements TrainingRequirement[]
   ticketRequirements   TicketRequirement[]
@@ -52,9 +54,17 @@ model Location {
 }
 
 model Department {
-  id                   Int                   @id @default(autoincrement())
-  name                 String                @unique
-  isActive             Boolean               @default(true)
+  id                 Int          @id @default(autoincrement())
+  name               String       @unique
+  isActive           Boolean      @default(true)
+  // Self-referential relationship for tiered departments
+  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id])
+  parentDepartmentId Int?
+  childDepartments   Department[] @relation("DepartmentHierarchy")
+
+  // Computed field to determine hierarchy level (0 = root, 1 = first level, etc.)
+  level Int @default(0)
+
   employees            Employee[]
   managers             User[]                @relation("DepartmentManager")
   trainingRequirements TrainingRequirement[]
@@ -62,12 +72,13 @@ model Department {
 }
 
 model Training {
-  id              Int                   @id @default(autoincrement())
-  category        Category
-  title           String
-  isActive        Boolean               @default(true)
-  trainingRecords TrainingRecords[]
-  requirements    TrainingRequirement[]
+  id                 Int                       @id @default(autoincrement())
+  category           Category
+  title              String
+  isActive           Boolean                   @default(true)
+  trainingRecords    TrainingRecords[]
+  requirements       TrainingRequirement[]
+  trainingExemptions TrainingTicketExemption[]
 }
 
 model TrainingRecords {
@@ -102,13 +113,14 @@ enum Category {
 }
 
 model Ticket {
-  id            Int                 @id @default(autoincrement())
-  ticketCode    String
-  ticketName    String
-  renewal       Int? // in years
-  isActive      Boolean             @default(true)
-  ticketRecords TicketRecords[]
-  requirements  TicketRequirement[]
+  id               Int                       @id @default(autoincrement())
+  ticketCode       String
+  ticketName       String
+  renewal          Int? // in years
+  isActive         Boolean                   @default(true)
+  ticketRecords    TicketRecords[]
+  requirements     TicketRequirement[]
+  ticketExemptions TrainingTicketExemption[]
 }
 
 model TicketRecords {
@@ -146,6 +158,37 @@ model TicketRequirement {
   @@id([ticketId, departmentId, locationId])
 }
 
+model TrainingTicketExemption {
+  id         Int             @id @default(autoincrement())
+  employee   Employee        @relation(fields: [employeeId], references: [id])
+  employeeId Int
+  type       ExemptionType // Training or Ticket
+  training   Training?       @relation(fields: [trainingId], references: [id])
+  trainingId Int? // Only populated if type is Training
+  ticket     Ticket?         @relation(fields: [ticketId], references: [id])
+  ticketId   Int? // Only populated if type is Ticket
+  reason     String // Why they're exempted
+  startDate  DateTime        @default(now()) // When exemption starts
+  endDate    DateTime? // Optional: When exemption expires
+  status     ExemptionStatus @default(Active)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([employeeId, trainingId]) // One active exemption per employee per training
+  @@unique([employeeId, ticketId]) // One active exemption per employee per ticket
+}
+
+enum ExemptionType {
+  Training
+  Ticket
+}
+
+enum ExemptionStatus {
+  Active
+  Expired
+  Revoked
+}
+
 model History {
   id            Int      @id @default(autoincrement())
   tableName     String // Which table was affected (Employee, Training, etc.)
@@ -160,27 +203,28 @@ model History {
 }
 
 model User {
-  id                 String       @id @default(cuid())
-  name               String?
-  email              String?      @unique
-  emailVerified      DateTime?
-  image              String?
-  role               UserRole?    @default(User)
-  managedDepartments Department[] @relation("DepartmentManager")
-  employee           Employee?    @relation(fields: [employeeId], references: [id])
-  employeeId         Int?         @unique // Link to employee if user represents an employee
-  accounts           Account[]
-  sessions           Session[]
-  historyLogs        History[]
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id                           String       @id @default(cuid())
+  name                         String?
+  email                        String?      @unique
+  emailVerified                DateTime?
+  image                        String?
+  role                         UserRole?    @default(User)
+  managedDepartments           Department[] @relation("DepartmentManager")
+  canManageChildrenDepartments Boolean      @default(false) // Can manage child departments
+  employee                     Employee?    @relation(fields: [employeeId], references: [id])
+  employeeId                   Int?         @unique // Link to employee if user represents an employee
+  accounts                     Account[]
+  sessions                     Session[]
+  historyLogs                  History[]
+  createdAt                    DateTime     @default(now())
+  updatedAt                    DateTime     @updatedAt
 }
 
 enum UserRole {
   User
+  DepartmentManager
   EmployeeViewer
   FireWarden
-  DepartmentManager
   Admin
 }
 

@@ -30,7 +30,25 @@ export async function hasAccessToEmployee(
 
     if (!user) return false;
 
-    const departmentIds = user.managedDepartments.map((dept) => dept.id);
+    // Get all accessible department IDs
+    const accessibleDepartmentIds: number[] = [];
+
+    for (const dept of user.managedDepartments) {
+      if (dept.level === 0) {
+        // Parent department - get all child departments
+        const childDepartments = await prisma.department.findMany({
+          where: { parentDepartmentId: dept.id },
+          select: { id: true },
+        });
+        accessibleDepartmentIds.push(dept.id); // Include the parent itself
+        accessibleDepartmentIds.push(
+          ...childDepartments.map((child) => child.id),
+        );
+      } else if (dept.level === 1) {
+        // Child department - only access to itself
+        accessibleDepartmentIds.push(dept.id);
+      }
+    }
 
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -39,7 +57,7 @@ export async function hasAccessToEmployee(
 
     if (!employee) return false;
 
-    return departmentIds.includes(employee.departmentId);
+    return accessibleDepartmentIds.includes(employee.departmentId);
   }
 
   if (hasRoleAccess(userRole, "User")) {
@@ -82,4 +100,15 @@ export function hasRoleAccess(
   if (userRole === requiredRole) return true;
 
   return roleHierarchy[userRole]?.includes(requiredRole) || false;
+}
+
+export async function getChildDepartmentIds(
+  departmentId: number,
+): Promise<number[]> {
+  const childDepartments = await prisma.department.findMany({
+    where: { parentDepartmentId: departmentId },
+    select: { id: true },
+  });
+
+  return childDepartments.map((dept) => dept.id);
 }
