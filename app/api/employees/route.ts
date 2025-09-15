@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 import { isAsyncFunction } from "node:util/types";
-import { hasRoleAccess } from "@/lib/apiRBAC";
+import { getChildDepartmentIds, hasRoleAccess } from "@/lib/apiRBAC";
 
 // GET all employees
 export const GET = auth(async function GET(
@@ -84,7 +84,6 @@ export const GET = auth(async function GET(
         );
       }
     } else if (hasRoleAccess(userRole, "DepartmentManager")) {
-      // Department managers can see employees in their departments
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -98,15 +97,25 @@ export const GET = auth(async function GET(
       }
 
       const departmentIds = user.managedDepartments.map((dept) => dept.id);
+
+      // Fetch child department IDs for parent departments (level === 0)
+      const childDeptPromises = user.managedDepartments
+        .filter((dept) => dept.level === 0)
+        .map((dept) => getChildDepartmentIds(dept.id));
+
+      const childDeptIdsArrays = await Promise.all(childDeptPromises);
+      const childDeptIds = childDeptIdsArrays.flat();
+      departmentIds.push(...childDeptIds);
+
       // Build where clause with department filter and optional active filter
       const whereClause: any = {
         departmentId: { in: departmentIds },
       };
 
-      // Add activeOnly filter if requested
       if (activeOnly) {
         whereClause.isActive = true;
       }
+
       const employees = await prisma.employee.findMany({
         where: whereClause,
         include: {
