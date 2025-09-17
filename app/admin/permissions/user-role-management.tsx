@@ -63,8 +63,9 @@ export function UserRoleManagement() {
         setFilteredUsers(usersResponse.data);
 
         // Fetch departments
-        const departmentsResponse =
-          await api.get<Department[]>("/api/departments");
+        const departmentsResponse = await api.get<Department[]>(
+          "/api/departments?activeOnly=true",
+        );
         setDepartments(departmentsResponse.data);
       } catch (error) {
         console.error("Error fetching data:", error);
