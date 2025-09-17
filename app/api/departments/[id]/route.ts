@@ -134,6 +134,7 @@ export const PUT = auth(async function PUT(
         name: json.name,
         isActive: json.isActive,
         parentDepartmentId: json.parentDepartmentId || null,
+        level: json.parentDepartmentId ? 1 : 0,
       },
     });
 
