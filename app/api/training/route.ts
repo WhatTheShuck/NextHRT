@@ -16,6 +16,9 @@ export const GET = auth(async function GET(
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
   const category = searchParams.get("category");
+  const includeRequirements =
+    searchParams.get("includeRequirements") === "true";
+
   const whereClause: any = {};
   if (activeOnly) {
     whereClause.isActive = true;
@@ -23,13 +26,33 @@ export const GET = auth(async function GET(
   if (category) {
     whereClause.category = category;
   }
+
+  const includeClause: any = {
+    _count: {
+      select: { trainingRecords: true },
+    },
+  };
+
+  if (includeRequirements) {
+    includeClause.requirements = {
+      include: {
+        training: true,
+        department: true,
+        location: true,
+      },
+    };
+    includeClause.trainingExemptions = {
+      include: {
+        training: true,
+        ticket: true,
+        employee: true,
+      },
+    };
+  }
+
   try {
     const trainings = await prisma.training.findMany({
-      include: {
-        _count: {
-          select: { trainingRecords: true },
-        },
-      },
+      include: includeClause,
       where: whereClause,
       orderBy: {
         title: "asc",

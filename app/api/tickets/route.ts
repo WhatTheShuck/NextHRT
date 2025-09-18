@@ -7,7 +7,7 @@ import { UserRole } from "@/generated/prisma_client";
 
 export const GET = auth(async function GET(
   request,
-  props: { params: Promise<{ id: string }> },
+  props: { params: Promise<{}> },
 ) {
   // Check if the user is authenticated
   if (!request.auth) {
@@ -17,33 +17,40 @@ export const GET = auth(async function GET(
   const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
+  const includeRequirements =
+    searchParams.get("includeRequirements") === "true";
 
-  try {
-    const tickets = await prisma.ticket.findMany({
+  const whereClause: any = {};
+  if (activeOnly) {
+    whereClause.isActive = true;
+  }
+
+  const includeClause: any = {
+    _count: {
+      select: { ticketRecords: true },
+    },
+    //refactor this out into params in future
+    ticketRecords: {
       include: {
-        ticketRecords: {
-          include: {
-            ticketHolder: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
-
-        _count: {
+        ticketHolder: {
           select: {
-            ticketRecords: true,
+            id: true,
+            firstName: true,
+            lastName: true,
           },
         },
       },
-      where: activeOnly
-        ? {
-            isActive: true,
-          }
-        : undefined,
+    },
+  };
+
+  if (includeRequirements) {
+    includeClause.requirements = true;
+    includeClause.ticketExemptions = true;
+  }
+  try {
+    const tickets = await prisma.ticket.findMany({
+      include: includeClause,
+      where: whereClause,
       orderBy: {
         ticketName: "asc",
       },
