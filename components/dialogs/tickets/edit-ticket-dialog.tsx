@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { useMediaQuery } from "usehooks-ts";
 import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +12,16 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Ticket } from "@/generated/prisma_client";
 import { Switch } from "@/components/ui/switch";
 
@@ -24,12 +32,19 @@ interface EditTicketDialogProps {
   onTicketUpdated?: (ticket: Ticket) => void;
 }
 
-export function EditTicketDialog({
-  open,
-  onOpenChange,
+interface TicketFormProps {
+  ticket: Ticket | null;
+  onTicketUpdated?: (ticket: Ticket) => void;
+  onClose: () => void;
+  className?: string;
+}
+
+function TicketForm({
   ticket,
   onTicketUpdated,
-}: EditTicketDialogProps) {
+  onClose,
+  className,
+}: TicketFormProps) {
   const [ticketName, setTicketName] = useState("");
   const [ticketCode, setTicketCode] = useState("");
   const [renewal, setRenewal] = useState("5");
@@ -38,24 +53,26 @@ export function EditTicketDialog({
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
 
-  // Reset form when dialog opens/closes or ticket changes
+  // Reset form when ticket changes
   useEffect(() => {
-    if (open && ticket) {
+    if (ticket) {
       setTicketName(ticket.ticketName || "");
       setTicketCode(ticket.ticketCode || "");
       setRenewal(ticket.renewal ? ticket.renewal.toString() : "5");
       setNoExpiry(ticket.renewal === null);
       setIsActive(ticket.isActive ?? true);
       setError("");
-    } else if (!open) {
-      setTicketName("");
-      setTicketCode("");
-      setRenewal("5");
-      setNoExpiry(false);
-      setIsActive(true);
-      setError("");
     }
-  }, [open, ticket]);
+  }, [ticket]);
+
+  const resetForm = () => {
+    setTicketName("");
+    setTicketCode("");
+    setRenewal("5");
+    setNoExpiry(false);
+    setIsActive(true);
+    setError("");
+  };
 
   const handleUpdate = async () => {
     if (!ticketName.trim()) {
@@ -84,7 +101,7 @@ export function EditTicketDialog({
       });
 
       onTicketUpdated?.(response.data);
-      onOpenChange(false);
+      onClose();
     } catch (err: any) {
       console.error("Error updating ticket:", err);
       setError(
@@ -96,99 +113,158 @@ export function EditTicketDialog({
   };
 
   const handleClose = () => {
-    onOpenChange(false);
+    onClose();
+    resetForm();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Ticket</DialogTitle>
-          <DialogDescription>
-            Update the ticket details. This change will affect all employees
-            assigned to this ticket.
-          </DialogDescription>
-        </DialogHeader>
+    <div className={cn("space-y-4", className)}>
+      <div className="space-y-2">
+        <Label htmlFor="ticketName">Ticket Name</Label>
+        <Input
+          id="ticketName"
+          value={ticketName}
+          onChange={(e) => {
+            setTicketName(e.target.value);
+            if (error) setError("");
+          }}
+          placeholder="e.g., Driver's Licence"
+          disabled={isUpdating}
+        />
+      </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 p-2 rounded-md text-sm">
-            {error}
-          </div>
-        )}
+      <div className="space-y-2">
+        <Label htmlFor="ticketCode">Ticket Code</Label>
+        <Input
+          id="ticketCode"
+          value={ticketCode}
+          onChange={(e) => {
+            setTicketCode(e.target.value);
+            if (error) setError("");
+          }}
+          placeholder="e.g., DL"
+          disabled={isUpdating}
+        />
+      </div>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="ticketName">Ticket Name</Label>
-            <Input
-              id="ticketName"
-              value={ticketName}
-              onChange={(e) => setTicketName(e.target.value)}
-              placeholder="e.g., Driver's Licence"
+      <div className="space-y-2">
+        <Label htmlFor="renewal">Renewal Period</Label>
+        <div className="flex items-center space-x-3">
+          <Input
+            id="renewal"
+            type="number"
+            min="1"
+            value={renewal}
+            onChange={(e) => setRenewal(e.target.value)}
+            disabled={noExpiry || isUpdating}
+            className={`w-20 ${noExpiry ? "opacity-50" : ""}`}
+          />
+          <span className="text-sm text-gray-500">years</span>
+
+          <div className="flex items-center space-x-2 ml-4">
+            <Checkbox
+              id="no-expiry"
+              checked={noExpiry}
+              onCheckedChange={(checked) => setNoExpiry(checked === true)}
+              disabled={isUpdating}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticketCode">Ticket Code</Label>
-            <Input
-              id="ticketCode"
-              value={ticketCode}
-              onChange={(e) => setTicketCode(e.target.value)}
-              placeholder="e.g., DL"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="renewal">Renewal Period</Label>
-            <div className="flex items-center space-x-3">
-              <Input
-                id="renewal"
-                type="number"
-                min="1"
-                value={renewal}
-                onChange={(e) => setRenewal(e.target.value)}
-                disabled={noExpiry}
-                className={`w-20 ${noExpiry ? "opacity-50" : ""}`}
-              />
-              <span className="text-sm text-gray-500">years</span>
-
-              <div className="flex items-center space-x-2 ml-4">
-                <Checkbox
-                  id="no-expiry"
-                  checked={noExpiry}
-                  onCheckedChange={(checked) => setNoExpiry(checked === true)}
-                />
-                <Label htmlFor="no-expiry" className="text-sm font-normal">
-                  Does not expire
-                </Label>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between space-x-2 py-2">
-            <div className="space-y-1">
-              <Label htmlFor="isActive" className="text-sm font-medium">
-                Ticket Active
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Enable or disable this Ticket
-              </p>
-            </div>
-            <Switch
-              id="isActive"
-              checked={isActive}
-              onCheckedChange={setIsActive}
-            />
+            <Label htmlFor="no-expiry" className="text-sm font-normal">
+              Does not expire
+            </Label>
           </div>
         </div>
+      </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleUpdate} disabled={isUpdating}>
-            {isUpdating ? "Updating..." : "Update Ticket"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <div className="flex items-center justify-between space-x-2 py-2">
+        <div className="space-y-1">
+          <Label htmlFor="isActive" className="text-sm font-medium">
+            Ticket Active
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Enable or disable this Ticket
+          </p>
+        </div>
+        <Switch
+          id="isActive"
+          checked={isActive}
+          onCheckedChange={setIsActive}
+          disabled={isUpdating}
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 border border-red-200">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-col space-y-2 w-full md:flex-row-reverse pb-2 md:gap-2 md:space-y-0 md:justify-start">
+        <Button type="button" onClick={handleUpdate} disabled={isUpdating}>
+          {isUpdating ? "Updating..." : "Update Ticket"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleClose}
+          disabled={isUpdating}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function EditTicketDialog({
+  open,
+  onOpenChange,
+  ticket,
+  onTicketUpdated,
+}: EditTicketDialogProps) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
+  const handleClose = () => onOpenChange(false);
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Ticket</DialogTitle>
+            <DialogDescription>
+              Update the ticket details. This change will affect all employees
+              assigned to this ticket.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <TicketForm
+              ticket={ticket}
+              onTicketUpdated={onTicketUpdated}
+              onClose={handleClose}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <DrawerHeader className="text-left">
+          <DrawerTitle>Edit Ticket</DrawerTitle>
+          <DrawerDescription>
+            Update the ticket details. This change will affect all employees
+            assigned to this ticket.
+          </DrawerDescription>
+        </DrawerHeader>
+        <TicketForm
+          className="px-4"
+          ticket={ticket}
+          onTicketUpdated={onTicketUpdated}
+          onClose={handleClose}
+        />
+      </DrawerContent>
+    </Drawer>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { useMediaQuery } from "usehooks-ts";
 import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +12,16 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Training, Category } from "@/generated/prisma_client";
 import { Switch } from "@/components/ui/switch";
 
@@ -24,32 +32,41 @@ interface EditTrainingDialogProps {
   onTrainingUpdated?: (training: Training) => void;
 }
 
-export function EditTrainingDialog({
-  open,
-  onOpenChange,
+interface TrainingFormProps {
+  training: Training | null;
+  onTrainingUpdated?: (training: Training) => void;
+  onClose: () => void;
+  className?: string;
+}
+
+function TrainingForm({
   training,
   onTrainingUpdated,
-}: EditTrainingDialogProps) {
+  onClose,
+  className,
+}: TrainingFormProps) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Internal");
   const [isActive, setIsActive] = useState<boolean>(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
 
-  // Reset form when dialog opens/closes or training changes
+  // Reset form when training changes
   useEffect(() => {
-    if (open && training) {
+    if (training) {
       setTitle(training.title || "");
       setCategory(training.category || "Internal");
       setIsActive(training.isActive ?? true);
       setError("");
-    } else if (!open) {
-      setTitle("");
-      setCategory("Internal");
-      setIsActive(true);
-      setError("");
     }
-  }, [open, training]);
+  }, [training]);
+
+  const resetForm = () => {
+    setTitle("");
+    setCategory("Internal");
+    setIsActive(true);
+    setError("");
+  };
 
   const handleUpdate = async () => {
     if (!title.trim()) {
@@ -73,7 +90,7 @@ export function EditTrainingDialog({
       });
 
       onTrainingUpdated?.(response.data);
-      onOpenChange(false);
+      onClose();
     } catch (err: any) {
       console.error("Error updating training:", err);
       setError(
@@ -87,84 +104,138 @@ export function EditTrainingDialog({
   };
 
   const handleClose = () => {
-    onOpenChange(false);
+    onClose();
+    resetForm();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Training Course</DialogTitle>
-          <DialogDescription>
+    <div className={cn("space-y-4", className)}>
+      <div className="space-y-2">
+        <Label htmlFor="title">Training Title</Label>
+        <Input
+          id="title"
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (error) setError("");
+          }}
+          placeholder="e.g., First Aid Training"
+          disabled={isUpdating}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Category</Label>
+        <RadioGroup
+          value={category}
+          onValueChange={(val) => setCategory(val as Category)}
+          disabled={isUpdating}
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="Internal" id="internal" />
+            <Label htmlFor="internal">Internal</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="External" id="external" />
+            <Label htmlFor="external">External</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="SOP" id="sop" />
+            <Label htmlFor="sop">SOP</Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      <div className="flex items-center justify-between space-x-2 py-2">
+        <div className="space-y-1">
+          <Label htmlFor="isActive" className="text-sm font-medium">
+            Training Active
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Enable or disable this training course
+          </p>
+        </div>
+        <Switch
+          id="isActive"
+          checked={isActive}
+          onCheckedChange={setIsActive}
+          disabled={isUpdating}
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 border border-red-200">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-col space-y-2 w-full md:flex-row-reverse pb-2 md:gap-2 md:space-y-0 md:justify-start">
+        <Button type="button" onClick={handleUpdate} disabled={isUpdating}>
+          {isUpdating ? "Updating..." : "Update Training Course"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleClose}
+          disabled={isUpdating}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function EditTrainingDialog({
+  open,
+  onOpenChange,
+  training,
+  onTrainingUpdated,
+}: EditTrainingDialogProps) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
+  const handleClose = () => onOpenChange(false);
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Training Course</DialogTitle>
+            <DialogDescription>
+              Update the training course details. This change will affect all
+              training records associated with this course.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <TrainingForm
+              training={training}
+              onTrainingUpdated={onTrainingUpdated}
+              onClose={handleClose}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <DrawerHeader className="text-left">
+          <DrawerTitle>Edit Training Course</DrawerTitle>
+          <DrawerDescription>
             Update the training course details. This change will affect all
             training records associated with this course.
-          </DialogDescription>
-        </DialogHeader>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 p-2 rounded-md text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Training Title</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., First Aid Training"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Category</Label>
-            <RadioGroup
-              value={category}
-              onValueChange={(val) => setCategory(val as Category)}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="Internal" id="internal" />
-                <Label htmlFor="internal">Internal</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="External" id="external" />
-                <Label htmlFor="external">External</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="SOP" id="sop" />
-                <Label htmlFor="sop">SOP</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="flex items-center justify-between space-x-2 py-2">
-            <div className="space-y-1">
-              <Label htmlFor="isActive" className="text-sm font-medium">
-                Training Active
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Enable or disable this training course
-              </p>
-            </div>
-            <Switch
-              id="isActive"
-              checked={isActive}
-              onCheckedChange={setIsActive}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleUpdate} disabled={isUpdating}>
-            {isUpdating ? "Updating..." : "Update Training Course"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DrawerDescription>
+        </DrawerHeader>
+        <TrainingForm
+          className="px-4"
+          training={training}
+          onTrainingUpdated={onTrainingUpdated}
+          onClose={handleClose}
+        />
+      </DrawerContent>
+    </Drawer>
   );
 }
