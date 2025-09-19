@@ -61,6 +61,7 @@ export interface TrainingWithRelations extends Training {
     trainingRecords: number;
   };
   trainingExemptions?: TrainingTicketExemptionWithRelations[];
+  trainingRecords?: TrainingRecordsWithRelations[];
 }
 export interface TicketRecordsWithRelations extends TicketRecords {
   ticket?: Ticket;
@@ -74,6 +75,7 @@ export interface TicketWithRelations extends Ticket {
     ticketRecords: number;
   };
   ticketExemptions?: TrainingTicketExemptionWithRelations[];
+  ticketRecords?: TicketRecordsWithRelations[];
 }
 
 export interface TicketRequirementWithRelations extends TicketRequirement {
