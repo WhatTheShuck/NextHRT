@@ -44,7 +44,6 @@ export const GET = auth(async function GET(
     includeClause.trainingExemptions = {
       include: {
         training: true,
-        ticket: true,
         employee: true,
       },
     };

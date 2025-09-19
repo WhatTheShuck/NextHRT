@@ -67,13 +67,11 @@ export interface TicketRecordsWithRelations extends TicketRecords {
   ticketHolder?: EmployeeWithRelations;
   images?: TicketImage[];
 }
+
 export interface TicketWithRelations extends Ticket {
-  ticketRecords?: TicketRecordsWithRelations[];
-}
-export interface TicketWithRelations extends Ticket {
-  requirements?: TicketRequirementWithRelationst[];
+  requirements?: TicketRequirementWithRelations[];
   _count?: {
-    trainingRecords: number;
+    ticketRecords: number;
   };
   ticketExemptions?: TrainingTicketExemptionWithRelations[];
 }

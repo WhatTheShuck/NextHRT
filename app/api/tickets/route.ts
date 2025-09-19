@@ -30,22 +30,33 @@ export const GET = auth(async function GET(
       select: { ticketRecords: true },
     },
     //refactor this out into params in future
-    ticketRecords: {
-      include: {
-        ticketHolder: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
-    },
+    // ticketrecords: {
+    //   include: {
+    //     ticketholder: {
+    //       select: {
+    //         id: true,
+    //         firstname: true,
+    //         lastname: true,
+    //       },
+    //     },
+    //   },
+    // },
   };
 
   if (includeRequirements) {
-    includeClause.requirements = true;
-    includeClause.ticketExemptions = true;
+    includeClause.requirements = {
+      include: {
+        ticket: true,
+        department: true,
+        location: true,
+      },
+    };
+    includeClause.ticketExemptions = {
+      include: {
+        ticket: true,
+        employee: true,
+      },
+    };
   }
   try {
     const tickets = await prisma.ticket.findMany({
@@ -108,6 +119,17 @@ export const POST = auth(async function POST(req) {
         renewal: json.renewal ?? null,
       },
     });
+    if (json.requirements) {
+      for (const req of json.requirements) {
+        await prisma.ticketRequirement.create({
+          data: {
+            ticketId: ticket.id,
+            departmentId: req.departmentId,
+            locationId: req.locationId,
+          },
+        });
+      }
+    }
 
     // Create history record
     await prisma.history.create({
