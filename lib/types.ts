@@ -50,7 +50,6 @@ export interface TrainingRecordsWithRelations extends TrainingRecords {
 
 export interface TrainingRequirementWithRelations extends TrainingRequirement {
   training?: Training;
-  ticket?: Ticket;
   department?: Department;
   location?: Location;
 }
