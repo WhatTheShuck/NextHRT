@@ -21,12 +21,14 @@ interface RequirementSelectorProps {
   value?: RequirementPair[];
   onChange?: (requirements: RequirementPair[]) => void;
   disabled?: boolean;
+  onUnsavedChanges?: (hasUnsavedChanges: boolean) => void; // New prop
 }
 
 export function RequirementSelector({
   value = [],
   onChange,
   disabled = false,
+  onUnsavedChanges, // New prop
 }: RequirementSelectorProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -68,6 +70,23 @@ export function RequirementSelector({
   useEffect(() => {
     setRequirements(value);
   }, [value]);
+
+  // Check for unsaved changes and notify parent
+  useEffect(() => {
+    const hasUnsavedChanges =
+      currentDepartmentId !== null &&
+      currentLocationId !== null &&
+      canAddRequirement();
+    onUnsavedChanges?.(hasUnsavedChanges);
+  }, [currentDepartmentId, currentLocationId, requirements, onUnsavedChanges]);
+
+  const handleDepartmentSelect = (departmentId: string) => {
+    setCurrentDepartmentId(parseInt(departmentId));
+  };
+
+  const handleLocationSelect = (locationId: string) => {
+    setCurrentLocationId(parseInt(locationId));
+  };
 
   const handleAddRequirement = () => {
     if (currentDepartmentId === null || currentLocationId === null) {
@@ -129,6 +148,11 @@ export function RequirementSelector({
     );
   };
 
+  const hasUnsavedChanges =
+    currentDepartmentId !== null &&
+    currentLocationId !== null &&
+    canAddRequirement();
+
   if (loading) {
     return <div>Loading requirements...</div>;
   }
@@ -145,9 +169,7 @@ export function RequirementSelector({
           <div className="flex-1">
             <DepartmentCombobox
               departments={departments}
-              onSelect={(departmentId) =>
-                setCurrentDepartmentId(parseInt(departmentId))
-              }
+              onSelect={handleDepartmentSelect}
               selectedDepartmentId={currentDepartmentId}
               placeholder="Select department..."
               disabled={disabled}
@@ -156,9 +178,7 @@ export function RequirementSelector({
           <div className="flex-1">
             <LocationCombobox
               locations={locations}
-              onSelect={(locationId) =>
-                setCurrentLocationId(parseInt(locationId))
-              }
+              onSelect={handleLocationSelect}
               selectedLocationId={currentLocationId}
               placeholder="Select location..."
               disabled={disabled}
@@ -169,7 +189,7 @@ export function RequirementSelector({
             onClick={handleAddRequirement}
             disabled={!canAddRequirement() || disabled}
             size="icon"
-            className="shrink-0"
+            className={`shrink-0 ${hasUnsavedChanges ? "animate-pulse bg-amber-500 hover:bg-amber-600" : ""}`}
           >
             <Plus className="h-4 w-4" />
           </Button>

@@ -307,7 +307,13 @@ const TrainingDirectory = () => {
         isOpen={isTrainingAddDialogOpen}
         onOpenChange={setIsTrainingAddDialogOpen}
         onTrainingCreated={(training) => {
-          setTrainings([...trainings, training]);
+          if (Array.isArray(training)) {
+            // Handle multiple trainings (SOP case)
+            setTrainings((prev) => [...prev, ...training]);
+          } else {
+            // Handle single training (Internal/External case)
+            setTrainings((prev) => [...prev, training]);
+          }
         }}
       />
 
