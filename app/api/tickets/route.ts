@@ -29,18 +29,6 @@ export const GET = auth(async function GET(
     _count: {
       select: { ticketRecords: true },
     },
-    //refactor this out into params in future
-    // ticketrecords: {
-    //   include: {
-    //     ticketholder: {
-    //       select: {
-    //         id: true,
-    //         firstname: true,
-    //         lastname: true,
-    //       },
-    //     },
-    //   },
-    // },
   };
 
   if (includeRequirements) {

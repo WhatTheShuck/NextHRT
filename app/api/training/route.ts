@@ -81,7 +81,7 @@ export const POST = auth(async function POST(request) {
       const training1 = await prisma.training.create({
         data: {
           category: json.category,
-          title: json.title + " requirements- Task Sheet",
+          title: json.title + " - Task Sheet",
         },
       });
 

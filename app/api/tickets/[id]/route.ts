@@ -17,7 +17,8 @@ export const GET = auth(async function GET(
   const { searchParams } = new URL(req.url);
   const expirationDays = searchParams.get("expirationDays");
   const activeOnly = searchParams.get("activeOnly") === "true";
-
+  const includeRequirements =
+    searchParams.get("includeRequirements") === "true";
   try {
     const id = parseInt(params.id);
 
@@ -26,8 +27,7 @@ export const GET = auth(async function GET(
     }
 
     // Build the where clause for ticketRecords filtering
-    let ticketRecordsWhere: any = {};
-
+    const whereClause: any = {};
     // Add expiration filtering if provided
     if (expirationDays) {
       const days = parseInt(expirationDays);
@@ -36,7 +36,7 @@ export const GET = auth(async function GET(
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() + days);
 
-        ticketRecordsWhere.expiryDate = {
+        whereClause.expiryDate = {
           gt: now, // Must be in the future (not already expired)
           lte: cutoffDate, // Must expire within the specified days
           not: null, // Exclude records without expiry dates
@@ -44,49 +44,63 @@ export const GET = auth(async function GET(
       }
     }
     if (activeOnly) {
-      ticketRecordsWhere.ticketHolder = {
+      whereClause.ticketHolder = {
         isActive: true,
+      };
+    }
+    const includeClause: any = {
+      ticketRecords: {
+        where: whereClause,
+        include: {
+          ticketHolder: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              title: true,
+              department: {
+                select: {
+                  name: true,
+                },
+              },
+              location: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+
+          _count: {
+            select: { ticketRecords: true },
+          },
+
+          orderBy: {
+            dateIssued: "desc",
+          },
+        },
+      },
+    };
+
+    if (includeRequirements) {
+      includeClause.requirements = {
+        include: {
+          ticket: true,
+          department: true,
+          location: true,
+        },
+      };
+      includeClause.ticketExemptions = {
+        include: {
+          ticket: true,
+          employee: true,
+        },
       };
     }
 
     const ticket = await prisma.ticket.findUnique({
       where: { id },
-      include: {
-        ticketRecords: {
-          where:
-            Object.keys(ticketRecordsWhere).length > 0
-              ? ticketRecordsWhere
-              : undefined,
-          include: {
-            ticketHolder: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                title: true,
-                department: {
-                  select: {
-                    name: true,
-                  },
-                },
-                location: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: {
-            dateIssued: "desc",
-          },
-        },
-        _count: {
-          select: {
-            ticketRecords: true,
-          },
-        },
-      },
+      include: includeClause,
     });
 
     if (!ticket) {
@@ -164,6 +178,24 @@ export const PUT = auth(async function PUT(
       },
     });
 
+    if (json.requirements) {
+      // Delete existing requirements
+      await prisma.ticketRequirement.deleteMany({
+        where: { ticketId: id },
+      });
+
+      // Add new requirements
+      for (const req of json.requirements) {
+        await prisma.ticketRequirement.create({
+          data: {
+            ticketId: updatedTicket.id,
+            departmentId: req.departmentId,
+            locationId: req.locationId,
+          },
+        });
+      }
+    }
+
     return NextResponse.json(updatedTicket);
   } catch (error) {
     return NextResponse.json(
@@ -231,6 +263,10 @@ export const DELETE = auth(async function DELETE(
     // Delete the ticket
     await prisma.ticket.delete({
       where: { id },
+    });
+    // delete associate ticket requirements
+    await prisma.ticketRequirement.deleteMany({
+      where: { ticketId: id },
     });
 
     // Create history record
