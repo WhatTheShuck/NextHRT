@@ -15,7 +15,6 @@ export const GET = auth(async function GET(
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
   const reportType = searchParams.get("reportType"); // "evacuation",

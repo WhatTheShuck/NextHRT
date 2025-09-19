@@ -10,6 +10,7 @@ import {
   GraduationCap,
   BookOpen,
   IdCard,
+  ShieldOff,
 } from "lucide-react";
 import { useEmployee } from "./employee-context";
 import { OverviewTab } from "./tabs/overview-tab";
@@ -18,6 +19,7 @@ import { ExternalTrainingTab } from "./tabs/training-external-tab";
 import { SOPTrainingTab } from "./tabs/training-sop-tab";
 import { TicketTab } from "./tabs/tickets-tab";
 import { HistoryTab } from "./tabs/history-tab";
+import { ExemptionTab } from "./tabs/exemptions-tab";
 
 const VALID_TABS = ["overview", "training", "tickets", "history"] as const;
 type TabValue = (typeof VALID_TABS)[number];
@@ -82,6 +84,10 @@ export function EmployeeTabs() {
           <IdCard className="h-4 w-4 mr-2" />
           Tickets
         </TabsTrigger>
+        <TabsTrigger value="exemptions">
+          <ShieldOff className="h-4 w-4 mr-2" />
+          Exemptions
+        </TabsTrigger>
         <TabsTrigger value="history">
           <Clock className="h-4 w-4 mr-2" />
           History
@@ -104,7 +110,9 @@ export function EmployeeTabs() {
       <TabsContent value="tickets">
         <TicketTab />
       </TabsContent>
-
+      <TabsContent value="exemptions">
+        <ExemptionTab />
+      </TabsContent>
       <TabsContent value="history">
         <HistoryTab />
       </TabsContent>

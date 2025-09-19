@@ -42,6 +42,7 @@ export interface EmployeeWithRelations extends Employee {
   location: Location;
   trainingRecords?: TrainingRecords[];
   ticketRecords?: TicketRecords[];
+  trainingTicketExemptions?: TrainingTicketExemption[];
 }
 export interface TrainingRecordsWithRelations extends TrainingRecords {
   training?: Training;
