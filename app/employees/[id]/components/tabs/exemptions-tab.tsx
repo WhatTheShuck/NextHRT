@@ -28,6 +28,10 @@ import { TicketRecordDetailsDialog } from "@/components/dialogs/ticket-records/t
 import { TrainingTicketExemptionWithRelations } from "@/lib/types";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
+import { AddTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/add-exemption-dialog";
+import { EditTrainingDialog } from "@/components/dialogs/training/edit-training-dialog";
+import { EditTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/edit-exemption-dialog";
 
 export function ExemptionTab() {
   const { employee } = useEmployee();
@@ -42,16 +46,14 @@ export function ExemptionTab() {
   const [deletingRecord, setDeletingRecord] =
     useState<TrainingTicketExemptionWithRelations | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-  const handleAddSheetClose = () => {
-    // setIsAddSheetOpen(false);
-    // window.location.reload();
-  };
+  const [isExemptionAddDialogOpen, setIsExemptionAddDialogOpen] =
+    useState(false);
+  const [isExemptionEditDialogOpen, setIsExemptionEditDialogOpen] =
+    useState(false);
 
   const handleEditSheetClose = () => {
-    // setIsEditSheetOpen(false);
-    // setEditingRecord(null);
-    // window.location.reload();
+    setEditingRecord(null);
+    window.location.reload();
   };
 
   const handleViewDetails = (record: TrainingTicketExemptionWithRelations) => {
@@ -62,7 +64,7 @@ export function ExemptionTab() {
   const handleEditRecord = (record: TrainingTicketExemptionWithRelations) => {
     if (isAdmin) {
       setEditingRecord(record);
-      // setIsEditSheetOpen(true);
+      setIsExemptionEditDialogOpen(true);
     }
   };
   const handleDeleteRecord = (record: TrainingTicketExemptionWithRelations) => {
@@ -98,20 +100,10 @@ export function ExemptionTab() {
               </CardDescription>
             </div>
             {isAdmin && (
-              // <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
-              //   <SheetTrigger asChild>
-              <Button>
+              <Button onClick={() => setIsExemptionAddDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Exemption
               </Button>
-              //   </SheetTrigger>
-              //   <SheetContent className="overflow-y-auto">
-              //     <SheetHeader>
-              //       <SheetTitle>Add Ticket</SheetTitle>
-              //     </SheetHeader>
-              //     <TicketAddForm onSuccess={handleAddSheetClose} />
-              //   </SheetContent>
-              // </Sheet>
             )}
           </div>
         </CardHeader>
@@ -200,6 +192,22 @@ export function ExemptionTab() {
           </Table>
         </CardContent>
       </Card>
+      <AddTrainingTicketExemptionDialog
+        open={isExemptionAddDialogOpen}
+        onOpenChange={setIsExemptionAddDialogOpen}
+        employeeId={employee?.id!}
+        onTrainingTicketExemptionAdded={() => {
+          window.location.reload();
+        }}
+      />
+      <EditTrainingTicketExemptionDialog
+        open={isExemptionEditDialogOpen}
+        onOpenChange={setIsExemptionEditDialogOpen}
+        exemption={editingRecord}
+        onTrainingTicketExemptionUpdated={() => {
+          handleEditSheetClose();
+        }}
+      />
     </>
   );
 }
