@@ -51,6 +51,7 @@ export const GET = auth(async function GET(
     const includeClause: any = {
       ticketRecords: {
         where: whereClause,
+
         include: {
           ticketHolder: {
             select: {
@@ -70,14 +71,14 @@ export const GET = auth(async function GET(
               },
             },
           },
-
-          _count: {
-            select: { ticketRecords: true },
-          },
-
-          orderBy: {
-            dateIssued: "desc",
-          },
+        },
+        orderBy: {
+          dateIssued: "desc",
+        },
+      },
+      _count: {
+        select: {
+          ticketRecords: true,
         },
       },
     };

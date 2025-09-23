@@ -33,12 +33,13 @@ export const GET = auth(async function GET(
         },
       },
       where: whereClause,
+      orderBy: {
+        dateCompleted: "desc",
+      },
     },
+
     _count: {
       select: { trainingRecords: true },
-    },
-    orderBy: {
-      dateCompleted: "desc",
     },
   };
 
