@@ -21,7 +21,15 @@ import { TicketTab } from "./tabs/tickets-tab";
 import { HistoryTab } from "./tabs/history-tab";
 import { ExemptionTab } from "./tabs/exemptions-tab";
 
-const VALID_TABS = ["overview", "training", "tickets", "history"] as const;
+const VALID_TABS = [
+  "overview",
+  "internal-training",
+  "external-training",
+  "sop-training",
+  "tickets",
+  "history",
+  "external",
+] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
 export function EmployeeTabs() {
@@ -63,32 +71,47 @@ export function EmployeeTabs() {
       onValueChange={handleTabChange}
       className="space-y-6"
     >
-      <TabsList>
-        <TabsTrigger value="overview">
+      <TabsList className="h-auto grid grid-cols-2 gap-1 sm:flex sm:flex-row w-full sm:w-auto items-stretch sm:items-center justify-between">
+        <TabsTrigger
+          value="overview"
+          className="w-full sm:w-auto justify-start"
+        >
           <User className="h-4 w-4 mr-2" />
           Overview
         </TabsTrigger>
-        <TabsTrigger value="external-training">
+        <TabsTrigger
+          value="external-training"
+          className="w-full sm:w-auto justify-start"
+        >
           <GraduationCap className="h-4 w-4 mr-2" />
           External Training
         </TabsTrigger>
-        <TabsTrigger value="internal-training">
+        <TabsTrigger
+          value="internal-training"
+          className="w-full sm:w-auto justify-start"
+        >
           <BookOpen className="h-4 w-4 mr-2" />
           Internal Training
         </TabsTrigger>
-        <TabsTrigger value="sop-training">
+        <TabsTrigger
+          value="sop-training"
+          className="w-full sm:w-auto justify-start"
+        >
           <FileText className="h-4 w-4 mr-2" />
           SOPs
         </TabsTrigger>
-        <TabsTrigger value="tickets">
+        <TabsTrigger value="tickets" className="w-full sm:w-auto justify-start">
           <IdCard className="h-4 w-4 mr-2" />
           Tickets
         </TabsTrigger>
-        <TabsTrigger value="exemptions">
+        <TabsTrigger
+          value="exemptions"
+          className="w-full sm:w-auto justify-start"
+        >
           <ShieldOff className="h-4 w-4 mr-2" />
           Exemptions
         </TabsTrigger>
-        <TabsTrigger value="history">
+        <TabsTrigger value="history" className="w-full sm:w-auto justify-start">
           <Clock className="h-4 w-4 mr-2" />
           History
         </TabsTrigger>
