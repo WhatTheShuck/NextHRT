@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { Category, Training } from "@/generated/prisma_client";
-import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
 import { DateSelector } from "@/components/date-selector";
 import api from "@/lib/axios";
 import { X, Upload, FileImage, AlertCircle } from "lucide-react";
@@ -15,6 +14,7 @@ import {
   validateFile,
   formatFileSize,
 } from "@/lib/file-config";
+import { TrainingCombobox } from "../combobox/training-combobox";
 
 interface TrainingAddFormProps {
   onSuccess?: () => void;
@@ -191,11 +191,13 @@ export function TrainingAddForm({
       )}
 
       <div className="space-y-2">
-        <TrainingSelector
+        <TrainingCombobox
           trainings={trainings}
           selectedTrainingId={trainingId}
-          onTrainingSelect={setTrainingId}
+          onSelect={setTrainingId}
           onNewTraining={addTraining}
+          showAddButton={true}
+          label="Training Course"
         />
       </div>
 

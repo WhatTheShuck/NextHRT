@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { Ticket } from "@/generated/prisma_client";
-import { TicketSelector } from "@/components/ticket-selector";
 import { DateSelector } from "@/components/date-selector";
 import { ExpiryRecalcDialog } from "@/components/dialogs/ticket-records/ticket-record-expiry-recalc-dialog";
 import api from "@/lib/axios";
@@ -22,6 +21,7 @@ import {
   shouldRecalculateExpiry,
   formatRenewalPeriod,
 } from "@/lib/expiry-utils";
+import { TicketCombobox } from "../combobox/ticket-combobox";
 
 interface TicketEditFormProps {
   ticketRecord: TicketRecordsWithRelations;
@@ -285,10 +285,12 @@ export function TicketEditForm({
     <>
       <form onSubmit={handleSubmit} className="space-y-6 pt-6">
         <div className="space-y-2">
-          <TicketSelector
+          <TicketCombobox
             tickets={tickets}
             selectedTicketId={ticketId}
-            onTicketSelect={handleTicketChange}
+            onSelect={handleTicketChange}
+            showAddButton={true}
+            label="Ticket Course"
             onNewTicket={addTicket}
           />
           {currentTicket && (

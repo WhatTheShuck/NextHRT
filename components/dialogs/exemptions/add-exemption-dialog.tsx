@@ -29,8 +29,8 @@ import {
 } from "@/generated/prisma_client";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DateSelector } from "@/components/date-selector";
-import { TicketSelector } from "@/components/ticket-selector";
-import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
+import { TicketCombobox } from "@/components/combobox/ticket-combobox";
+import { TrainingCombobox } from "@/components/combobox/training-combobox";
 
 interface AddTrainingTicketExemptionDialogProps {
   open: boolean;
@@ -152,11 +152,12 @@ function TrainingTicketExemptionForm({
 
       {exemptionType === "Ticket" ? (
         <div className="space-y-2">
-          <Label htmlFor="exemption-name-id">Ticket Name</Label>
-          <TicketSelector
+          <TicketCombobox
             tickets={tickets}
             selectedTicketId={exemptionNameId}
-            onTicketSelect={setExemptionNameId}
+            onSelect={setExemptionNameId}
+            showAddButton={true}
+            label="Ticket Name"
             onNewTicket={(ticket) => {
               tickets.push(ticket);
             }}
@@ -164,11 +165,12 @@ function TrainingTicketExemptionForm({
         </div>
       ) : (
         <div className="space-y-2">
-          <Label htmlFor="exemption-name-id">Training Name</Label>
-          <TrainingSelector
+          <TrainingCombobox
             trainings={trainings}
             selectedTrainingId={exemptionNameId}
-            onTrainingSelect={setExemptionNameId}
+            onSelect={setExemptionNameId}
+            showAddButton={true}
+            label="Training Name"
             onNewTraining={(training) => {
               trainings.push(training);
             }}

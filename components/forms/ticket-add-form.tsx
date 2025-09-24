@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
 import { Ticket } from "@/generated/prisma_client";
-import { TicketSelector } from "@/components/ticket-selector";
 import { DateSelector } from "@/components/date-selector";
 import api from "@/lib/axios";
 import {
@@ -24,6 +23,7 @@ import {
   formatFileSize,
 } from "@/lib/file-config";
 import { calculateExpiryDate, formatRenewalPeriod } from "@/lib/expiry-utils";
+import { TicketCombobox } from "../combobox/ticket-combobox";
 
 interface TicketAddFormProps {
   onSuccess?: () => void;
@@ -258,11 +258,13 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
       )}
 
       <div className="space-y-2">
-        <TicketSelector
+        <TicketCombobox
           tickets={tickets}
           selectedTicketId={ticketId}
-          onTicketSelect={handleTicketChange}
+          onSelect={handleTicketChange}
           onNewTicket={addTicket}
+          showAddButton={true}
+          label="Ticket Course"
         />
         {currentTicket && (
           <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
