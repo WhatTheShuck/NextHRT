@@ -86,11 +86,7 @@ export function TrainingCombobox({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className={
-              showAddButton
-                ? "w-full justify-between"
-                : "w-[400px] justify-between"
-            }
+            className={"w-full justify-between"}
             disabled={disabled}
           >
             {selectedTraining ? (

@@ -68,11 +68,6 @@ function TrainingTicketExemptionForm({
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset exemptionNameId when switching types
-  useEffect(() => {
-    setExemptionNameId("");
-  }, [exemptionType]);
-
   const resetForm = () => {
     setExemptionType("Ticket");
     setExemptionNameId("");
@@ -136,7 +131,10 @@ function TrainingTicketExemptionForm({
         <Label>Exemption Type</Label>
         <RadioGroup
           value={exemptionType}
-          onValueChange={(val) => setExemptionType(val as ExemptionType)}
+          onValueChange={(val) => {
+            setExemptionType(val as ExemptionType);
+            setExemptionNameId("");
+          }}
           disabled={isFormDisabled}
         >
           <div className="flex items-center space-x-2">

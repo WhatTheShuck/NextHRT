@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, FileImage, Edit, Trash } from "lucide-react";
+import { Plus, Edit, Trash } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -23,8 +23,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
-import { DeleteTicketRecordDialog } from "@/components/dialogs/ticket-records/delete-ticket-record-dialog";
-import { TicketRecordDetailsDialog } from "@/components/dialogs/ticket-records/ticket-record-details-dialog";
 import { TrainingTicketExemptionWithRelations } from "@/lib/types";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
@@ -32,15 +30,13 @@ import { AddDepartmentDialog } from "@/components/dialogs/department/add-departm
 import { AddTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/add-exemption-dialog";
 import { EditTrainingDialog } from "@/components/dialogs/training/edit-training-dialog";
 import { EditTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/edit-exemption-dialog";
+import { DeleteTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/delete-exemption-dialog";
 
 export function ExemptionTab() {
   const { employee } = useEmployee();
   const exemptionRecords = useEmployeeTrainingTicketExemptions();
   const session = useSession();
   const isAdmin = session?.data?.user.role === "Admin";
-  const [selectedRecord, setSelectedRecord] =
-    useState<TrainingTicketExemptionWithRelations | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingRecord, setEditingRecord] =
     useState<TrainingTicketExemptionWithRelations | null>(null);
   const [deletingRecord, setDeletingRecord] =
@@ -54,11 +50,6 @@ export function ExemptionTab() {
   const handleEditSheetClose = () => {
     setEditingRecord(null);
     window.location.reload();
-  };
-
-  const handleViewDetails = (record: TrainingTicketExemptionWithRelations) => {
-    setSelectedRecord(record);
-    setIsDetailsOpen(true);
   };
 
   const handleEditRecord = (record: TrainingTicketExemptionWithRelations) => {
@@ -158,14 +149,6 @@ export function ExemptionTab() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleViewDetails(record)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
                               onClick={() => handleEditRecord(record)}
                               disabled={!isAdmin}
                             >
@@ -207,6 +190,12 @@ export function ExemptionTab() {
         onTrainingTicketExemptionUpdated={() => {
           handleEditSheetClose();
         }}
+      />
+      <DeleteTrainingTicketExemptionDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        exemption={deletingRecord}
+        onTrainingTicketExemptionDeleted={() => {}}
       />
     </>
   );
