@@ -179,7 +179,11 @@ export function DeleteTrainingTicketExemptionDialog({
           </div>
           <DrawerDescription className="pt-2">
             This action cannot be undone. Are you sure you want to permanently
-            delete the exemption &quot;{exemption?.name}&quot;?
+            delete the exemption &quot;
+            {exemption?.type === "Ticket"
+              ? exemption?.ticket?.ticketName
+              : exemption?.training?.title}
+            &quot;?
           </DrawerDescription>
         </DrawerHeader>
         <DeleteForm
