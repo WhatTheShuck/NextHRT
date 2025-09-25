@@ -61,7 +61,7 @@ function DeleteForm({
 
     setIsDeleting(true);
     try {
-      await api.delete(`/api/exemption/${exemption.id}`);
+      await api.delete(`/api/exemptions/${exemption.id}`);
 
       onTrainingTicketExemptionDeleted?.(exemption);
       onClose();

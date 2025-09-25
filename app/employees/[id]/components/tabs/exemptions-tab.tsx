@@ -131,7 +131,7 @@ export function ExemptionTab() {
                         </TableCell>
                         <TableCell>{record.type}</TableCell>
                         <TableCell>
-                          {format(new Date(record.createdAt), "PP")}
+                          {format(new Date(record.startDate), "PP")}
                         </TableCell>
                         <TableCell>
                           {record.endDate
@@ -195,7 +195,9 @@ export function ExemptionTab() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         exemption={deletingRecord}
-        onTrainingTicketExemptionDeleted={() => {}}
+        onTrainingTicketExemptionDeleted={() => {
+          window.location.reload();
+        }}
       />
     </>
   );
