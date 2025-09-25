@@ -26,9 +26,7 @@ import { format } from "date-fns";
 import { TrainingTicketExemptionWithRelations } from "@/lib/types";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
 import { AddTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/add-exemption-dialog";
-import { EditTrainingDialog } from "@/components/dialogs/training/edit-training-dialog";
 import { EditTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/edit-exemption-dialog";
 import { DeleteTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/delete-exemption-dialog";
 
