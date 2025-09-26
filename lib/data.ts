@@ -84,10 +84,25 @@ export const reportsNavigationItems: NavigationItem[] = [
     minimumAllowedRole: "EmployeeViewer",
   },
   {
+    title: "Employee Needs Analysis",
+    description:
+      "Identify what training or tickets need to be completed by an employee",
+    icon: Users,
+    href: "/reports/employee/needs-analysis",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
     title: "Training Completion",
     description: "See who has completed a specific type of training",
     icon: ClipboardList,
     href: "/reports/training/completed",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
+    title: "Training Needs Analysis",
+    description: "Identify who needs to complete a specific type of training",
+    icon: ClipboardList,
+    href: "/reports/training/needs-analysis",
     minimumAllowedRole: "DepartmentManager",
   },
   {
@@ -102,6 +117,13 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "See who holds a specific type of ticket",
     icon: ShieldCheck,
     href: "/reports/tickets/completed",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
+    title: "Ticket Needs Analysis",
+    description: "Identify who needs to complete a specific type of ticket",
+    icon: ShieldCheck,
+    href: "/reports/tickets/needs-analysis",
     minimumAllowedRole: "DepartmentManager",
   },
 ];
