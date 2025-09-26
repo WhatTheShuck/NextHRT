@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { Check, ChevronsUpDown, Search, PlusCircle } from "lucide-react";
+import { useMediaQuery } from "usehooks-ts";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,6 +13,12 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   Popover,
   PopoverContent,
@@ -44,19 +51,91 @@ export function TicketCombobox({
 }: TicketComboboxProps) {
   const [open, setOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [triggerWidth, setTriggerWidth] = useState<number | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const selectedTicket = tickets.find(
     (ticket) => ticket.id.toString() === selectedTicketId,
   );
 
-  // Update trigger width when component mounts or opens
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      setTriggerWidth(triggerRef.current.offsetWidth);
+  const ComboboxContent = () => {
+    if (isDesktop) {
+      return (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className="w-full justify-between"
+              disabled={disabled}
+            >
+              {selectedTicket ? (
+                <span className="flex items-center gap-2">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  {selectedTicket.ticketName}
+                </span>
+              ) : (
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  {placeholder}
+                </span>
+              )}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="p-0 overflow-y-auto"
+            style={{ width: "var(--radix-popover-trigger-width)" }}
+            onWheel={(e) => e.stopPropagation()}
+          >
+            <TicketList
+              tickets={tickets}
+              selectedTicketId={selectedTicketId}
+              onSelect={onSelect}
+              setOpen={setOpen}
+            />
+          </PopoverContent>
+        </Popover>
+      );
     }
-  }, [open]);
+
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+            disabled={disabled}
+          >
+            {selectedTicket ? (
+              <span className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                {selectedTicket.ticketName}
+              </span>
+            ) : (
+              <span className="text-muted-foreground flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                {placeholder}
+              </span>
+            )}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </DrawerTrigger>
+
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerTitle className="px-4 text-left">Select a Ticket</DrawerTitle>
+          <TicketList
+            tickets={tickets}
+            selectedTicketId={selectedTicketId}
+            onSelect={onSelect}
+            setOpen={setOpen}
+          />
+        </DrawerContent>
+      </Drawer>
+    );
+  };
 
   return (
     <div className="space-y-2">
@@ -79,69 +158,7 @@ export function TicketCombobox({
         </div>
       )}
 
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            ref={triggerRef}
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between"
-            disabled={disabled}
-          >
-            {selectedTicket ? (
-              <span className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                {selectedTicket.ticketName}
-              </span>
-            ) : (
-              <span className="text-muted-foreground flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                {placeholder}
-              </span>
-            )}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="p-0"
-          style={{ width: triggerWidth ? `${triggerWidth}px` : "auto" }}
-        >
-          <Command>
-            <CommandInput
-              placeholder="Search ticket courses..."
-              className="h-9"
-            />
-            <CommandList>
-              <CommandEmpty>No ticket found.</CommandEmpty>
-              <CommandGroup>
-                {tickets.map((ticket) => (
-                  <CommandItem
-                    key={ticket.id}
-                    value={ticket.ticketName}
-                    onSelect={() => {
-                      onSelect(ticket.id.toString());
-                      setOpen(false);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <Check
-                      className={`mr-2 h-4 w-4 ${
-                        selectedTicketId === ticket.id.toString()
-                          ? "opacity-100"
-                          : "opacity-0"
-                      }`}
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{ticket.ticketName}</span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <ComboboxContent />
 
       {/* Only render the dialog if showAddButton is true and onNewTicket is provided */}
       {showAddButton && onNewTicket && (
@@ -152,5 +169,50 @@ export function TicketCombobox({
         />
       )}
     </div>
+  );
+}
+
+function TicketList({
+  tickets,
+  selectedTicketId,
+  onSelect,
+  setOpen,
+}: {
+  tickets: Ticket[];
+  selectedTicketId: string | null;
+  onSelect: (ticketId: string) => void;
+  setOpen: (open: boolean) => void;
+}) {
+  return (
+    <Command>
+      <CommandInput placeholder="Search ticket courses..." className="h-9" />
+      <CommandList>
+        <CommandEmpty>No ticket found.</CommandEmpty>
+        <CommandGroup>
+          {tickets.map((ticket) => (
+            <CommandItem
+              key={ticket.id}
+              value={ticket.ticketName}
+              onSelect={() => {
+                onSelect(ticket.id.toString());
+                setOpen(false);
+              }}
+              className="cursor-pointer"
+            >
+              <Check
+                className={`mr-2 h-4 w-4 ${
+                  selectedTicketId === ticket.id.toString()
+                    ? "opacity-100"
+                    : "opacity-0"
+                }`}
+              />
+              <div className="flex flex-col">
+                <span className="font-medium">{ticket.ticketName}</span>
+              </div>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
   );
 }
