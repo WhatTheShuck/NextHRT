@@ -208,7 +208,7 @@ export function AddDepartmentDialog({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
+      <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="text-left">
           <DrawerTitle>Add New Department</DrawerTitle>
           <DrawerDescription>

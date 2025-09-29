@@ -1,6 +1,5 @@
 import { ExpiringTicketRecordsPage } from "./expiring-tickets-report";
 
-// Server component that fetches initial data
 export default async function CompletedTrainingPage() {
   return (
     <div className="container mx-auto py-8">
