@@ -146,7 +146,7 @@ function EmployeeList({
           {employees.map((employee) => (
             <CommandItem
               key={employee.id}
-              value={employee.id.toString()}
+              value={employee.firstName + " " + employee.lastName}
               onSelect={() => {
                 onSelect(employee.id.toString());
                 setOpen(false);
