@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
+import { hasAccessToEmployee } from "@/lib/apiRBAC";
 
 const getEmployeeRequirements = async (employeeId: number) => {
   try {
@@ -36,35 +37,65 @@ const getEmployeeRequirements = async (employeeId: number) => {
       };
 
       // Fetch training requirements for the employee
-      const [trainingRequirements, ticketRequirements, exemptions] =
-        await Promise.all([
-          prisma.trainingRequirement.findMany({
-            where: whereClause,
-            include: {
-              training: true,
-              department: true,
-              location: true,
-            },
-          }),
-          prisma.ticketRequirement.findMany({
-            where: whereClause,
-            include: {
-              ticket: true,
-              department: true,
-              location: true,
-            },
-          }),
-          prisma.trainingTicketExemption.findMany({
-            where: { employeeId: employeeId },
-            include: {
-              training: true,
-              ticket: true,
-            },
-          }),
-        ]);
+      const [
+        allTrainingRequirements,
+        allTicketRequirements,
+        exemptions,
+        trainingRecords,
+        ticketRecords,
+      ] = await Promise.all([
+        prisma.trainingRequirement.findMany({
+          where: whereClause,
+          include: {
+            training: true,
+            department: true,
+            location: true,
+          },
+        }),
+        prisma.ticketRequirement.findMany({
+          where: whereClause,
+          include: {
+            ticket: true,
+            department: true,
+            location: true,
+          },
+        }),
+        prisma.trainingTicketExemption.findMany({
+          where: { employeeId: employeeId },
+          include: {
+            training: true,
+            ticket: true,
+          },
+        }),
+        prisma.trainingRecords.findMany({
+          where: { employeeId: employeeId },
+        }),
+        prisma.ticketRecords.findMany({
+          where: { employeeId: employeeId },
+        }),
+      ]);
+
+      // Compare requirements against completed records
+      // remove any requirements that have been completed
+      const trainingRequired = allTrainingRequirements.filter((req) => {
+        return !trainingRecords.some(
+          (record) => record.trainingId === req.trainingId,
+        );
+      });
+      const ticketRequired = allTicketRequirements.filter((req) => {
+        return !ticketRecords.some(
+          (record) => record.ticketId === req.ticketId,
+        );
+      });
 
       return NextResponse.json(
-        { trainingRequirements, ticketRequirements, exemptions },
+        {
+          allTrainingRequirements,
+          allTicketRequirements,
+          exemptions,
+          trainingRequired,
+          ticketRequired,
+        },
         { status: 200 },
       );
     } catch (error) {
@@ -241,6 +272,18 @@ export const GET = auth(async function GET(
       return NextResponse.json(
         { error: "Invalid employeeId parameter" },
         { status: 400 },
+      );
+    }
+
+    const hasAccess = await hasAccessToEmployee(
+      request.auth.user.id,
+      employeeId,
+      request.auth.user.role,
+    );
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Not authorised to view this employee" },
+        { status: 403 },
       );
     }
     return getEmployeeRequirements(employeeId);
