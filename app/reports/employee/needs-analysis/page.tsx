@@ -4,11 +4,7 @@ import { columns } from "./columns";
 import { ExportButtons } from "@/components/ExportButtons";
 import React, { useEffect, useState, useMemo } from "react";
 import { Archive, BadgeCheck } from "lucide-react";
-import {
-  EmployeeWithRelations,
-  TrainingTicketExemptionWithRelations,
-  TrainingWithRelations,
-} from "@/lib/types";
+import { EmployeeWithRelations } from "@/lib/types";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { EmployeeCombobox } from "@/components/combobox/employee-combobox";

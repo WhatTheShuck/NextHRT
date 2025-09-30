@@ -121,9 +121,10 @@ function TrainingTicketExemptionEditForm({
             exemptionType === "Training" ? parseInt(exemptionNameId) : null,
           ticketId:
             exemptionType === "Ticket" ? parseInt(exemptionNameId) : null,
-          reason: exemptionReason || null,
+          reason: exemptionReason,
           startDate: exemptionStartDate,
           endDate: exemptionEndDate,
+          status: exemptionStatus,
         },
       );
 
