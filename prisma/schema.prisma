@@ -16,7 +16,7 @@ model Employee {
   firstName                String
   lastName                 String
   title                    String
-  startDate                DateTime?
+  startDate                DateTime
   finishDate               DateTime?
   department               Department                @relation(fields: [departmentId], references: [id])
   departmentId             Int
@@ -173,9 +173,6 @@ model TrainingTicketExemption {
   status     ExemptionStatus @default(Active)
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
-
-  @@unique([employeeId, trainingId]) // One active exemption per employee per training
-  @@unique([employeeId, ticketId]) // One active exemption per employee per ticket
 }
 
 enum ExemptionType {

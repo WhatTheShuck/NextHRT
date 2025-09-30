@@ -15,12 +15,29 @@ export const GET = auth(async function GET(
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
   const reportType = searchParams.get("reportType"); // "evacuation",
+  const startedFrom = searchParams.get("startedFrom"); // "2025-01-01"
+  const startedTo = searchParams.get("startedTo"); // "2025-12-31"
   const userRole = request.auth.user?.role as UserRole;
   const userId = request.auth.user?.id;
+
+  const whereClause: any = {};
+
+  if (activeOnly) {
+    whereClause.isActive = true;
+  }
+
+  if (startedFrom) {
+    whereClause.startDate = { gte: new Date(startedFrom) };
+    if (startedTo) {
+      whereClause.startDate = {
+        ...whereClause.startDate,
+        lte: new Date(startedTo),
+      };
+    }
+  }
 
   try {
     // Different query based on user role
@@ -31,12 +48,7 @@ export const GET = auth(async function GET(
           department: true,
           location: true,
         },
-        where: activeOnly
-          ? {
-              isActive: true,
-            }
-          : undefined,
-
+        where: whereClause,
         orderBy: {
           lastName: "asc",
         },
@@ -65,12 +77,7 @@ export const GET = auth(async function GET(
               },
             },
           },
-          where: activeOnly
-            ? {
-                isActive: true,
-              }
-            : undefined,
-
+          where: whereClause,
           orderBy: {
             lastName: "asc",
           },
@@ -107,17 +114,12 @@ export const GET = auth(async function GET(
       const childDeptIds = childDeptIdsArrays.flat();
       departmentIds.push(...childDeptIds);
 
-      // Build where clause with department filter and optional active filter
-      const whereClause: any = {
-        departmentId: { in: departmentIds },
-      };
-
-      if (activeOnly) {
-        whereClause.isActive = true;
-      }
-
+      // Combine base filters with department filter
       const employees = await prisma.employee.findMany({
-        where: whereClause,
+        where: {
+          ...whereClause,
+          departmentId: { in: departmentIds },
+        },
         include: {
           department: true,
           location: true,

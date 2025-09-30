@@ -8,7 +8,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash } from "lucide-react";
+import { Plus, Edit, Trash, MapPin, Users } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -17,37 +17,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { NewTicketDialog } from "@/components/dialogs/tickets/add-ticket-dialog";
 import { useEffect, useState } from "react";
 import { Ticket } from "@/generated/prisma_client";
 import api from "@/lib/axios";
 import { EditTicketDialog } from "@/components/dialogs/tickets/edit-ticket-dialog";
 import { DeleteTicketDialog } from "@/components/dialogs/tickets/delete-ticket-dialog";
-
-// Extended type to include ticket record count
-interface TicketWithCount extends Ticket {
-  _count?: {
-    ticketRecords: number;
-  };
-}
+import { TicketWithRelations } from "@/lib/types";
 
 const TicketsDirectory = () => {
-  const [tickets, setTickets] = useState<TicketWithCount[]>([]);
+  const [tickets, setTickets] = useState<TicketWithRelations[]>([]);
   const [isTicketAddDialogOpen, setIsTicketAddDialogOpen] = useState(false);
   const [isTicketEditDialogOpen, setIsTicketEditDialogOpen] = useState(false);
   const [isTicketDeleteDialogOpen, setIsTicketDeleteDialogOpen] =
     useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<TicketWithCount | null>(
-    null,
-  );
+  const [selectedRecord, setSelectedRecord] =
+    useState<TicketWithRelations | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: ticketsRes } =
-          await api.get<TicketWithCount[]>("/api/tickets");
+        // Update API call to include requirements and exemptions
+        const { data: ticketsRes } = await api.get<TicketWithRelations[]>(
+          "/api/tickets?includeRequirements=true&includeExemptions=true",
+        );
         setTickets(ticketsRes);
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -59,14 +60,93 @@ const TicketsDirectory = () => {
     fetchData();
   }, []);
 
-  const handleEditTicket = (record: TicketWithCount) => {
+  const handleEditTicket = (record: TicketWithRelations) => {
     setSelectedRecord(record);
     setIsTicketEditDialogOpen(true);
   };
 
-  const handleDeleteTicket = (record: TicketWithCount) => {
+  const handleDeleteTicket = (record: TicketWithRelations) => {
     setSelectedRecord(record);
     setIsTicketDeleteDialogOpen(true);
+  };
+
+  const RequirementsCell = ({ ticket }: { ticket: TicketWithRelations }) => {
+    const requirementCount = ticket.requirements?.length || 0;
+
+    if (requirementCount === 0) {
+      return <span className="text-muted-foreground">No requirements</span>;
+    }
+
+    const requirementText = ticket.requirements
+      ?.map(
+        (req) =>
+          `${req.department?.name} @ ${req.location?.name}, ${req.location?.state}`,
+      )
+      .join("\n");
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-2 cursor-help">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span>
+                {requirementCount} requirement
+                {requirementCount !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <div className="whitespace-pre-line text-sm">
+              <strong>Required for:</strong>
+              <br />
+              {requirementText}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  const ExemptionsCell = ({ ticket }: { ticket: TicketWithRelations }) => {
+    const activeExemptions =
+      ticket.ticketExemptions?.filter((e) => e.status === "Active") || [];
+    const exemptionCount = activeExemptions.length;
+
+    if (exemptionCount === 0) {
+      return <span className="text-muted-foreground">None</span>;
+    }
+
+    const exemptionText = activeExemptions
+      .map((exemption) => {
+        const expiryText = exemption.endDate
+          ? ` (expires ${new Date(exemption.endDate).toLocaleDateString()})`
+          : " (permanent)";
+        return `${exemption.employee?.firstName} ${exemption.employee?.lastName}: ${exemption.reason}${expiryText}`;
+      })
+      .join("\n");
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-2 cursor-help">
+              <Users className="h-4 w-4 text-amber-600" />
+              <span className="text-amber-700">
+                {exemptionCount} employee{exemptionCount !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-sm">
+            <div className="whitespace-pre-line text-sm">
+              <strong>Exempt employees:</strong>
+              <br />
+              {exemptionText}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   };
 
   return (
@@ -90,8 +170,8 @@ const TicketsDirectory = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center text-muted-foreground py-8">
-              Loading tickets...
+            <div className="flex items-center justify-center h-64">
+              <span className="text-muted-foreground">Loading...</span>
             </div>
           ) : (
             <Table>
@@ -99,8 +179,10 @@ const TicketsDirectory = () => {
                 <TableRow>
                   <TableHead>Ticket Name</TableHead>
                   <TableHead>Code</TableHead>
+                  <TableHead>Requirements</TableHead>
                   <TableHead>Renewal Period</TableHead>
-                  <TableHead>Employees with Ticket</TableHead>
+                  <TableHead>Ticket Records</TableHead>
+                  <TableHead>Exemptions</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -109,7 +191,7 @@ const TicketsDirectory = () => {
                 {tickets.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={8}
                       className="text-center text-muted-foreground"
                     >
                       No ticket types found
@@ -120,7 +202,7 @@ const TicketsDirectory = () => {
                     .sort((a, b) =>
                       a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1,
                     )
-                    .map((record: TicketWithCount) => {
+                    .map((record: TicketWithRelations) => {
                       const recordCount = record._count?.ticketRecords || 0;
                       return (
                         <TableRow key={record.id}>
@@ -131,16 +213,21 @@ const TicketsDirectory = () => {
                             {record.ticketCode}
                           </TableCell>
                           <TableCell>
+                            <RequirementsCell ticket={record} />
+                          </TableCell>
+                          <TableCell>
                             {record.renewal
                               ? `${record.renewal} year${record.renewal !== 1 ? "s" : ""}`
                               : "No expiry"}
                           </TableCell>
                           <TableCell>
                             {recordCount}{" "}
-                            {recordCount === 1 ? "employee" : "employees"}
+                            {recordCount === 1 ? "record" : "records"}
                           </TableCell>
                           <TableCell>
-                            {" "}
+                            <ExemptionsCell ticket={record} />
+                          </TableCell>
+                          <TableCell>
                             <span
                               className={`px-2 py-1 rounded-full text-xs ${
                                 record.isActive

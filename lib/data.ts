@@ -12,6 +12,8 @@ import {
   GraduationCap,
   MapPin,
   IdCard,
+  UserPlus,
+  UserCheck,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -84,10 +86,32 @@ export const reportsNavigationItems: NavigationItem[] = [
     minimumAllowedRole: "EmployeeViewer",
   },
   {
+    title: "New Hire Report",
+    description: "View employees hired within a specified date range",
+    icon: UserPlus,
+    href: "/reports/employee/onboarding",
+    minimumAllowedRole: "EmployeeViewer",
+  },
+  {
+    title: "Employee Needs Analysis",
+    description:
+      "Identify what training or tickets need to be completed by an employee",
+    icon: UserCheck,
+    href: "/reports/employee/needs-analysis",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
     title: "Training Completion",
     description: "See who has completed a specific type of training",
     icon: ClipboardList,
     href: "/reports/training/completed",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
+    title: "Training Needs Analysis",
+    description: "Identify who needs to complete a specific type of training",
+    icon: ClipboardList,
+    href: "/reports/training/needs-analysis",
     minimumAllowedRole: "DepartmentManager",
   },
   {
@@ -102,6 +126,13 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "See who holds a specific type of ticket",
     icon: ShieldCheck,
     href: "/reports/tickets/completed",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
+    title: "Ticket Needs Analysis",
+    description: "Identify who needs to complete a specific type of ticket",
+    icon: ShieldCheck,
+    href: "/reports/tickets/needs-analysis",
     minimumAllowedRole: "DepartmentManager",
   },
 ];

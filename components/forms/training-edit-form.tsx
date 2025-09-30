@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { Training } from "@/generated/prisma_client";
-import { TrainingSelector } from "@/app/bulk-training/components/training-selector";
 import api from "@/lib/axios";
 import { X, Upload, FileImage, Trash2, Eye } from "lucide-react";
 import {
@@ -16,6 +15,7 @@ import {
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 import { DateSelector } from "@/components/date-selector";
+import { TrainingCombobox } from "../combobox/training-combobox";
 
 interface TrainingEditFormProps {
   trainingRecord: TrainingRecordsWithRelations;
@@ -173,11 +173,13 @@ export function TrainingEditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pt-6">
       <div className="space-y-2">
-        <TrainingSelector
+        <TrainingCombobox
           trainings={trainings}
           selectedTrainingId={trainingId}
-          onTrainingSelect={setTrainingId}
+          onSelect={setTrainingId}
           onNewTraining={addTraining}
+          showAddButton={true}
+          label="Training Course"
         />
       </div>
 

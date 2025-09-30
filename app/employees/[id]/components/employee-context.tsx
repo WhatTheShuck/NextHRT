@@ -13,6 +13,7 @@ import {
   TrainingRecordsWithRelations,
 } from "@/lib/types";
 import { AxiosError } from "axios";
+import { TrainingTicketExemption } from "@/generated/prisma_client";
 
 type EmployeeContextType = {
   employee: EmployeeWithRelations | null;
@@ -42,7 +43,9 @@ export function EmployeeProvider({
       setIsLoading(true);
       setError(null);
 
-      const response = await api.get(`/api/employees/${employeeId}`);
+      const response = await api.get(
+        `/api/employees/${employeeId}?includeExemptions=true`,
+      );
       setEmployee(response.data);
     } catch (error) {
       console.error("Error fetching employee:", error);
@@ -121,3 +124,10 @@ export const useEmployeeTicketRecords = () => {
   const { employee } = useEmployee();
   return employee?.ticketRecords || [];
 };
+export const useEmployeeTrainingTicketExemptions =
+  (): TrainingTicketExemption[] => {
+    const { employee } = useEmployee();
+    return (
+      employee?.trainingTicketExemptions || ([] as TrainingTicketExemption[])
+    );
+  };

@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Employee, Training } from "@/generated/prisma_client";
-import { TrainingSelector } from "./components/training-selector";
 import { EmployeeSelector } from "./components/employee-selector";
 import { AlertBox } from "@/components/ui/alert-box";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
+import { TrainingCombobox } from "@/components/combobox/training-combobox";
 
 export default function BulkTrainingPage() {
   // Form state
@@ -130,10 +130,12 @@ export default function BulkTrainingPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Training Selector Component */}
-          <TrainingSelector
+          <TrainingCombobox
             trainings={trainings}
             selectedTrainingId={trainingId}
-            onTrainingSelect={setTrainingId}
+            onSelect={setTrainingId}
+            showAddButton={true}
+            label="Training Course"
             onNewTraining={addTraining}
           />
 

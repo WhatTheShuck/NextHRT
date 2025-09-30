@@ -44,6 +44,14 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "Employee List",
     parent: "/reports/employee",
   },
+  "/reports/employee/needs-analysis": {
+    label: "Employee Needs Analysis",
+    parent: "/reports/employee",
+  },
+  "/reports/employee/onboarding": {
+    label: "New Hires Report",
+    parent: "/reports/employee",
+  },
   "/reports/tickets": { label: "Ticket Reports", parent: "/reports" },
   "/reports/tickets/completed": {
     label: "Completed Tickets",
@@ -53,9 +61,17 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "Expiring Tickets",
     parent: "/reports/tickets",
   },
+  "/reports/tickets/needs-analysis": {
+    label: "Ticket Needs Analysis",
+    parent: "/reports/tickets",
+  },
   "/reports/training": { label: "Training Reports", parent: "/reports" },
   "/reports/training/completed": {
     label: "Completed Training",
+    parent: "/reports/training",
+  },
+  "/reports/training/needs-analysis": {
+    label: "Training Needs Analysis",
     parent: "/reports/training",
   },
 };

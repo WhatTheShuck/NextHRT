@@ -14,7 +14,7 @@ export const NavigationCard: React.FC<NavigationItem> = ({
     href={href}
     className="group hover:border-primary transition-colors cursor-pointer"
   >
-    <Card className="">
+    <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">

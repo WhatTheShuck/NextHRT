@@ -17,6 +17,16 @@ export const GET = auth(async function GET(
   const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
+  const includeHiddenDepartment = searchParams.get("includeHidden") === "true";
+  const whereClause: any = {};
+  if (activeOnly) {
+    whereClause.isActive = true;
+  }
+  if (!includeHiddenDepartment) {
+    whereClause.id = {
+      not: -1,
+    };
+  }
 
   const userRole = request.auth.user?.role as UserRole;
   // All authenticated users can view departments (needed for dropdowns)
@@ -47,11 +57,7 @@ export const GET = auth(async function GET(
               }
             : false,
       },
-      where: activeOnly
-        ? {
-            isActive: true,
-          }
-        : undefined,
+      where: whereClause,
       orderBy: {
         name: "asc",
       },

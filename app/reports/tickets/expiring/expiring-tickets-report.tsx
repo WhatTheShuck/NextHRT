@@ -209,7 +209,7 @@ export function ExpiringTicketRecordsPage() {
         <TicketCombobox
           tickets={ticketSelection}
           onSelect={handleTicketSelect}
-          selectedTicketId={selectedTicketId}
+          selectedTicketId={selectedTicketId?.toString() || null}
           disabled={fetchingTickets}
           placeholder={
             fetchingTickets
@@ -248,7 +248,7 @@ export function ExpiringTicketRecordsPage() {
       ) : null}
 
       {selectedTicketId && !loading && !error && (
-        <div className="container py-10 mx-auto">
+        <div className="container py-4 mx-auto">
           <div className="flex justify-between items-center mb-4">
             <ExportButtons
               data={filteredTicketRecords}

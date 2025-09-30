@@ -7,7 +7,7 @@ import { UserRole } from "@/generated/prisma_client";
 
 export const GET = auth(async function GET(
   request,
-  props: { params: Promise<{ id: string }> },
+  props: { params: Promise<{}> },
 ) {
   // Check if the user is authenticated
   if (!request.auth) {
@@ -17,33 +17,39 @@ export const GET = auth(async function GET(
   const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
+  const includeRequirements =
+    searchParams.get("includeRequirements") === "true";
 
+  const whereClause: any = {};
+  if (activeOnly) {
+    whereClause.isActive = true;
+  }
+
+  const includeClause: any = {
+    _count: {
+      select: { ticketRecords: true },
+    },
+  };
+
+  if (includeRequirements) {
+    includeClause.requirements = {
+      include: {
+        ticket: true,
+        department: true,
+        location: true,
+      },
+    };
+    includeClause.ticketExemptions = {
+      include: {
+        ticket: true,
+        employee: true,
+      },
+    };
+  }
   try {
     const tickets = await prisma.ticket.findMany({
-      include: {
-        ticketRecords: {
-          include: {
-            ticketHolder: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
-
-        _count: {
-          select: {
-            ticketRecords: true,
-          },
-        },
-      },
-      where: activeOnly
-        ? {
-            isActive: true,
-          }
-        : undefined,
+      include: includeClause,
+      where: whereClause,
       orderBy: {
         ticketName: "asc",
       },
@@ -101,6 +107,17 @@ export const POST = auth(async function POST(req) {
         renewal: json.renewal ?? null,
       },
     });
+    if (json.requirements) {
+      for (const req of json.requirements) {
+        await prisma.ticketRequirement.create({
+          data: {
+            ticketId: ticket.id,
+            departmentId: req.departmentId,
+            locationId: req.locationId,
+          },
+        });
+      }
+    }
 
     // Create history record
     await prisma.history.create({

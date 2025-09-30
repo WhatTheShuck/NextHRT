@@ -17,6 +17,32 @@ export const GET = auth(async function GET(
   const userId = req.auth.user?.id;
   const userRole = req.auth.user?.role as UserRole;
   const employeeId = parseInt(params.id);
+  const { searchParams } = new URL(req.url);
+  const includeExemptions = searchParams.get("includeExemptions") === "true";
+  const includeClause: any = {
+    department: true,
+    location: true,
+    trainingRecords: {
+      include: {
+        training: true,
+      },
+    },
+    ticketRecords: {
+      include: {
+        ticket: true,
+        images: true,
+      },
+    },
+    User: true,
+  };
+  if (includeExemptions) {
+    includeClause.trainingTicketExemptions = {
+      include: {
+        training: true,
+        ticket: true,
+      },
+    };
+  }
 
   try {
     // Check if user has access to this employee
@@ -31,22 +57,7 @@ export const GET = auth(async function GET(
 
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
-      include: {
-        department: true,
-        location: true,
-        trainingRecords: {
-          include: {
-            training: true,
-          },
-        },
-        ticketRecords: {
-          include: {
-            ticket: true,
-            images: true,
-          },
-        },
-        User: true,
-      },
+      include: includeClause,
     });
 
     if (!employee) {

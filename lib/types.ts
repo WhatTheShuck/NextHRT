@@ -11,6 +11,9 @@ import {
   History,
   TicketImage,
   UserRole,
+  TrainingRequirement,
+  TrainingTicketExemption,
+  TicketRequirement,
 } from "@/generated/prisma_client";
 
 export type CompanyDetails = {
@@ -39,19 +42,53 @@ export interface EmployeeWithRelations extends Employee {
   location: Location;
   trainingRecords?: TrainingRecords[];
   ticketRecords?: TicketRecords[];
+  trainingTicketExemptions?: TrainingTicketExemption[];
 }
 export interface TrainingRecordsWithRelations extends TrainingRecords {
   training?: Training;
   personTrained?: EmployeeWithRelations;
 }
 
+export interface TrainingRequirementWithRelations extends TrainingRequirement {
+  training?: Training;
+  department?: Department;
+  location?: Location;
+}
+
+export interface TrainingWithRelations extends Training {
+  requirements?: TrainingRequirementWithRelations[];
+  _count?: {
+    trainingRecords: number;
+  };
+  trainingExemptions?: TrainingTicketExemptionWithRelations[];
+  trainingRecords?: TrainingRecordsWithRelations[];
+}
 export interface TicketRecordsWithRelations extends TicketRecords {
   ticket?: Ticket;
   ticketHolder?: EmployeeWithRelations;
   images?: TicketImage[];
 }
+
 export interface TicketWithRelations extends Ticket {
+  requirements?: TicketRequirementWithRelations[];
+  _count?: {
+    ticketRecords: number;
+  };
+  ticketExemptions?: TrainingTicketExemptionWithRelations[];
   ticketRecords?: TicketRecordsWithRelations[];
+}
+
+export interface TicketRequirementWithRelations extends TicketRequirement {
+  ticket?: Ticket;
+  department?: Department;
+  location?: Location;
+}
+
+export interface TrainingTicketExemptionWithRelations
+  extends TrainingTicketExemption {
+  training?: Training;
+  ticket?: Ticket;
+  employee?: Employee;
 }
 
 export interface UserWithRelations extends User {

@@ -15,7 +15,49 @@ export const GET = auth(async function GET(
   const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
+  const includeRequirements =
+    searchParams.get("includeRequirements") === "true";
+  const whereClause: any = {};
+  if (activeOnly) {
+    whereClause.isActive = true;
+  }
 
+  const includeClause: any = {
+    trainingRecords: {
+      include: {
+        personTrained: {
+          include: {
+            department: true,
+            location: true,
+          },
+        },
+      },
+      where: whereClause,
+      orderBy: {
+        dateCompleted: "desc",
+      },
+    },
+
+    _count: {
+      select: { trainingRecords: true },
+    },
+  };
+
+  if (includeRequirements) {
+    includeClause.requirements = {
+      include: {
+        training: true,
+        department: true,
+        location: true,
+      },
+    };
+    includeClause.trainingExemptions = {
+      include: {
+        training: true,
+        employee: true,
+      },
+    };
+  }
   try {
     const id = parseInt(params.id);
 
@@ -28,28 +70,7 @@ export const GET = auth(async function GET(
 
     const training = await prisma.training.findUnique({
       where: { id },
-      include: {
-        trainingRecords: {
-          include: {
-            personTrained: {
-              include: {
-                department: true,
-                location: true,
-              },
-            },
-          },
-          where: activeOnly
-            ? {
-                personTrained: {
-                  isActive: true,
-                },
-              }
-            : undefined,
-          orderBy: {
-            dateCompleted: "desc",
-          },
-        },
-      },
+      include: includeClause,
     });
 
     if (!training) {
@@ -86,8 +107,9 @@ export const PUT = auth(async function PUT(
 
   // Only Admins can edit employee records
   if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
+
   try {
     const id = parseInt(params.id);
 
@@ -103,6 +125,9 @@ export const PUT = auth(async function PUT(
     // Get the current training record for history
     const currentTraining = await prisma.training.findUnique({
       where: { id },
+      include: {
+        requirements: true,
+      },
     });
 
     if (!currentTraining) {
@@ -112,28 +137,149 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    const updatedTraining = await prisma.training.update({
-      where: { id },
-      data: {
-        category: json.category,
-        title: json.title,
-        isActive: json.isActive,
-      },
-    });
+    // Check if we're changing from non-SOP to SOP category
+    if (currentTraining.category !== "SOP" && json.category === "SOP") {
+      // Update the existing record to be the "Task Sheet" version
+      const updatedTraining = await prisma.training.update({
+        where: { id },
+        data: {
+          category: json.category,
+          title: json.title + " - Task Sheet",
+          isActive: json.isActive,
+        },
+      });
 
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "Training",
-        recordId: id.toString(),
-        action: "UPDATE",
-        oldValues: JSON.stringify(currentTraining),
-        newValues: JSON.stringify(updatedTraining),
-        userId: req.auth.user?.id,
-      },
-    });
+      // Create the matching "Practical" record
+      const practicalTraining = await prisma.training.create({
+        data: {
+          category: json.category,
+          title: json.title + " - Practical",
+          isActive: json.isActive,
+        },
+      });
 
-    return NextResponse.json(updatedTraining);
+      // Handle requirements for both trainings
+      if (json.requirements) {
+        // Delete existing requirements from the original training
+        await prisma.trainingRequirement.deleteMany({
+          where: { trainingId: id },
+        });
+
+        // Add new requirements to both trainings
+        for (const req of json.requirements) {
+          // For the updated training (Task Sheet)
+          await prisma.trainingRequirement.create({
+            data: {
+              trainingId: updatedTraining.id,
+              departmentId: req.departmentId,
+              locationId: req.locationId,
+            },
+          });
+
+          // For the new practical training
+          await prisma.trainingRequirement.create({
+            data: {
+              trainingId: practicalTraining.id,
+              departmentId: req.departmentId,
+              locationId: req.locationId,
+            },
+          });
+        }
+      } else {
+        // If no new requirements provided, copy existing requirements to both trainings
+        await prisma.trainingRequirement.deleteMany({
+          where: { trainingId: id },
+        });
+
+        for (const req of currentTraining.requirements) {
+          // For the updated training (Task Sheet)
+          await prisma.trainingRequirement.create({
+            data: {
+              trainingId: updatedTraining.id,
+              departmentId: req.departmentId,
+              locationId: req.locationId,
+            },
+          });
+
+          // For the new practical training
+          await prisma.trainingRequirement.create({
+            data: {
+              trainingId: practicalTraining.id,
+              departmentId: req.departmentId,
+              locationId: req.locationId,
+            },
+          });
+        }
+      }
+
+      // Create history records for both trainings
+      await prisma.history.create({
+        data: {
+          tableName: "Training",
+          recordId: id.toString(),
+          action: "UPDATE",
+          oldValues: JSON.stringify(currentTraining),
+          newValues: JSON.stringify(updatedTraining),
+          userId: req.auth.user?.id,
+        },
+      });
+
+      await prisma.history.create({
+        data: {
+          tableName: "Training",
+          recordId: practicalTraining.id.toString(),
+          action: "CREATE",
+          newValues: JSON.stringify(practicalTraining),
+          userId: req.auth.user?.id,
+        },
+      });
+
+      // Return both trainings
+      return NextResponse.json([updatedTraining, practicalTraining]);
+    }
+    // Handle normal updates (including SOP to SOP updates)
+    else {
+      const updatedTraining = await prisma.training.update({
+        where: { id },
+        data: {
+          category: json.category,
+          title: json.title,
+          isActive: json.isActive,
+        },
+      });
+
+      // Create history record
+      await prisma.history.create({
+        data: {
+          tableName: "Training",
+          recordId: id.toString(),
+          action: "UPDATE",
+          oldValues: JSON.stringify(currentTraining),
+          newValues: JSON.stringify(updatedTraining),
+          userId: req.auth.user?.id,
+        },
+      });
+
+      if (json.requirements) {
+        // Delete existing requirements
+        await prisma.trainingRequirement.deleteMany({
+          where: { trainingId: id },
+        });
+
+        // Add new requirements
+        for (const req of json.requirements) {
+          await prisma.trainingRequirement.create({
+            data: {
+              trainingId: updatedTraining.id,
+              departmentId: req.departmentId,
+              locationId: req.locationId,
+            },
+          });
+        }
+      }
+
+      return NextResponse.json(updatedTraining);
+    }
   } catch (error) {
     return NextResponse.json(
       {
@@ -202,7 +348,9 @@ export const DELETE = auth(async function DELETE(
     await prisma.training.delete({
       where: { id },
     });
-
+    await prisma.trainingRequirement.deleteMany({
+      where: { trainingId: id },
+    });
     // Create history record
     await prisma.history.create({
       data: {
