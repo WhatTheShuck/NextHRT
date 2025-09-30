@@ -16,7 +16,7 @@ model Employee {
   firstName                String
   lastName                 String
   title                    String
-  startDate                DateTime?
+  startDate                DateTime
   finishDate               DateTime?
   department               Department                @relation(fields: [departmentId], references: [id])
   departmentId             Int

@@ -12,6 +12,8 @@ import {
   GraduationCap,
   MapPin,
   IdCard,
+  UserPlus,
+  UserCheck,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -84,10 +86,17 @@ export const reportsNavigationItems: NavigationItem[] = [
     minimumAllowedRole: "EmployeeViewer",
   },
   {
+    title: "New Hire Report",
+    description: "View employees hired within a specified date range",
+    icon: UserPlus,
+    href: "/reports/employee/onboarding",
+    minimumAllowedRole: "EmployeeViewer",
+  },
+  {
     title: "Employee Needs Analysis",
     description:
       "Identify what training or tickets need to be completed by an employee",
-    icon: Users,
+    icon: UserCheck,
     href: "/reports/employee/needs-analysis",
     minimumAllowedRole: "DepartmentManager",
   },

@@ -48,6 +48,10 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "Employee Needs Analysis",
     parent: "/reports/employee",
   },
+  "/reports/employee/onboarding": {
+    label: "New Hires Report",
+    parent: "/reports/employee",
+  },
   "/reports/tickets": { label: "Ticket Reports", parent: "/reports" },
   "/reports/tickets/completed": {
     label: "Completed Tickets",
