@@ -2,6 +2,23 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { NavigationCard } from "@/components/navigation-card";
 import { fieldEditorNavigationItems } from "@/lib/data";
+import api from "@/lib/axios";
+
+async function getStats() {
+  try {
+    const response = await api.get("/api/stats");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    return {
+      totalEmployees: 0,
+      totalDepartments: 0,
+      totalLocations: 0,
+      totalTraining: 0,
+      totalTickets: 0,
+    };
+  }
+}
 
 export default async function MetaPropertiesPage() {
   const session = await auth();
@@ -14,6 +31,8 @@ export default async function MetaPropertiesPage() {
   if (session.user?.role !== "Admin") {
     redirect("/");
   }
+
+  const stats = await getStats();
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -38,7 +57,7 @@ export default async function MetaPropertiesPage() {
           </div>
         </div>
 
-        {/* Optional: Recent Activity or Statistics Section */}
+        {/* Quick Stats Section */}
         <div className="space-y-6">
           <h2 className="text-2xl font-semibold">Quick Stats</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -46,25 +65,25 @@ export default async function MetaPropertiesPage() {
               <h3 className="text-sm font-medium text-muted-foreground">
                 Total Departments
               </h3>
-              <p className="text-2xl font-bold">-</p>
+              <p className="text-2xl font-bold">{stats.totalDepartments}</p>
             </div>
             <div className="bg-card p-6 rounded-lg border">
               <h3 className="text-sm font-medium text-muted-foreground">
                 Active Locations
               </h3>
-              <p className="text-2xl font-bold">-</p>
+              <p className="text-2xl font-bold">{stats.totalLocations}</p>
             </div>
             <div className="bg-card p-6 rounded-lg border">
               <h3 className="text-sm font-medium text-muted-foreground">
                 Training Programmes
               </h3>
-              <p className="text-2xl font-bold">-</p>
+              <p className="text-2xl font-bold">{stats.totalTraining}</p>
             </div>
             <div className="bg-card p-6 rounded-lg border">
               <h3 className="text-sm font-medium text-muted-foreground">
                 Ticket Categories
               </h3>
-              <p className="text-2xl font-bold">-</p>
+              <p className="text-2xl font-bold">{stats.totalTickets}</p>
             </div>
           </div>
         </div>
