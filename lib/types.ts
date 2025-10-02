@@ -44,6 +44,11 @@ export interface EmployeeWithRelations extends Employee {
   ticketRecords?: TicketRecords[];
   trainingTicketExemptions?: TrainingTicketExemption[];
 }
+
+export type EmployeeWithRequirementStatus = Employee & {
+  requirementStatus: "Required" | "Exempted" | "Completed";
+};
+
 export interface TrainingRecordsWithRelations extends TrainingRecords {
   training?: Training;
   personTrained?: EmployeeWithRelations;
