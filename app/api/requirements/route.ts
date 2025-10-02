@@ -571,6 +571,275 @@ const getDepartmentLocationRequirements = async (
   }
 };
 
+const getAllIncompleteTrainingRequirements = async () => {
+  try {
+    // Step 1: Get all training that have at least one requirement
+    const trainingWithRequirements = await prisma.trainingRequirement.findMany({
+      select: {
+        trainingId: true,
+      },
+      distinct: ["trainingId"],
+    });
+
+    const trainingIds = trainingWithRequirements.map((req) => req.trainingId);
+
+    if (trainingIds.length === 0) {
+      return NextResponse.json({ employees: [] }, { status: 200 });
+    }
+
+    // Step 2: Get all requirements for these training courses
+    const allRequirements = await prisma.trainingRequirement.findMany({
+      where: {
+        trainingId: { in: trainingIds },
+      },
+      include: {
+        training: true,
+        department: true,
+        location: true,
+      },
+    });
+
+    // Step 3: Get all active employees
+    const allEmployees = await prisma.employee.findMany({
+      where: {
+        isActive: true,
+      },
+      include: {
+        department: true,
+        location: true,
+      },
+    });
+
+    // Step 4: Get all training records and exemptions
+    const [allTrainingRecords, allExemptions] = await Promise.all([
+      prisma.trainingRecords.findMany({
+        where: {
+          trainingId: { in: trainingIds },
+        },
+      }),
+      prisma.trainingTicketExemption.findMany({
+        where: {
+          trainingId: { in: trainingIds },
+        },
+      }),
+    ]);
+
+    // Create lookup maps for performance
+    const completedMap = new Map<number, Set<number>>();
+    allTrainingRecords.forEach((record) => {
+      if (!completedMap.has(record.employeeId)) {
+        completedMap.set(record.employeeId, new Set());
+      }
+      completedMap.get(record.employeeId)!.add(record.trainingId);
+    });
+
+    const exemptionMap = new Map<number, Set<number>>();
+    allExemptions.forEach((exemption) => {
+      if (exemption.trainingId) {
+        if (!exemptionMap.has(exemption.employeeId)) {
+          exemptionMap.set(exemption.employeeId, new Set());
+        }
+        exemptionMap.get(exemption.employeeId)!.add(exemption.trainingId);
+      }
+    });
+
+    // Step 5: For each employee, determine what training they need
+    // Return one row per employee per incomplete training for easy table display
+    const rows: any[] = [];
+
+    allEmployees.forEach((employee) => {
+      // Find all training required for this employee
+      const requiredTrainingIds = new Set<number>();
+
+      allRequirements.forEach((req) => {
+        const deptMatches =
+          req.departmentId === -1 || req.departmentId === employee.departmentId;
+        const locMatches =
+          req.locationId === -1 || req.locationId === employee.locationId;
+
+        if (deptMatches && locMatches) {
+          requiredTrainingIds.add(req.trainingId);
+        }
+      });
+
+      // Filter out completed and exempted training
+      const incompleteTraining = Array.from(requiredTrainingIds).filter(
+        (trainingId) => {
+          const isCompleted =
+            completedMap.get(employee.id)?.has(trainingId) ?? false;
+          const isExempt =
+            exemptionMap.get(employee.id)?.has(trainingId) ?? false;
+          return !isCompleted && !isExempt;
+        },
+      );
+
+      // Create one row per incomplete training
+      incompleteTraining.forEach((trainingId) => {
+        const requirement = allRequirements.find(
+          (req) => req.trainingId === trainingId,
+        );
+        rows.push({
+          employeeId: employee.id,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          department: employee.department,
+          location: employee.location,
+          trainingName: requirement?.training.title,
+        });
+      });
+    });
+
+    return NextResponse.json(
+      {
+        employees: rows,
+        totalRows: rows.length,
+        uniqueEmployees: new Set(rows.map((r) => r.employeeId)).size,
+      },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error("Error fetching incomplete training requirements:", error);
+    return NextResponse.json(
+      { error: "Error fetching incomplete training requirements" },
+      { status: 500 },
+    );
+  }
+};
+
+const getAllIncompleteTicketRequirements = async () => {
+  try {
+    // Step 1: Get all tickets that have at least one requirement
+    const ticketsWithRequirements = await prisma.ticketRequirement.findMany({
+      select: {
+        ticketId: true,
+      },
+      distinct: ["ticketId"],
+    });
+
+    const ticketIds = ticketsWithRequirements.map((req) => req.ticketId);
+
+    if (ticketIds.length === 0) {
+      return NextResponse.json({ employees: [] }, { status: 200 });
+    }
+
+    // Step 2: Get all requirements for these tickets
+    const allRequirements = await prisma.ticketRequirement.findMany({
+      where: {
+        ticketId: { in: ticketIds },
+      },
+      include: {
+        ticket: true,
+        department: true,
+        location: true,
+      },
+    });
+
+    // Step 3: Get all active employees
+    const allEmployees = await prisma.employee.findMany({
+      where: {
+        isActive: true,
+      },
+      include: {
+        department: true,
+        location: true,
+      },
+    });
+
+    // Step 4: Get all ticket records and exemptions
+    const [allTicketRecords, allExemptions] = await Promise.all([
+      prisma.ticketRecords.findMany({
+        where: {
+          ticketId: { in: ticketIds },
+        },
+      }),
+      prisma.trainingTicketExemption.findMany({
+        where: {
+          ticketId: { in: ticketIds },
+        },
+      }),
+    ]);
+
+    // Create lookup maps for performance
+    const completedMap = new Map<number, Set<number>>();
+    allTicketRecords.forEach((record) => {
+      if (!completedMap.has(record.employeeId)) {
+        completedMap.set(record.employeeId, new Set());
+      }
+      completedMap.get(record.employeeId)!.add(record.ticketId);
+    });
+
+    const exemptionMap = new Map<number, Set<number>>();
+    allExemptions.forEach((exemption) => {
+      if (exemption.ticketId) {
+        if (!exemptionMap.has(exemption.employeeId)) {
+          exemptionMap.set(exemption.employeeId, new Set());
+        }
+        exemptionMap.get(exemption.employeeId)!.add(exemption.ticketId);
+      }
+    });
+
+    // Step 5: For each employee, determine what tickets they need
+    // Return one row per employee per incomplete ticket for easy table display
+    const rows: any[] = [];
+
+    allEmployees.forEach((employee) => {
+      // Find all tickets required for this employee
+      const requiredTicketIds = new Set<number>();
+
+      allRequirements.forEach((req) => {
+        const deptMatches =
+          req.departmentId === -1 || req.departmentId === employee.departmentId;
+        const locMatches =
+          req.locationId === -1 || req.locationId === employee.locationId;
+
+        if (deptMatches && locMatches) {
+          requiredTicketIds.add(req.ticketId);
+        }
+      });
+
+      // Filter out completed and exempted tickets
+      const incompleteTickets = Array.from(requiredTicketIds).filter(
+        (ticketId) => {
+          const isCompleted =
+            completedMap.get(employee.id)?.has(ticketId) ?? false;
+          const isExempt =
+            exemptionMap.get(employee.id)?.has(ticketId) ?? false;
+          return !isCompleted && !isExempt;
+        },
+      );
+
+      // Create one row per incomplete ticket
+      incompleteTickets.forEach((ticketId) => {
+        const requirement = allRequirements.find(
+          (req) => req.ticketId === ticketId,
+        );
+        rows.push({
+          employeeId: employee.id,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          department: employee.department,
+          location: employee.location,
+          ticketName: requirement?.ticket.ticketName,
+        });
+      });
+    });
+
+    return NextResponse.json(
+      {
+        employees: rows,
+        totalRows: rows.length,
+        uniqueEmployees: new Set(rows.map((r) => r.employeeId)).size,
+      },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error("Error fetching incomplete ticket requirements:", error);
+    return NextResponse.json(
+      { error: "Error fetching incomplete ticket requirements" },
+      { status: 500 },
+    );
+  }
+};
 export const GET = auth(async function GET(
   request,
   props: { params: Promise<{}> },
@@ -587,7 +856,18 @@ export const GET = auth(async function GET(
   const employeeIdParam = searchParams.get("employeeId");
   const trainingIdParam = searchParams.get("trainingId");
   const ticketIdParam = searchParams.get("ticketId");
+  const allIncompleteTraining = searchParams.get("allIncompleteTraining");
+  const allIncompleteTickets = searchParams.get("allIncompleteTickets");
 
+  // Handle bulk incomplete training
+  if (allIncompleteTraining === "true") {
+    return getAllIncompleteTrainingRequirements();
+  }
+
+  // Handle bulk incomplete tickets
+  if (allIncompleteTickets === "true") {
+    return getAllIncompleteTicketRequirements();
+  }
   // Handle individual employee requirements
   if (employeeIdParam) {
     const employeeId = parseInt(employeeIdParam);

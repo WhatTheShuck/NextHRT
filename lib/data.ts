@@ -115,6 +115,13 @@ export const reportsNavigationItems: NavigationItem[] = [
     minimumAllowedRole: "DepartmentManager",
   },
   {
+    title: "All Required Training",
+    description: "Identify who needs to complete any required training",
+    icon: ClipboardList,
+    href: "/reports/training/required-training",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
     title: "Upcoming Ticket Expiration",
     description: "View upcoming expiring tickets for a specified period",
     icon: Settings,
@@ -133,6 +140,13 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "Identify who needs to complete a specific type of ticket",
     icon: ShieldCheck,
     href: "/reports/tickets/needs-analysis",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
+    title: "All Required Tickets",
+    description: "Identify who needs to complete any required tickets",
+    icon: ShieldCheck,
+    href: "/reports/tickets/required-tickets",
     minimumAllowedRole: "DepartmentManager",
   },
 ];
