@@ -69,6 +69,10 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "All Required Tickets",
     parent: "/reports/tickets",
   },
+  "/reports/tickets/all": {
+    label: "All Ticket Records",
+    parent: "/reports/tickets",
+  },
   "/reports/training": { label: "Training Reports", parent: "/reports" },
   "/reports/training/completed": {
     label: "Completed Training",
@@ -80,6 +84,10 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
   },
   "/reports/training/required-training": {
     label: "All Required Training",
+    parent: "/reports/training",
+  },
+  "/reports/training/all": {
+    label: "All Training Records",
     parent: "/reports/training",
   },
 };

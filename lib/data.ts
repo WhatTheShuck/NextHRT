@@ -108,6 +108,14 @@ export const reportsNavigationItems: NavigationItem[] = [
     minimumAllowedRole: "DepartmentManager",
   },
   {
+    title: "All Training Records",
+    description:
+      "See all training records. Beware, this could be a large report",
+    icon: ClipboardList,
+    href: "/reports/training/all",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
     title: "Training Needs Analysis",
     description: "Identify who needs to complete a specific type of training",
     icon: ClipboardList,
@@ -133,6 +141,13 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "See who holds a specific type of ticket",
     icon: ShieldCheck,
     href: "/reports/tickets/completed",
+    minimumAllowedRole: "DepartmentManager",
+  },
+  {
+    title: "All Ticket Records",
+    description: "See all ticket records. Beware, this could be a large report",
+    icon: ShieldCheck,
+    href: "/reports/tickets/all",
     minimumAllowedRole: "DepartmentManager",
   },
   {

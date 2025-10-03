@@ -29,20 +29,44 @@ function calculateExpiryDate(
 }
 
 // GET all ticket records
-export const GET = auth(async function GET(req) {
+export const GET = auth(async function GET(
+  request,
+  props: { params: Promise<{}> },
+) {
   // Check if the user is authenticated
-  if (!req.auth) {
+  if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const userId = req.auth.user?.id;
+  const { searchParams } = new URL(request.url);
+
+  const activeOnly = searchParams.get("activeOnly") === "true";
+  const includeExpired = searchParams.get("includeExpired") === "true";
+
+  const userRole = request.auth.user?.role as UserRole;
+  const userId = request.auth.user?.id;
+
+  // Build the where clause for filtering
+  const whereClause: any = {};
+
+  if (activeOnly) {
+    whereClause.ticket = {
+      isActive: true,
+    };
+  }
+
+  if (includeExpired) {
+    whereClause.expiryDate = {
+      gte: new Date(),
+    };
+  }
 
   try {
     // Different query based on user role
     if (userRole === "Admin") {
       // Admins can see all employee records
       const ticketRecords = await prisma.ticketRecords.findMany({
+        where: whereClause,
         include: {
           ticketHolder: {
             select: {
@@ -111,7 +135,10 @@ export const GET = auth(async function GET(req) {
       const employeeIds = employees.map((emp) => emp.id);
 
       const ticketRecords = await prisma.ticketRecords.findMany({
-        where: { employeeId: { in: employeeIds } },
+        where: {
+          employeeId: { in: employeeIds },
+          ...whereClause,
+        },
         include: {
           ticketHolder: {
             select: {
@@ -147,7 +174,7 @@ export const GET = auth(async function GET(req) {
           { ticketHolder: { lastName: "asc" } },
         ],
       });
-      return NextResponse.json([ticketRecords]);
+      return NextResponse.json(ticketRecords);
     } else {
       // Regular users can only see themselves
       const user = await prisma.user.findUnique({
@@ -163,7 +190,10 @@ export const GET = auth(async function GET(req) {
       }
 
       const ticketRecords = await prisma.ticketRecords.findMany({
-        where: { employeeId: user.employee.id },
+        where: {
+          employeeId: user.employee.id,
+          ...whereClause,
+        },
         include: {
           ticketHolder: {
             select: {
@@ -199,7 +229,7 @@ export const GET = auth(async function GET(req) {
           { ticketHolder: { lastName: "asc" } },
         ],
       });
-      return NextResponse.json([ticketRecords]); // Return as array for consistent frontend handling
+      return NextResponse.json(ticketRecords);
     }
   } catch (error) {
     return NextResponse.json(
