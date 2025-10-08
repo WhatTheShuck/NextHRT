@@ -17,13 +17,18 @@ export const GET = auth(async function GET(
   const activeOnly = searchParams.get("activeOnly") === "true";
   const includeRequirements =
     searchParams.get("includeRequirements") === "true";
-  const whereClause: any = {};
+  const includeRecords = searchParams.get("records") === "true";
+
+  const trainingRecordsWhereClause: any = {};
   if (activeOnly) {
-    whereClause.isActive = true;
+    trainingRecordsWhereClause.personTrained = {
+      isActive: true,
+    };
   }
 
   const includeClause: any = {
     trainingRecords: {
+      where: trainingRecordsWhereClause,
       include: {
         personTrained: {
           include: {
@@ -32,7 +37,6 @@ export const GET = auth(async function GET(
           },
         },
       },
-      where: whereClause,
       orderBy: {
         dateCompleted: "desc",
       },
@@ -58,6 +62,7 @@ export const GET = auth(async function GET(
       },
     };
   }
+
   try {
     const id = parseInt(params.id);
 

@@ -23,7 +23,7 @@ export function CompletedTrainingClient() {
   const [filteredTrainingRecords, setFilteredTrainingRecords] = useState<
     TrainingRecordsWithRelations[]
   >([]);
-  const [selectedTrainingId, setSelectedTrainingId] = useState<number | null>(
+  const [selectedTrainingId, setSelectedTrainingId] = useState<string | null>(
     null,
   );
   const [selectedTrainingTitle, setSelectedTrainingTitle] = useState<
@@ -34,8 +34,6 @@ export function CompletedTrainingClient() {
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
-  const [locations, setLocations] = useState<string[]>([]);
 
   // New state for toggles
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
@@ -63,31 +61,20 @@ export function CompletedTrainingClient() {
 
   // Fetch training records with employee filter
   const fetchRecords = async (
-    trainingID: number,
+    trainingID: string,
     includeInactive: boolean = false,
   ) => {
     setLoading(true);
     try {
       const response = await api.get(
-        `/api/training/${trainingID}?activeOnly=${!includeInactive}`,
+        `/api/training/${trainingID}?activeOnly=${!includeInactive}&records=true`,
       );
       const data = response.data;
       const records = data.trainingRecords || [];
       setTrainingRecords(records);
-      setSelectedTrainingId(Number(trainingID));
+      setSelectedTrainingId(trainingID);
       setFilteredTrainingRecords(records);
 
-      // Extract unique locations
-      const uniqueLocations = Array.from(
-        new Set(
-          records.map(
-            (rec: TrainingRecordsWithRelations) =>
-              rec.personTrained?.location.name,
-          ),
-        ),
-      ).filter(Boolean) as string[];
-
-      setLocations(uniqueLocations);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -103,7 +90,7 @@ export function CompletedTrainingClient() {
     );
     if (selectedTraining) {
       setSelectedTrainingTitle(selectedTraining.title);
-      fetchRecords(Number(trainingId), includeInactiveEmployees);
+      fetchRecords(trainingId, includeInactiveEmployees);
     }
   };
 
@@ -124,21 +111,6 @@ export function CompletedTrainingClient() {
     // Re-fetch records if a training is selected
     if (selectedTrainingId) {
       fetchRecords(selectedTrainingId, checked);
-    }
-  };
-
-  // Filter records by location
-  const filterByLocation = (location: string | null) => {
-    setSelectedLocation(location);
-
-    if (location === null) {
-      setFilteredTrainingRecords(trainingRecords);
-    } else {
-      setFilteredTrainingRecords(
-        trainingRecords.filter(
-          (rec) => rec.personTrained?.location.name === location,
-        ),
-      );
     }
   };
 
@@ -226,47 +198,6 @@ export function CompletedTrainingClient() {
               <p className="font-medium text-sm text-muted-foreground">
                 Record Count: {filteredTrainingRecords.length}
               </p>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    {selectedLocation
-                      ? `Location: ${selectedLocation}`
-                      : "Filter Location"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56">
-                  <div className="grid gap-2">
-                    <div className="font-medium">Filter by location</div>
-                    <ul className="max-h-60 overflow-auto">
-                      {/* Show All option */}
-                      <li
-                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
-                        onClick={() => filterByLocation(null)}
-                      >
-                        <span>All Locations</span>
-                        {selectedLocation === null && (
-                          <Check className="h-4 w-4" />
-                        )}
-                      </li>
-
-                      {/* Location items */}
-                      {locations.map((location) => (
-                        <li
-                          key={location}
-                          className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
-                          onClick={() => filterByLocation(location)}
-                        >
-                          <span>{location}</span>
-                          {selectedLocation === location && (
-                            <Check className="h-4 w-4" />
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </PopoverContent>
-              </Popover>
             </div>
           </div>
 
