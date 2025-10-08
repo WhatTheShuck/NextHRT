@@ -30,7 +30,7 @@ export function CompletedTicketPage() {
   const [filteredTicketRecords, setFilteredTicketRecords] = useState<
     TicketRecordsWithRelations[]
   >([]);
-  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedTicketTitle, setSelectedTicketTitle] = useState<string | null>(
     null,
   );
@@ -64,7 +64,7 @@ export function CompletedTicketPage() {
   };
 
   const fetchRecords = async (
-    ticketID: number,
+    ticketID: string,
     includeInactive: boolean = false,
   ) => {
     setLoading(true);
@@ -75,7 +75,7 @@ export function CompletedTicketPage() {
       const data = response.data;
       const records = data.ticketRecords || [];
       setTicketRecords(records);
-      setSelectedTicketId(Number(ticketID));
+      setSelectedTicketId(ticketID);
       setFilteredTicketRecords(records);
       // Extract unique locations
       const uniqueLocations = Array.from(
@@ -103,7 +103,7 @@ export function CompletedTicketPage() {
     );
     if (selectedTicket) {
       setSelectedTicketTitle(selectedTicket.ticketName);
-      fetchRecords(Number(ticketId), includeInactiveEmployees);
+      fetchRecords(ticketId, includeInactiveEmployees);
     }
   };
 

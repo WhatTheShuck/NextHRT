@@ -4,17 +4,12 @@ import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET all tickets
-
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{}> },
-) {
+export const GET = auth(async function GET(request) {
   // Check if the user is authenticated
   if (!request.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
   const includeRequirements =

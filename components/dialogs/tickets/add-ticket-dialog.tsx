@@ -235,22 +235,16 @@ function TicketForm({ onTicketCreated, onClose, className }: TicketFormProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Unsaved Requirement Selection</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <p>
-                You have selected a department and location combination that
-                hasn't been added to your requirements:
-              </p>
+              You have selected a department and location combination that
+              hasn't been added to your requirements:
               {unsavedDetails && (
                 <div className="bg-muted p-3 rounded-md">
-                  <p className="font-medium">
-                    {unsavedDetails.departmentName} -{" "}
-                    {unsavedDetails.locationName}
-                  </p>
+                  {unsavedDetails.departmentName} -{" "}
+                  {unsavedDetails.locationName}
                 </div>
               )}
-              <p>
-                Would you like to proceed without adding this requirement, or go
-                back to add it?
-              </p>
+              Would you like to proceed without adding this requirement, or go
+              back to add it?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

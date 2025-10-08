@@ -289,14 +289,9 @@ function TicketForm({
           <AlertDialogHeader>
             <AlertDialogTitle>Unsaved Requirement Selection</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <p>
-                You have selected a department and location combination that
-                hasn't been added to your requirements.
-              </p>
-              <p>
-                Would you like to proceed without adding this requirement, or go
-                back to add it?
-              </p>
+              You have selected a department and location combination that
+              hasn't been added to your requirements. Would you like to proceed
+              without adding this requirement, or go back to add it?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

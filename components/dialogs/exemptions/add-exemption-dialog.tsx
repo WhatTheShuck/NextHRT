@@ -96,7 +96,7 @@ function TrainingTicketExemptionForm({
             exemptionType === "Training" ? parseInt(exemptionNameId) : null,
           ticketId:
             exemptionType === "Ticket" ? parseInt(exemptionNameId) : null,
-          reason: exemptionReason || null,
+          reason: exemptionReason,
           startDate: exemptionStartDate,
           endDate: exemptionEndDate,
         },
@@ -187,6 +187,7 @@ function TrainingTicketExemptionForm({
           }}
           placeholder="e.g., On Probation"
           disabled={isFormDisabled}
+          required={true}
         />
       </div>
 

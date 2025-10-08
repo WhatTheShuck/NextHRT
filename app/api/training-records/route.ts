@@ -13,13 +13,29 @@ export const GET = auth(async function GET(req) {
   if (!req.auth) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+
+  const { searchParams } = new URL(req.url);
+
+  const activeOnly = searchParams.get("activeOnly") === "true";
+
   const userRole = req.auth.user?.role as UserRole;
   const userId = req.auth.user?.id;
+
+  // Build the where clause for filtering
+  const whereClause: any = {};
+
+  if (activeOnly) {
+    whereClause.training = {
+      isActive: true,
+    };
+  }
+
   try {
     // Different query based on user role
     if (userRole === "Admin") {
       // Admins can see all employee records
       const trainingRecords = await prisma.trainingRecords.findMany({
+        where: whereClause,
         include: {
           personTrained: {
             include: {
@@ -65,7 +81,10 @@ export const GET = auth(async function GET(req) {
       const employeeIds = employees.map((emp) => emp.id);
 
       const trainingRecords = await prisma.trainingRecords.findMany({
-        where: { employeeId: { in: employeeIds } },
+        where: {
+          employeeId: { in: employeeIds },
+          ...whereClause,
+        },
         include: {
           personTrained: {
             include: {
@@ -79,7 +98,7 @@ export const GET = auth(async function GET(req) {
           dateCompleted: "desc",
         },
       });
-      return NextResponse.json([trainingRecords]);
+      return NextResponse.json(trainingRecords);
     } else {
       // Regular users can only see themselves
       const user = await prisma.user.findUnique({
@@ -95,7 +114,10 @@ export const GET = auth(async function GET(req) {
       }
 
       const trainingRecords = await prisma.trainingRecords.findMany({
-        where: { employeeId: user.employee.id },
+        where: {
+          employeeId: user.employee.id,
+          ...whereClause,
+        },
         include: {
           personTrained: {
             include: {
@@ -109,7 +131,7 @@ export const GET = auth(async function GET(req) {
           dateCompleted: "desc",
         },
       });
-      return NextResponse.json([trainingRecords]);
+      return NextResponse.json(trainingRecords);
     }
   } catch (error) {
     return NextResponse.json(
