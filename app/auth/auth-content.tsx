@@ -9,13 +9,16 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Building2 } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/lib/auth-client"; // Changed from next-auth/react
 import { companyDetails } from "@/lib/data";
 
 export function LoginPageContent() {
   // Handle Microsoft sign-in
   const handleMicrosoftSignIn = async () => {
-    await signIn("microsoft-entra-id");
+    await signIn.social({
+      provider: "microsoft",
+      callbackURL: "/", // Redirects to home after sign in
+    });
   };
 
   return (

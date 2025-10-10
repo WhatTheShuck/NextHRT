@@ -2,12 +2,14 @@
 import React from "react";
 import { NavigationCard } from "@/components/navigation-card";
 import { landingPageNavigationItems } from "@/lib/data";
-import { useSession } from "next-auth/react";
 import { hasRoleAccess } from "@/lib/apiRBAC";
+import { useSession } from "@/lib/auth-client";
 
 export function LandingPageContent() {
-  const session = useSession();
-  const userRole = session?.data?.user?.role || "User";
+  // const session = useSession();
+
+  // const userRole = session?.data?.user?.role || "User";
+  const userRole = "User";
   const visibleItems = landingPageNavigationItems.filter((item) =>
     hasRoleAccess(userRole, item.minimumAllowedRole),
   );
