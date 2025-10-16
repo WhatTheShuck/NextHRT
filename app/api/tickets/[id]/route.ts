@@ -17,15 +17,14 @@ export const GET = auth(async function GET(
   const { searchParams } = new URL(req.url);
   const expirationDays = searchParams.get("expirationDays");
   const activeOnly = searchParams.get("activeOnly") === "true";
+  const expiredDays = searchParams.get("includeExpired"); // how many days back to include expired tickets
   const includeRequirements =
     searchParams.get("includeRequirements") === "true";
   try {
     const id = parseInt(params.id);
-
     if (isNaN(id)) {
       return NextResponse.json({ error: "Invalid ticket ID" }, { status: 400 });
     }
-
     // Build the where clause for ticketRecords filtering
     const whereClause: any = {};
     // Add expiration filtering if provided
@@ -36,11 +35,27 @@ export const GET = auth(async function GET(
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() + days);
 
-        whereClause.expiryDate = {
-          gt: now, // Must be in the future (not already expired)
-          lte: cutoffDate, // Must expire within the specified days
-          not: null, // Exclude records without expiry dates
-        };
+        // Check if we should include recently expired tickets
+        if (expiredDays) {
+          const expiredDaysNum = parseInt(expiredDays);
+          if (!isNaN(expiredDaysNum)) {
+            const expiredCutoff = new Date();
+            expiredCutoff.setDate(expiredCutoff.getDate() - expiredDaysNum);
+
+            whereClause.expiryDate = {
+              gt: expiredCutoff, // Include tickets expired within the last X days
+              lte: cutoffDate, // Must expire within the specified future days
+              not: null, // Exclude records without expiry dates
+            };
+          }
+        } else {
+          // Original behaviour - only future expiring tickets
+          whereClause.expiryDate = {
+            gt: now, // Must be in the future (not already expired)
+            lte: cutoffDate, // Must expire within the specified days
+            not: null, // Exclude records without expiry dates
+          };
+        }
       }
     }
     if (activeOnly) {
