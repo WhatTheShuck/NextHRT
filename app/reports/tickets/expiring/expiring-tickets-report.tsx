@@ -14,7 +14,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Archive, Check, Users, Clock } from "lucide-react";
+import { Archive, Check, Users, Clock, AlertCircle } from "lucide-react";
 import { Ticket } from "@/generated/prisma_client";
 import { TicketRecordsWithRelations, TicketWithRelations } from "@/lib/types";
 import { DataTable } from "@/components/table-component";
@@ -45,6 +45,8 @@ export function ExpiringTicketRecordsPage() {
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
   const [includeLegacyTicket, setIncludeLegacyTicket] = useState(false);
+  const [includeRecentlyExpired, setIncludeRecentlyExpired] = useState(false);
+  const [recentlyExpiredDays, setRecentlyExpiredDays] = useState<string>("30");
   const [fetchingTickets, setFetchingTickets] = useState(false);
 
   const expirationDates = ["30", "60", "90", "180", "360"];
@@ -71,12 +73,18 @@ export function ExpiringTicketRecordsPage() {
     ticketID: number,
     expirationDays: string = "30",
     includeInactive: boolean = false,
+    includeExpired: boolean = false,
+    expiredDays: string = "30",
   ) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       params.append("expirationDays", expirationDays);
       params.append("activeOnly", (!includeInactive).toString());
+
+      if (includeExpired) {
+        params.append("includeExpired", expiredDays);
+      }
 
       const response = await api.get<TicketWithRelations>(
         `/api/tickets/${ticketID}?${params.toString()}`,
@@ -117,6 +125,8 @@ export function ExpiringTicketRecordsPage() {
         Number(ticketId),
         selectedExpirationDays,
         includeInactiveEmployees,
+        includeRecentlyExpired,
+        recentlyExpiredDays,
       );
     }
   };
@@ -137,7 +147,42 @@ export function ExpiringTicketRecordsPage() {
     setIncludeInactiveEmployees(checked);
     // Re-fetch records if a ticket is selected
     if (selectedTicketId) {
-      fetchRecords(selectedTicketId, selectedExpirationDays, checked);
+      fetchRecords(
+        selectedTicketId,
+        selectedExpirationDays,
+        checked,
+        includeRecentlyExpired,
+        recentlyExpiredDays,
+      );
+    }
+  };
+
+  // Handle recently expired toggle
+  const handleRecentlyExpiredToggle = (checked: boolean) => {
+    setIncludeRecentlyExpired(checked);
+    // Re-fetch records if a ticket is selected
+    if (selectedTicketId) {
+      fetchRecords(
+        selectedTicketId,
+        selectedExpirationDays,
+        includeInactiveEmployees,
+        checked,
+        recentlyExpiredDays,
+      );
+    }
+  };
+
+  // Handle recently expired days change
+  const handleRecentlyExpiredDaysChange = (value: string) => {
+    setRecentlyExpiredDays(value);
+    if (selectedTicketId && includeRecentlyExpired) {
+      fetchRecords(
+        selectedTicketId,
+        selectedExpirationDays,
+        includeInactiveEmployees,
+        true,
+        value,
+      );
     }
   };
 
@@ -146,7 +191,13 @@ export function ExpiringTicketRecordsPage() {
     setSelectedExpirationDays(value);
     if (selectedTicketId) {
       setSelectedLocation(null);
-      fetchRecords(selectedTicketId, value, includeInactiveEmployees);
+      fetchRecords(
+        selectedTicketId,
+        value,
+        includeInactiveEmployees,
+        includeRecentlyExpired,
+        recentlyExpiredDays,
+      );
     }
   };
 
@@ -173,39 +224,78 @@ export function ExpiringTicketRecordsPage() {
   return (
     <>
       {/* Configuration toggles */}
-      <div className="p-4 rounded-lg mb-6">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="legacy-ticket"
-              checked={includeLegacyTicket}
-              onCheckedChange={handleLegacyToggle}
-            />
-            <Label htmlFor="legacy-ticket" className="flex items-center gap-2">
-              <Archive className="h-4 w-4" />
-              Include legacy tickets
-            </Label>
-          </div>
+      <div className="rounded-lg mb-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-4 lg:gap-8">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="legacy-ticket"
+                checked={includeLegacyTicket}
+                onCheckedChange={handleLegacyToggle}
+              />
+              <Label
+                htmlFor="legacy-ticket"
+                className="flex items-center gap-2"
+              >
+                <Archive className="h-4 w-4" />
+                Include legacy tickets
+              </Label>
+            </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="inactive-employees"
-              checked={includeInactiveEmployees}
-              onCheckedChange={handleInactiveEmployeesToggle}
-            />
-            <Label
-              htmlFor="inactive-employees"
-              className="flex items-center gap-2"
-            >
-              <Users className="h-4 w-4" />
-              Include inactive employees
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="inactive-employees"
+                checked={includeInactiveEmployees}
+                onCheckedChange={handleInactiveEmployeesToggle}
+              />
+              <Label
+                htmlFor="inactive-employees"
+                className="flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Include inactive employees
+              </Label>
+            </div>
+
+            {/* Recently expired toggle with day selector */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="recently-expired"
+                checked={includeRecentlyExpired}
+                onCheckedChange={handleRecentlyExpiredToggle}
+              />
+              <Label
+                htmlFor="recently-expired"
+                className="flex items-center gap-2"
+              >
+                <AlertCircle className="h-4 w-4" />
+                Include recently expired
+              </Label>
+            </div>
+
+            {includeRecentlyExpired && (
+              <Select
+                value={recentlyExpiredDays}
+                onValueChange={handleRecentlyExpiredDaysChange}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {expirationDates.map((date) => (
+                    <SelectItem key={date} value={date}>
+                      Expired within {date} days
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
       </div>
 
       {/* Ticket selection and expiration filter */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex flex-wrap items-center gap-4 ">
         <TicketCombobox
           tickets={ticketSelection}
           onSelect={handleTicketSelect}
@@ -241,20 +331,20 @@ export function ExpiringTicketRecordsPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-4">Loading Ticket Records...</div>
+        <div className="text-centre py-4">Loading Ticket Records...</div>
       ) : null}
       {error ? (
-        <div className="text-center py-4 text-red-500">Error: {error}</div>
+        <div className="text-centre py-4 text-red-500">Error: {error}</div>
       ) : null}
 
       {selectedTicketId && !loading && !error && (
         <div className="container py-4 mx-auto">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-wrap justify-between items-center mb-4">
             <ExportButtons
               data={filteredTicketRecords}
               columns={columns}
-              filename={`${selectedTicketTitle}-expiring-${selectedExpirationDays}days`}
-              title={`${selectedTicketTitle} - Expiring Records (${selectedExpirationDays} days)`}
+              filename={`${selectedTicketTitle}-expiring-${selectedExpirationDays}days${includeRecentlyExpired ? `-expired-${recentlyExpiredDays}days` : ""}`}
+              title={`${selectedTicketTitle} - Expiring Records (${selectedExpirationDays} days)${includeRecentlyExpired ? ` & Recently Expired (${recentlyExpiredDays} days)` : ""}`}
             />
             <p className="font-medium">
               Record Count: {filteredTicketRecords.length}
