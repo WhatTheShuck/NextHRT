@@ -8,7 +8,6 @@ import {
   adminRole,
   departmentManagerRole,
   fireWardenRole,
-  employeeViewerRole,
   userRole,
 } from "@/lib/permissions";
 const prisma = new PrismaClient();

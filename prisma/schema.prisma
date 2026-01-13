@@ -220,7 +220,6 @@ model User {
 enum UserRole {
   User
   DepartmentManager
-  EmployeeViewer
   FireWarden
   Admin
 }

@@ -6,7 +6,6 @@ import {
   adminRole,
   departmentManagerRole,
   fireWardenRole,
-  employeeViewerRole,
   userRole,
 } from "@/lib/permissions";
 
@@ -19,7 +18,6 @@ export const authClient = createAuthClient({
         Admin: adminRole,
         DepartmentManager: departmentManagerRole,
         FireWarden: fireWardenRole,
-        EmployeeViewer: employeeViewerRole,
         User: userRole,
       },
     }),

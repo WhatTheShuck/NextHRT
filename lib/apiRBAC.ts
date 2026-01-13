@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 
 /**
  * Check if user can access a specific employee
- * Combines permission checking with business logic
  */
 export async function hasAccessToEmployee(
   userId: string | undefined,
@@ -15,32 +14,32 @@ export async function hasAccessToEmployee(
     return false;
   }
 
-  // Check if user has admin-level permissions (can edit/delete)
-  const isAdmin = await auth.api.userHasPermission({
+  // Check if user can view all employees
+  const canViewAll = await auth.api.userHasPermission({
     body: {
       userId,
       permissions: {
-        employee: ["edit", "delete"],
+        employee: ["viewAll"],
       },
     },
   });
 
-  if (isAdmin) {
+  if (canViewAll) {
     return true;
   }
 
-  // Check if user can manage departments (DepartmentManager role)
-  const canManageDepartments = await auth.api.userHasPermission({
+  // Check if user can view department employees
+  const canViewDepartment = await auth.api.userHasPermission({
     body: {
       userId,
       permissions: {
-        department: ["manage"],
+        employee: ["viewDepartment"],
       },
     },
   });
 
-  if (canManageDepartments) {
-    // Check if employee is in one of the departments managed by this user
+  if (canViewDepartment) {
+    // Get user's managed departments
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { managedDepartments: true },
@@ -76,18 +75,17 @@ export async function hasAccessToEmployee(
     return accessibleDepartmentIds.includes(employee.departmentId);
   }
 
-  // Check if user can view employees (any role with view permission)
-  const canViewEmployees = await auth.api.userHasPermission({
+  // Check if user can view their own employee record
+  const canViewSelf = await auth.api.userHasPermission({
     body: {
       userId,
       permissions: {
-        employee: ["view"],
+        employee: ["viewSelf"],
       },
     },
   });
 
-  if (canViewEmployees) {
-    // Check if this employee is linked to the user
+  if (canViewSelf) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { employeeId: true },
