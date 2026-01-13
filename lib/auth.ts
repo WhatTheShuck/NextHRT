@@ -2,6 +2,15 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@/generated/prisma_client";
 import { nextCookies } from "better-auth/next-js";
+import { admin } from "better-auth/plugins";
+import {
+  ac,
+  adminRole,
+  departmentManagerRole,
+  fireWardenRole,
+  employeeViewerRole,
+  userRole,
+} from "@/lib/permissions";
 const prisma = new PrismaClient();
 export const auth = betterAuth({
   socialProviders: {
@@ -23,7 +32,20 @@ export const auth = betterAuth({
       maxAge: 60 * 5, // 5 minutes
     },
   },
-  plugins: [nextCookies()],
+  plugins: [
+    nextCookies(),
+    admin({
+      ac,
+      roles: {
+        Admin: adminRole,
+        DepartmentManager: departmentManagerRole,
+        FireWarden: fireWardenRole,
+        EmployeeViewer: employeeViewerRole,
+        User: userRole,
+      },
+      defaultRole: "User",
+    }),
+  ],
 });
 // export const { handlers, auth, signIn, signOut } = NextAuth({
 //   adapter: PrismaAdapter(prisma),

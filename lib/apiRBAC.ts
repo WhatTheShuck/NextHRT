@@ -1,27 +1,45 @@
 import { UserRole } from "@/generated/prisma_client";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
-const roleHierarchy: Record<UserRole, UserRole[]> = {
-  Admin: ["DepartmentManager", "FireWarden", "EmployeeViewer", "User"],
-  DepartmentManager: ["EmployeeViewer", "User"],
-  FireWarden: ["EmployeeViewer", "User"],
-  EmployeeViewer: ["User"],
-  User: [],
-};
+/**
+ * Check if user can access a specific employee
+ * Combines permission checking with business logic
+ */
 export async function hasAccessToEmployee(
   userId: string | undefined,
   employeeId: number,
-  userRole: UserRole,
 ) {
   if (!userId) {
     console.error("hasAccessToEmployee: userId is undefined");
     return false;
   }
-  if (hasRoleAccess(userRole, "Admin")) {
+
+  // Check if user has admin-level permissions (can edit/delete)
+  const isAdmin = await auth.api.userHasPermission({
+    body: {
+      userId,
+      permissions: {
+        employee: ["edit", "delete"],
+      },
+    },
+  });
+
+  if (isAdmin) {
     return true;
   }
 
-  if (hasRoleAccess(userRole, "DepartmentManager")) {
+  // Check if user can manage departments (DepartmentManager role)
+  const canManageDepartments = await auth.api.userHasPermission({
+    body: {
+      userId,
+      permissions: {
+        department: ["manage"],
+      },
+    },
+  });
+
+  if (canManageDepartments) {
     // Check if employee is in one of the departments managed by this user
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -32,7 +50,6 @@ export async function hasAccessToEmployee(
 
     // Get all accessible department IDs
     const accessibleDepartmentIds: number[] = [];
-
     for (const dept of user.managedDepartments) {
       if (dept.level === 0) {
         // Parent department - get all child departments
@@ -40,7 +57,7 @@ export async function hasAccessToEmployee(
           where: { parentDepartmentId: dept.id },
           select: { id: true },
         });
-        accessibleDepartmentIds.push(dept.id); // Include the parent itself
+        accessibleDepartmentIds.push(dept.id);
         accessibleDepartmentIds.push(
           ...childDepartments.map((child) => child.id),
         );
@@ -56,17 +73,25 @@ export async function hasAccessToEmployee(
     });
 
     if (!employee) return false;
-
     return accessibleDepartmentIds.includes(employee.departmentId);
   }
 
-  if (hasRoleAccess(userRole, "User")) {
+  // Check if user can view employees (any role with view permission)
+  const canViewEmployees = await auth.api.userHasPermission({
+    body: {
+      userId,
+      permissions: {
+        employee: ["view"],
+      },
+    },
+  });
+
+  if (canViewEmployees) {
     // Check if this employee is linked to the user
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { employeeId: true },
     });
-
     return user?.employeeId === employeeId;
   }
 
@@ -80,7 +105,6 @@ export async function getManagedDepartmentIds(userId: string) {
   });
 
   if (!user) return [];
-
   return user.managedDepartments.map((dept) => dept.id);
 }
 
@@ -89,17 +113,7 @@ export async function getUserEmployeeId(userId: string) {
     where: { id: userId },
     select: { employeeId: true },
   });
-
   return user?.employeeId;
-}
-
-export function hasRoleAccess(
-  userRole: UserRole,
-  requiredRole: UserRole,
-): boolean {
-  if (userRole === requiredRole) return true;
-
-  return roleHierarchy[userRole]?.includes(requiredRole) || false;
 }
 
 export async function getChildDepartmentIds(
@@ -109,6 +123,21 @@ export async function getChildDepartmentIds(
     where: { parentDepartmentId: departmentId },
     select: { id: true },
   });
-
   return childDepartments.map((dept) => dept.id);
+}
+
+// Helper to get current user from better-auth session
+export async function getCurrentUser() {
+  const session = await auth.api.getSession({
+    headers: new Headers(),
+  });
+
+  if (!session?.user) {
+    return null;
+  }
+
+  return {
+    id: session.user.id,
+    role: session.user.role as UserRole,
+  };
 }
