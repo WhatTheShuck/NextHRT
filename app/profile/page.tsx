@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserProfileDetails from "./profile-details";
+import { headers } from "next/headers";
 
 async function Profile() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/auth");
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session === null) return redirect("/auth");
 
   return (
     <div className="flex items-center justify-center min-h-[90vh] p-4">
@@ -36,7 +37,6 @@ async function Profile() {
           </CardContent>
         </Card>
 
-        {/* Enhanced User Details - Client Side Component */}
         <UserProfileDetails userId={session.user.id} />
       </div>
     </div>

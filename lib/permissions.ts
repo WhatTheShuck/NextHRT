@@ -7,11 +7,13 @@ export const statement = {
     "viewSelf",
     "viewDepartment",
     "viewAll",
+    "viewEvacReport",
     "edit",
     "create",
     "delete",
   ],
   department: ["create", "view", "edit", "manage", "viewAll"],
+  reports: ["viewEmployee", "evac", "viewTicket", "view", "viewTraining"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -22,21 +24,25 @@ export const adminRole = ac.newRole({
     "viewSelf",
     "viewDepartment",
     "viewAll",
+    "viewEvacReport",
     "edit",
     "create",
     "delete",
   ],
   department: ["view", "edit", "manage", "viewAll"],
+  reports: ["view", "viewTicket", "viewTraining", "viewEmployee", "evac"],
 });
 
 export const departmentManagerRole = ac.newRole({
   employee: ["viewSelf", "viewDepartment", "edit"],
   department: ["view", "manage"],
+  reports: ["viewEmployee", "viewTicket", "viewTraining"],
 });
 
 export const fireWardenRole = ac.newRole({
-  employee: ["viewSelf", "viewAll"], // Fire wardens need to all staff
+  employee: ["viewSelf", "viewEvacReport"], // Fire wardens need to view all staff, but subset of data
   department: ["view"],
+  reports: ["view", "evac"],
 });
 
 export const userRole = ac.newRole({

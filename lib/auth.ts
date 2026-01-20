@@ -39,7 +39,6 @@ export const auth = betterAuth({
         Admin: adminRole,
         DepartmentManager: departmentManagerRole,
         FireWarden: fireWardenRole,
-        EmployeeViewer: employeeViewerRole,
         User: userRole,
       },
       defaultRole: "User",

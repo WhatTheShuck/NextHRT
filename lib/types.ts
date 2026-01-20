@@ -15,6 +15,15 @@ import {
   TrainingTicketExemption,
   TicketRequirement,
 } from "@/generated/prisma_client";
+import type { statement } from "./permissions";
+// Cheeky type hackery to get the permission typing from permissions.ts. Thanks Claude
+type PermissionKeys = keyof typeof statement;
+type PermissionActions<T extends PermissionKeys> =
+  (typeof statement)[T][number];
+
+export type Permission = {
+  [K in PermissionKeys]: `${K}:${PermissionActions<K>}`;
+}[PermissionKeys];
 
 export type CompanyDetails = {
   name: string;
@@ -34,7 +43,7 @@ export interface NavigationItem {
   description?: string;
   icon: LucideIcon;
   href: string;
-  minimumAllowedRole: UserRole;
+  minimumAllowedPermission: Permission;
 }
 
 export interface EmployeeWithRelations extends Employee {
