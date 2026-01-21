@@ -32,12 +32,12 @@ import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-recor
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
 import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 
 export function InternalTrainingTab() {
   const { employee } = useEmployee();
-  const session = useSession();
-  const isAdmin = session?.data?.user.role === "Admin";
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
   const trainingRecords = useEmployeeTrainingRecords().filter(
     (record) => record.training?.category === "Internal",
   );

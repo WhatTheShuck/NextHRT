@@ -14,12 +14,12 @@ import {
 import { useEmployee } from "./employee-context";
 import { EmployeeEditForm } from "@/components/forms/employee-edit-form";
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 
 export function EmployeeHeader() {
   const { employee } = useEmployee();
-  const session = useSession();
-  const isAdmin = session?.data?.user.role === "Admin";
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 

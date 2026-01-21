@@ -33,12 +33,12 @@ import { DeleteTicketRecordDialog } from "@/components/dialogs/ticket-records/de
 import { TicketRecordDetailsDialog } from "@/components/dialogs/ticket-records/ticket-record-details-dialog";
 import { TicketRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 
 export function TicketTab() {
   const { employee } = useEmployee();
-  const session = useSession();
-  const isAdmin = session?.data?.user.role === "Admin";
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
   const ticketRecords = useEmployeeTicketRecords();
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
