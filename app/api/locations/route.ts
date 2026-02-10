@@ -1,18 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
-) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
 
@@ -68,16 +67,20 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
+
 // POST new location
-export const POST = auth(async function POST(request) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+export async function POST(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
+  const userRole = session.user.role as UserRole;
+  const userId = session.user.id;
 
   // Only Admins can create locations
   if (userRole !== "Admin") {
@@ -115,4 +118,4 @@ export const POST = auth(async function POST(request) {
       { status: 500 },
     );
   }
-});
+}

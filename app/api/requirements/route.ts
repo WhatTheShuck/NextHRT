@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
@@ -840,16 +840,15 @@ const getAllIncompleteTicketRequirements = async () => {
     );
   }
 };
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{}> },
-) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
   const { searchParams } = new URL(request.url);
   const departmentIdParam = searchParams.get("departmentId");
   const locationIdParam = searchParams.get("locationId");
@@ -879,9 +878,9 @@ export const GET = auth(async function GET(
     }
 
     const hasAccess = await hasAccessToEmployee(
-      request.auth.user.id,
+      session.user.id,
       employeeId,
-      request.auth.user.role,
+      session.user.role,
     );
     if (!hasAccess) {
       return NextResponse.json(
@@ -939,4 +938,4 @@ export const GET = auth(async function GET(
     },
     { status: 400 },
   );
-});
+}

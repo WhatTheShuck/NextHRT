@@ -1,20 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET all departments
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
 
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
-) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
   const includeHiddenDepartment = searchParams.get("includeHidden") === "true";
@@ -28,7 +26,7 @@ export const GET = auth(async function GET(
     };
   }
 
-  const userRole = request.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
   // All authenticated users can view departments (needed for dropdowns)
   try {
     const departments = await prisma.department.findMany({
@@ -83,16 +81,19 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // POST new department
-export const POST = auth(async function POST(req) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+export async function POST(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can create new departments
   if (userRole !== "Admin") {
@@ -100,7 +101,7 @@ export const POST = auth(async function POST(req) {
   }
 
   try {
-    const json = await req.json();
+    const json = await request.json();
 
     // Check for duplicate based on unique constraint
     const existingRecord = await prisma.department.findFirst({
@@ -135,7 +136,7 @@ export const POST = auth(async function POST(req) {
         recordId: department.id.toString(),
         action: "CREATE",
         newValues: JSON.stringify(department),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -149,4 +150,4 @@ export const POST = auth(async function POST(req) {
       { status: 500 },
     );
   }
-});
+}

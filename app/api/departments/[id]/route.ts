@@ -1,26 +1,30 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET single department
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id } = await params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
-  const userRole = request.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
   try {
-    const id = parseInt(params.id);
+    const departmentId = parseInt(id);
     const department = await prisma.department.findUnique({
-      where: { id },
+      where: { id: departmentId },
       include: {
         employees: {
           select: {
@@ -74,20 +78,24 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update department
-export const PUT = auth(async function PUT(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
+  const userId = session.user.id;
 
   // Only Admins can update departments
   if (userRole !== "Admin") {
@@ -95,11 +103,11 @@ export const PUT = auth(async function PUT(
   }
 
   try {
-    const id = parseInt(params.id);
+    const departmentId = parseInt(id);
 
     // Get current department data for history
     const currentDepartment = await prisma.department.findUnique({
-      where: { id },
+      where: { id: departmentId },
     });
 
     if (!currentDepartment) {
@@ -114,7 +122,7 @@ export const PUT = auth(async function PUT(
     const existingRecord = await prisma.department.findFirst({
       where: {
         name: json.name,
-        id: { not: id },
+        id: { not: departmentId },
       },
     });
 
@@ -129,7 +137,7 @@ export const PUT = auth(async function PUT(
       );
     }
     const updatedDepartment = await prisma.department.update({
-      where: { id },
+      where: { id: departmentId },
       data: {
         name: json.name,
         isActive: json.isActive,
@@ -142,7 +150,7 @@ export const PUT = auth(async function PUT(
     await prisma.history.create({
       data: {
         tableName: "Department",
-        recordId: id.toString(),
+        recordId: departmentId.toString(),
         action: "UPDATE",
         oldValues: JSON.stringify(currentDepartment),
         newValues: JSON.stringify(updatedDepartment),
@@ -160,20 +168,24 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE department
-export const DELETE = auth(async function DELETE(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
+  const userId = session.user.id;
 
   // Only Admins can delete departments
   if (userRole !== "Admin") {
@@ -181,11 +193,11 @@ export const DELETE = auth(async function DELETE(
   }
 
   try {
-    const id = parseInt(params.id);
+    const departmentId = parseInt(id);
 
     // Check if there are employees in this department
     const employeeCount = await prisma.employee.count({
-      where: { departmentId: id },
+      where: { departmentId: departmentId },
     });
 
     if (employeeCount > 0) {
@@ -197,7 +209,7 @@ export const DELETE = auth(async function DELETE(
 
     // Get current department data for history
     const currentDepartment = await prisma.department.findUnique({
-      where: { id },
+      where: { id: departmentId },
     });
 
     if (!currentDepartment) {
@@ -213,7 +225,7 @@ export const DELETE = auth(async function DELETE(
       prisma.history.create({
         data: {
           tableName: "Department",
-          recordId: id.toString(),
+          recordId: departmentId.toString(),
           action: "DELETE",
           oldValues: JSON.stringify(currentDepartment),
           userId: userId,
@@ -221,7 +233,7 @@ export const DELETE = auth(async function DELETE(
       }),
       // Delete the department
       prisma.department.delete({
-        where: { id },
+        where: { id: departmentId },
       }),
     ]);
 
@@ -235,4 +247,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

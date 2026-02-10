@@ -1,16 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET all history records (with optional filtering)
-export const GET = auth(async function GET(request) {
-  if (!request.auth) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userId = request.auth.user?.id;
-  const userRole = request.auth.user?.role as UserRole;
+  const userId = session.user.id;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins and Department Managers can view history
   if (userRole !== "Admin" && userRole !== "DepartmentManager") {
@@ -134,4 +138,4 @@ export const GET = auth(async function GET(request) {
       { status: 500 },
     );
   }
-});
+}

@@ -1,28 +1,31 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET single ticket by ID with optional filtering
-export const GET = auth(async function GET(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const { searchParams } = new URL(req.url);
+  const { id } = await params;
+  const { searchParams } = new URL(request.url);
   const expirationDays = searchParams.get("expirationDays");
   const activeOnly = searchParams.get("activeOnly") === "true";
   const includeRequirements =
     searchParams.get("includeRequirements") === "true";
   try {
-    const id = parseInt(params.id);
+    const ticketId = parseInt(id);
 
-    if (isNaN(id)) {
+    if (isNaN(ticketId)) {
       return NextResponse.json({ error: "Invalid ticket ID" }, { status: 400 });
     }
 
@@ -100,7 +103,7 @@ export const GET = auth(async function GET(
     }
 
     const ticket = await prisma.ticket.findUnique({
-      where: { id },
+      where: { id: ticketId },
       include: includeClause,
     });
 
@@ -118,20 +121,24 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update ticket by ID
-export const PUT = auth(async function PUT(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id } = await params;
 
-  const userRole = req.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can edit employee records
   if (userRole !== "Admin") {
@@ -139,17 +146,17 @@ export const PUT = auth(async function PUT(
   }
 
   try {
-    const id = parseInt(params.id);
+    const ticketId = parseInt(id);
 
-    if (isNaN(id)) {
+    if (isNaN(ticketId)) {
       return NextResponse.json({ error: "Invalid ticket ID" }, { status: 400 });
     }
 
-    const json = await req.json();
+    const json = await request.json();
 
     // Check if ticket exists
     const existingTicket = await prisma.ticket.findUnique({
-      where: { id },
+      where: { id: ticketId },
     });
 
     if (!existingTicket) {
@@ -158,7 +165,7 @@ export const PUT = auth(async function PUT(
 
     // Update the ticket
     const updatedTicket = await prisma.ticket.update({
-      where: { id },
+      where: { id: ticketId },
       data: {
         ticketCode: json.ticketCode,
         ticketName: json.ticketName,
@@ -175,14 +182,14 @@ export const PUT = auth(async function PUT(
         action: "UPDATE",
         oldValues: JSON.stringify(existingTicket),
         newValues: JSON.stringify(updatedTicket),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
     if (json.requirements) {
       // Delete existing requirements
       await prisma.ticketRequirement.deleteMany({
-        where: { ticketId: id },
+        where: { ticketId: ticketId },
       });
 
       // Add new requirements
@@ -207,19 +214,23 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE ticket by ID
-export const DELETE = auth(async function DELETE(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = req.auth.user?.role as UserRole;
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can delete employee records
   if (userRole !== "Admin") {
@@ -227,15 +238,15 @@ export const DELETE = auth(async function DELETE(
   }
 
   try {
-    const id = parseInt(params.id);
+    const ticketId = parseInt(id);
 
-    if (isNaN(id)) {
+    if (isNaN(ticketId)) {
       return NextResponse.json({ error: "Invalid ticket ID" }, { status: 400 });
     }
 
     // Check if ticket exists
     const existingTicket = await prisma.ticket.findUnique({
-      where: { id },
+      where: { id: ticketId },
       include: {
         _count: {
           select: {
@@ -263,21 +274,21 @@ export const DELETE = auth(async function DELETE(
 
     // Delete the ticket
     await prisma.ticket.delete({
-      where: { id },
+      where: { id: ticketId },
     });
     // delete associate ticket requirements
     await prisma.ticketRequirement.deleteMany({
-      where: { ticketId: id },
+      where: { ticketId: ticketId },
     });
 
     // Create history record
     await prisma.history.create({
       data: {
         tableName: "Ticket",
-        recordId: id.toString(),
+        recordId: ticketId.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(existingTicket),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -294,4 +305,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

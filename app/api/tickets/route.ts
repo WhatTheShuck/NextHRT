@@ -1,12 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET all tickets
-export const GET = auth(async function GET(request) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
@@ -60,23 +63,26 @@ export const GET = auth(async function GET(request) {
       { status: 500 },
     );
   }
-});
+}
 
 // POST new ticket
-export const POST = auth(async function POST(req) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+export async function POST(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can create employee records
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
   try {
-    const json = await req.json();
+    const json = await request.json();
 
     // we don't care about unique ticket code for now
     // // Check for duplicate ticket code
@@ -121,7 +127,7 @@ export const POST = auth(async function POST(req) {
         recordId: ticket.id.toString(),
         action: "CREATE",
         newValues: JSON.stringify(ticket),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -135,4 +141,4 @@ export const POST = auth(async function POST(req) {
       { status: 500 },
     );
   }
-});
+}

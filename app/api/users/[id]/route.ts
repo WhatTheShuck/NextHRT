@@ -1,22 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET specific user
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = request.auth.user?.role as UserRole;
-  const currentUserId = request.auth.user?.id;
-  const params = await props.params;
-  const targetUserId = params.id;
+  const userRole = session.user.role as UserRole;
+  const currentUserId = session.user.id;
+  const { id: targetUserId } = await params;
 
   // Users can only view themselves unless they're Admin
   if (userRole !== "Admin" && currentUserId !== targetUserId) {
@@ -51,21 +53,23 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PATCH update user (role, managed departments, etc.)
-export const PATCH = auth(async function PATCH(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const params = await props.params;
-  const targetUserId = params.id;
+  const userRole = session.user.role as UserRole;
+  const { id: targetUserId } = await params;
 
   // Only Admins can update user roles and permissions
   if (userRole !== "Admin") {
@@ -73,7 +77,7 @@ export const PATCH = auth(async function PATCH(
   }
 
   try {
-    const json = await req.json();
+    const json = await request.json();
 
     // Get the current user for history tracking
     const currentUser = await prisma.user.findUnique({
@@ -132,7 +136,7 @@ export const PATCH = auth(async function PATCH(
         changedFields: JSON.stringify(changedFields),
         oldValues: JSON.stringify(oldValues),
         newValues: JSON.stringify(newValues),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -146,22 +150,24 @@ export const PATCH = auth(async function PATCH(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE user
-export const DELETE = auth(async function DELETE(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const currentUserId = req.auth.user?.id;
-  const params = await props.params;
-  const targetUserId = params.id;
+  const userRole = session.user.role as UserRole;
+  const currentUserId = session.user.id;
+  const { id: targetUserId } = await params;
 
   // Only Admins can delete users, and they can't delete themselves
   if (userRole !== "Admin" || currentUserId === targetUserId) {
@@ -199,7 +205,7 @@ export const DELETE = auth(async function DELETE(
         recordId: targetUserId,
         action: "DELETE",
         oldValues: JSON.stringify(userToDelete),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -213,4 +219,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

@@ -1,22 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET user's managed departments
-export const GET = auth(async function GET(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const currentUserId = req.auth.user?.id;
-  const params = await props.params;
-  const targetUserId = params.id;
+  const userRole = session.user.role as UserRole;
+  const currentUserId = session.user.id;
+  const { id: targetUserId } = await params;
 
   // Users can only view their own departments unless they're Admin
   if (userRole !== "Admin" && currentUserId !== targetUserId) {
@@ -45,21 +47,23 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update user's managed departments
-export const PUT = auth(async function PUT(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const params = await props.params;
-  const targetUserId = params.id;
+  const userRole = session.user.role as UserRole;
+  const { id: targetUserId } = await params;
 
   // Only Admins can update managed departments
   if (userRole !== "Admin") {
@@ -67,7 +71,7 @@ export const PUT = auth(async function PUT(
   }
 
   try {
-    const json = await req.json();
+    const json = await request.json();
     const { departmentIds } = json;
 
     // Get the current user for history tracking
@@ -125,7 +129,7 @@ export const PUT = auth(async function PUT(
         changedFields: JSON.stringify(["managedDepartments"]),
         oldValues: JSON.stringify(oldValues),
         newValues: JSON.stringify(newValues),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -139,4 +143,4 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}

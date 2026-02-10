@@ -1,17 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET all ticket records
-export const GET = auth(async function GET(req) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const userId = req.auth.user?.id;
+  const userRole = session.user.role as UserRole;
+  const userId = session.user.id;
 
   const includeClause: any = {
     training: true,
@@ -96,22 +99,25 @@ export const GET = auth(async function GET(req) {
       { status: 500 },
     );
   }
-});
+}
 
 // POST new ticket record
-export const POST = auth(async function POST(req) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+export async function POST(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
-  const userRole = req.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can create employee records
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
   try {
-    const json = await req.json();
+    const json = await request.json();
 
     // Basic validation
     if (!json.type || (json.type !== "Ticket" && json.type !== "Training")) {
@@ -258,7 +264,7 @@ export const POST = auth(async function POST(req) {
         recordId: exemption.id.toString(),
         action: "CREATE",
         newValues: JSON.stringify(exemption),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -272,4 +278,4 @@ export const POST = auth(async function POST(req) {
       { status: 500 },
     );
   }
-});
+}

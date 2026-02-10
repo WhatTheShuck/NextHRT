@@ -1,13 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{}> },
-) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
   // Check if the user is authenticated
-  // if (!request.auth) {
+  // if (!session) {
   //   return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   // }
 
@@ -42,4 +43,4 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}

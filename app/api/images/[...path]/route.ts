@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
@@ -8,21 +8,25 @@ import { UserRole } from "@/generated/prisma_client";
 import { hasAccessToEmployee } from "@/lib/apiRBAC";
 
 // GET serve image files with RBAC
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ path: string[] }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userId = request.auth.user?.id;
-  const userRole = request.auth.user?.role as UserRole;
+  const { path: pathSegments } = await params;
+  const userId = session.user.id;
+  const userRole = session.user.role as UserRole;
 
   try {
     // Reconstruct the file path from the dynamic route segments
-    const filePath = params.path.join("/");
+    const filePath = pathSegments.join("/");
 
     // Security: Prevent directory traversal attacks
     if (filePath.includes("..") || filePath.includes("\\")) {
@@ -165,4 +169,4 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}

@@ -1,25 +1,29 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET single location
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id } = await params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
 
   try {
-    const id = parseInt(params.id);
+    const locationId = parseInt(id);
     const location = await prisma.location.findUnique({
-      where: { id },
+      where: { id: locationId },
       include: {
         employees: {
           select: {
@@ -62,20 +66,24 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update location
-export const PUT = auth(async function PUT(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
+  const userId = session.user.id;
 
   // Only Admins can update locations
   if (userRole !== "Admin") {
@@ -83,11 +91,11 @@ export const PUT = auth(async function PUT(
   }
 
   try {
-    const id = parseInt(params.id);
+    const locationId = parseInt(id);
 
     // Get current location data for history
     const currentLocation = await prisma.location.findUnique({
-      where: { id },
+      where: { id: locationId },
     });
 
     if (!currentLocation) {
@@ -100,7 +108,7 @@ export const PUT = auth(async function PUT(
     const json = await request.json();
 
     const updatedLocation = await prisma.location.update({
-      where: { id },
+      where: { id: locationId },
       data: {
         name: json.name,
         state: json.state,
@@ -111,7 +119,7 @@ export const PUT = auth(async function PUT(
     await prisma.history.create({
       data: {
         tableName: "Location",
-        recordId: id.toString(),
+        recordId: locationId.toString(),
         action: "UPDATE",
         oldValues: JSON.stringify(currentLocation),
         newValues: JSON.stringify(updatedLocation),
@@ -129,20 +137,24 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE location
-export const DELETE = auth(async function DELETE(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
+  const userId = session.user.id;
 
   // Only Admins can delete locations
   if (userRole !== "Admin") {
@@ -150,11 +162,11 @@ export const DELETE = auth(async function DELETE(
   }
 
   try {
-    const id = parseInt(params.id);
+    const locationId = parseInt(id);
 
     // Check if there are employees at this location
     const employeeCount = await prisma.employee.count({
-      where: { locationId: id },
+      where: { locationId: locationId },
     });
 
     if (employeeCount > 0) {
@@ -166,7 +178,7 @@ export const DELETE = auth(async function DELETE(
 
     // Get current location data for history
     const currentLocation = await prisma.location.findUnique({
-      where: { id },
+      where: { id: locationId },
     });
 
     if (!currentLocation) {
@@ -182,7 +194,7 @@ export const DELETE = auth(async function DELETE(
       prisma.history.create({
         data: {
           tableName: "Location",
-          recordId: id.toString(),
+          recordId: locationId.toString(),
           action: "DELETE",
           oldValues: JSON.stringify(currentLocation),
           userId: userId,
@@ -190,7 +202,7 @@ export const DELETE = auth(async function DELETE(
       }),
       // Delete the location
       prisma.location.delete({
-        where: { id },
+        where: { id: locationId },
       }),
     ]);
 
@@ -204,4 +216,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

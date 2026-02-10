@@ -1,22 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET specific exemption record
-export const GET = auth(async function GET(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = req.auth.user?.role as UserRole;
-  const userId = req.auth.user?.id;
-  const exemptionId = parseInt(params.id);
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
+  const userId = session.user.id;
+  const exemptionId = parseInt(id);
 
   if (isNaN(exemptionId)) {
     return NextResponse.json(
@@ -104,21 +107,24 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update specific exemption record
-export const PUT = auth(async function PUT(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = req.auth.user?.role as UserRole;
-  const exemptionId = parseInt(params.id);
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
+  const exemptionId = parseInt(id);
 
   // Only Admins can update exemption records
   if (userRole !== "Admin") {
@@ -133,7 +139,7 @@ export const PUT = auth(async function PUT(
   }
 
   try {
-    const json = await req.json();
+    const json = await request.json();
 
     // Check if exemption exists
     const existingExemption = await prisma.trainingTicketExemption.findUnique({
@@ -276,7 +282,7 @@ export const PUT = auth(async function PUT(
         changedFields: JSON.stringify(changedFields),
         oldValues: JSON.stringify(existingExemption),
         newValues: JSON.stringify(updatedExemption),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -290,20 +296,23 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
-export const DELETE = auth(async function DELETE(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = req.auth.user?.role as UserRole;
-  const exemptionId = parseInt(params.id);
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
+  const exemptionId = parseInt(id);
 
   // Only Admins can delete exemption records
   if (userRole !== "Admin") {
@@ -347,7 +356,7 @@ export const DELETE = auth(async function DELETE(
         recordId: exemptionId.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(existingExemption),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -364,4 +373,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}
