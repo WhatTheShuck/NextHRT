@@ -3,30 +3,28 @@ import { redirect } from "next/navigation";
 import { NavigationCard } from "@/components/navigation-card";
 import { fieldEditorNavigationItems } from "@/lib/data";
 import api from "@/lib/axios";
+import { headers } from "next/headers";
 
 async function getStats() {
-  try {
-    const response = await api.get("/api/stats");
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching stats:", error);
-    return {
-      totalEmployees: 0,
-      totalDepartments: 0,
-      totalLocations: 0,
-      totalTraining: 0,
-      totalTickets: 0,
-    };
-  }
+  // need to implement the service, rather than api call
+  // try {
+  // const response = await api.get("/api/stats");
+  // return response.data;
+  // } catch (error) {
+  // console.error("Error fetching stats:", error);
+  return {
+    totalEmployees: 0,
+    totalDepartments: 0,
+    totalLocations: 0,
+    totalTraining: 0,
+    totalTickets: 0,
+  };
+  // }
 }
 
 export default async function MetaPropertiesPage() {
-  const session = await auth();
-
-  // Redirect if not authenticated
-  if (!session) {
-    redirect("/auth");
-  }
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session === null) return redirect("/auth");
 
   if (session.user?.role !== "Admin") {
     redirect("/");

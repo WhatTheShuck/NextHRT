@@ -16,7 +16,7 @@ async function Profile() {
         <Card className="shadow-lg">
           <CardContent className="p-0">
             {/* Header Section */}
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-lg p-8 text-white">
+            <div className="bg-linear-to-r from-blue-500 to-purple-600 rounded-t-lg p-8 text-white">
               <div className="flex flex-col items-center space-y-4">
                 <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
                   <AvatarImage
