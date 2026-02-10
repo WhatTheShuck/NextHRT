@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { writeFile, mkdir, unlink } from "fs/promises";
@@ -29,22 +29,25 @@ function calculateExpiryDate(
 }
 
 // GET single ticket record by ID
-export const GET = auth(async function GET(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userId = req.auth.user?.id;
-  const userRole = req.auth.user?.role as UserRole;
-  const employeeId = parseInt(params.id);
+  const { id: idParam } = await params;
+  const userId = session.user.id;
+  const userRole = session.user.role as UserRole;
+  const employeeId = parseInt(idParam);
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -115,26 +118,30 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update ticket record by ID
-export const PUT = auth(async function PUT(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = req.auth.user?.role as UserRole;
+  const { id: idParam } = await params;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can edit employee records
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -155,7 +162,7 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    const formData = await req.formData();
+    const formData = await request.formData();
 
     // Extract form fields
     const employeeId = parseInt(formData.get("employeeId") as string);
@@ -425,7 +432,7 @@ export const PUT = auth(async function PUT(
         action: "UPDATE",
         oldValues: JSON.stringify(existingRecord),
         newValues: JSON.stringify(updatedRecord),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -439,19 +446,23 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE ticket record by ID
-export const DELETE = auth(async function DELETE(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = req.auth.user?.role as UserRole;
+  const { id: idParam } = await params;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can delete employee records
   if (userRole !== "Admin") {
@@ -459,7 +470,7 @@ export const DELETE = auth(async function DELETE(
   }
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -524,7 +535,7 @@ export const DELETE = auth(async function DELETE(
         recordId: id.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(existingRecord),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -546,4 +557,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { writeFile, mkdir, unlink } from "fs/promises";
@@ -9,17 +9,21 @@ import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET single training record
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id: idParam } = await params;
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -58,26 +62,30 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update training record
-export const PUT = auth(async function PUT(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = req.auth.user?.role as UserRole;
+  const { id: idParam } = await params;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can edit employee records
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -98,7 +106,7 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    const formData = await req.formData();
+    const formData = await request.formData();
 
     // Extract form fields
     const employeeId = parseInt(formData.get("employeeId") as string);
@@ -265,7 +273,7 @@ export const PUT = auth(async function PUT(
         action: "UPDATE",
         oldValues: JSON.stringify(currentRecord),
         newValues: JSON.stringify(updatedTrainingRecord),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -279,27 +287,31 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE training record
-export const DELETE = auth(async function DELETE(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id: idParam } = await params;
 
-  const userRole = req.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can delete employee records
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorized" }, { status: 403 });
   }
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -348,7 +360,7 @@ export const DELETE = auth(async function DELETE(
         recordId: id.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(currentRecord),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -364,4 +376,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

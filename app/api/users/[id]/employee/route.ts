@@ -1,21 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 
 // PUT - Link/update user to employee
-export const PUT = auth(async function PUT(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const params = await props.params;
-  const targetUserId = params.id;
+  const userRole = session.user.role as UserRole;
+  const { id: targetUserId } = await params;
 
   // Only Admins can manage user-employee mappings
   if (userRole !== "Admin") {
@@ -23,7 +25,7 @@ export const PUT = auth(async function PUT(
   }
 
   try {
-    const json = await req.json();
+    const json = await request.json();
     const { employeeId } = json;
 
     // Get the current user for history tracking
@@ -100,7 +102,7 @@ export const PUT = auth(async function PUT(
         changedFields: JSON.stringify(["employeeId"]),
         oldValues: JSON.stringify(oldValues),
         newValues: JSON.stringify(newValues),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -114,21 +116,23 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE - Unlink user from employee
-export const DELETE = auth(async function DELETE(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
-  const params = await props.params;
-  const targetUserId = params.id;
+  const userRole = session.user.role as UserRole;
+  const { id: targetUserId } = await params;
 
   // Only Admins can manage user-employee mappings
   if (userRole !== "Admin") {
@@ -183,7 +187,7 @@ export const DELETE = auth(async function DELETE(
         changedFields: JSON.stringify(["employeeId"]),
         oldValues: JSON.stringify(oldValues),
         newValues: JSON.stringify(newValues),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -197,4 +201,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

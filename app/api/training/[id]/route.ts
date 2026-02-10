@@ -1,18 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
 
 // GET single training course
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id: idParam } = await params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
   const includeRequirements =
@@ -64,7 +68,7 @@ export const GET = auth(async function GET(
   }
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -95,20 +99,24 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update training course
-export const PUT = auth(async function PUT(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id: idParam } = await params;
 
-  const userRole = req.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can edit employee records
   if (userRole !== "Admin") {
@@ -116,7 +124,7 @@ export const PUT = auth(async function PUT(
   }
 
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -125,7 +133,7 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    const json = await req.json();
+    const json = await request.json();
 
     // Get the current training record for history
     const currentTraining = await prisma.training.findUnique({
@@ -225,7 +233,7 @@ export const PUT = auth(async function PUT(
           action: "UPDATE",
           oldValues: JSON.stringify(currentTraining),
           newValues: JSON.stringify(updatedTraining),
-          userId: req.auth.user?.id,
+          userId: session.user.id,
         },
       });
 
@@ -235,7 +243,7 @@ export const PUT = auth(async function PUT(
           recordId: practicalTraining.id.toString(),
           action: "CREATE",
           newValues: JSON.stringify(practicalTraining),
-          userId: req.auth.user?.id,
+          userId: session.user.id,
         },
       });
 
@@ -261,7 +269,7 @@ export const PUT = auth(async function PUT(
           action: "UPDATE",
           oldValues: JSON.stringify(currentTraining),
           newValues: JSON.stringify(updatedTraining),
-          userId: req.auth.user?.id,
+          userId: session.user.id,
         },
       });
 
@@ -294,27 +302,31 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE training course
-export const DELETE = auth(async function DELETE(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id: idParam } = await params;
 
-  const userRole = req.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
   // Only Admins can delete employee records
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorized" }, { status: 403 });
   }
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -363,7 +375,7 @@ export const DELETE = auth(async function DELETE(
         recordId: id.toString(),
         action: "DELETE",
         oldValues: JSON.stringify(currentTraining),
-        userId: req.auth.user?.id,
+        userId: session.user.id,
       },
     });
 
@@ -379,4 +391,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

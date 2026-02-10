@@ -1,18 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 // GET all training courses
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
-) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
   const category = searchParams.get("category");
@@ -67,11 +66,15 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // POST new training course
-export const POST = auth(async function POST(request) {
-  if (!request.auth) {
+export async function POST(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
@@ -122,7 +125,7 @@ export const POST = auth(async function POST(request) {
           recordId: training1.id.toString(),
           action: "CREATE",
           newValues: JSON.stringify(training1),
-          userId: request.auth.user?.id,
+          userId: session.user.id,
         },
       });
 
@@ -132,7 +135,7 @@ export const POST = auth(async function POST(request) {
           recordId: training2.id.toString(),
           action: "CREATE",
           newValues: JSON.stringify(training2),
-          userId: request.auth.user?.id,
+          userId: session.user.id,
         },
       });
 
@@ -163,7 +166,7 @@ export const POST = auth(async function POST(request) {
           recordId: training.id.toString(),
           action: "CREATE",
           newValues: JSON.stringify(training),
-          userId: request.auth.user?.id,
+          userId: session.user.id,
         },
       });
 
@@ -178,4 +181,4 @@ export const POST = auth(async function POST(request) {
       { status: 500 },
     );
   }
-});
+}
