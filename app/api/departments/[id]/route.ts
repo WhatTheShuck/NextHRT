@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
+import { departmentService } from "@/lib/services/departmentService";
 
 // GET single department
 export async function GET(
@@ -23,53 +23,21 @@ export async function GET(
 
   try {
     const departmentId = parseInt(id);
-    const department = await prisma.department.findUnique({
-      where: { id: departmentId },
-      include: {
-        employees: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            title: true,
-            location: {
-              select: {
-                name: true,
-                state: true,
-              },
-            },
-          },
-          where: activeOnly
-            ? {
-                isActive: true,
-              }
-            : undefined,
-        },
-        _count: {
-          select: { employees: true },
-        },
-        managers:
-          userRole === "Admin"
-            ? {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              }
-            : false,
-      },
+    const department = await departmentService.getDepartmentById(departmentId, {
+      activeOnly,
+      userRole,
     });
-
-    if (!department) {
-      return NextResponse.json(
-        { error: "Department not found" },
-        { status: 404 },
-      );
-    }
-
     return NextResponse.json(department);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "DEPARTMENT_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Department not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error fetching department",
@@ -95,7 +63,6 @@ export async function PUT(
 
   const { id } = await params;
   const userRole = session.user.role as UserRole;
-  const userId = session.user.id;
 
   // Only Admins can update departments
   if (userRole !== "Admin") {
@@ -104,62 +71,32 @@ export async function PUT(
 
   try {
     const departmentId = parseInt(id);
-
-    // Get current department data for history
-    const currentDepartment = await prisma.department.findUnique({
-      where: { id: departmentId },
-    });
-
-    if (!currentDepartment) {
-      return NextResponse.json(
-        { error: "Department not found" },
-        { status: 404 },
-      );
-    }
-
     const json = await request.json();
-    // Check for duplicate based on unique constraint
-    const existingRecord = await prisma.department.findFirst({
-      where: {
-        name: json.name,
-        id: { not: departmentId },
-      },
-    });
-
-    if (existingRecord) {
-      return NextResponse.json(
-        {
-          error: "Duplicate record found",
-          code: "DUPLICATE_DEPARTMENT",
-          message: "A department with this name already exists",
-        },
-        { status: 409 },
-      );
-    }
-    const updatedDepartment = await prisma.department.update({
-      where: { id: departmentId },
-      data: {
-        name: json.name,
-        isActive: json.isActive,
-        parentDepartmentId: json.parentDepartmentId || null,
-        level: json.parentDepartmentId ? 1 : 0,
-      },
-    });
-
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "Department",
-        recordId: departmentId.toString(),
-        action: "UPDATE",
-        oldValues: JSON.stringify(currentDepartment),
-        newValues: JSON.stringify(updatedDepartment),
-        userId: userId,
-      },
-    });
-
+    const updatedDepartment = await departmentService.updateDepartment(
+      departmentId,
+      json,
+      session.user.id,
+    );
     return NextResponse.json(updatedDepartment);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "DEPARTMENT_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Department not found" },
+            { status: 404 },
+          );
+        case "DUPLICATE_DEPARTMENT":
+          return NextResponse.json(
+            {
+              error: "Duplicate record found",
+              code: "DUPLICATE_DEPARTMENT",
+              message: "A department with this name already exists",
+            },
+            { status: 409 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error updating department",
@@ -185,7 +122,6 @@ export async function DELETE(
 
   const { id } = await params;
   const userRole = session.user.role as UserRole;
-  const userId = session.user.id;
 
   // Only Admins can delete departments
   if (userRole !== "Admin") {
@@ -194,51 +130,26 @@ export async function DELETE(
 
   try {
     const departmentId = parseInt(id);
-
-    // Check if there are employees in this department
-    const employeeCount = await prisma.employee.count({
-      where: { departmentId: departmentId },
-    });
-
-    if (employeeCount > 0) {
-      return NextResponse.json(
-        { error: "Cannot delete department with active employees" },
-        { status: 400 },
-      );
-    }
-
-    // Get current department data for history
-    const currentDepartment = await prisma.department.findUnique({
-      where: { id: departmentId },
-    });
-
-    if (!currentDepartment) {
-      return NextResponse.json(
-        { error: "Department not found" },
-        { status: 404 },
-      );
-    }
-
-    // Delete department
-    await prisma.$transaction([
-      // Create history record
-      prisma.history.create({
-        data: {
-          tableName: "Department",
-          recordId: departmentId.toString(),
-          action: "DELETE",
-          oldValues: JSON.stringify(currentDepartment),
-          userId: userId,
-        },
-      }),
-      // Delete the department
-      prisma.department.delete({
-        where: { id: departmentId },
-      }),
-    ]);
-
-    return NextResponse.json({ message: "Department deleted successfully" });
+    const result = await departmentService.deleteDepartment(
+      departmentId,
+      session.user.id,
+    );
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "DEPARTMENT_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Department not found" },
+            { status: 404 },
+          );
+        case "DEPARTMENT_HAS_EMPLOYEES":
+          return NextResponse.json(
+            { error: "Cannot delete department with active employees" },
+            { status: 400 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error deleting department",
