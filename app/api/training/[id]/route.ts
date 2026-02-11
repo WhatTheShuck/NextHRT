@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
+import { trainingService } from "@/lib/services/trainingService";
 
 // GET single training course
 export async function GET(
@@ -23,50 +23,6 @@ export async function GET(
     searchParams.get("includeRequirements") === "true";
   const includeRecords = searchParams.get("records") === "true";
 
-  const trainingRecordsWhereClause: any = {};
-  if (activeOnly) {
-    trainingRecordsWhereClause.personTrained = {
-      isActive: true,
-    };
-  }
-
-  const includeClause: any = {
-    trainingRecords: {
-      where: trainingRecordsWhereClause,
-      include: {
-        personTrained: {
-          include: {
-            department: true,
-            location: true,
-          },
-        },
-      },
-      orderBy: {
-        dateCompleted: "desc",
-      },
-    },
-
-    _count: {
-      select: { trainingRecords: true },
-    },
-  };
-
-  if (includeRequirements) {
-    includeClause.requirements = {
-      include: {
-        training: true,
-        department: true,
-        location: true,
-      },
-    };
-    includeClause.trainingExemptions = {
-      include: {
-        training: true,
-        employee: true,
-      },
-    };
-  }
-
   try {
     const id = parseInt(idParam);
 
@@ -77,20 +33,22 @@ export async function GET(
       );
     }
 
-    const training = await prisma.training.findUnique({
-      where: { id },
-      include: includeClause,
+    const training = await trainingService.getTrainingById(id, {
+      activeOnly,
+      includeRequirements,
+      includeRecords,
     });
-
-    if (!training) {
-      return NextResponse.json(
-        { error: "Training course not found" },
-        { status: 404 },
-      );
-    }
-
     return NextResponse.json(training);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "TRAINING_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Training course not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error fetching training course",
@@ -115,10 +73,9 @@ export async function PUT(
   }
 
   const { id: idParam } = await params;
-
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can edit employee records
+  // Only Admins can edit training courses
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
@@ -134,166 +91,22 @@ export async function PUT(
     }
 
     const json = await request.json();
-
-    // Get the current training record for history
-    const currentTraining = await prisma.training.findUnique({
-      where: { id },
-      include: {
-        requirements: true,
-      },
-    });
-
-    if (!currentTraining) {
-      return NextResponse.json(
-        { error: "Training course not found" },
-        { status: 404 },
-      );
-    }
-
-    // Check if we're changing from non-SOP to SOP category
-    if (currentTraining.category !== "SOP" && json.category === "SOP") {
-      // Update the existing record to be the "Task Sheet" version
-      const updatedTraining = await prisma.training.update({
-        where: { id },
-        data: {
-          category: json.category,
-          title: json.title + " - Task Sheet",
-          isActive: json.isActive,
-        },
-      });
-
-      // Create the matching "Practical" record
-      const practicalTraining = await prisma.training.create({
-        data: {
-          category: json.category,
-          title: json.title + " - Practical",
-          isActive: json.isActive,
-        },
-      });
-
-      // Handle requirements for both trainings
-      if (json.requirements) {
-        // Delete existing requirements from the original training
-        await prisma.trainingRequirement.deleteMany({
-          where: { trainingId: id },
-        });
-
-        // Add new requirements to both trainings
-        for (const req of json.requirements) {
-          // For the updated training (Task Sheet)
-          await prisma.trainingRequirement.create({
-            data: {
-              trainingId: updatedTraining.id,
-              departmentId: req.departmentId,
-              locationId: req.locationId,
-            },
-          });
-
-          // For the new practical training
-          await prisma.trainingRequirement.create({
-            data: {
-              trainingId: practicalTraining.id,
-              departmentId: req.departmentId,
-              locationId: req.locationId,
-            },
-          });
-        }
-      } else {
-        // If no new requirements provided, copy existing requirements to both trainings
-        await prisma.trainingRequirement.deleteMany({
-          where: { trainingId: id },
-        });
-
-        for (const req of currentTraining.requirements) {
-          // For the updated training (Task Sheet)
-          await prisma.trainingRequirement.create({
-            data: {
-              trainingId: updatedTraining.id,
-              departmentId: req.departmentId,
-              locationId: req.locationId,
-            },
-          });
-
-          // For the new practical training
-          await prisma.trainingRequirement.create({
-            data: {
-              trainingId: practicalTraining.id,
-              departmentId: req.departmentId,
-              locationId: req.locationId,
-            },
-          });
-        }
-      }
-
-      // Create history records for both trainings
-      await prisma.history.create({
-        data: {
-          tableName: "Training",
-          recordId: id.toString(),
-          action: "UPDATE",
-          oldValues: JSON.stringify(currentTraining),
-          newValues: JSON.stringify(updatedTraining),
-          userId: session.user.id,
-        },
-      });
-
-      await prisma.history.create({
-        data: {
-          tableName: "Training",
-          recordId: practicalTraining.id.toString(),
-          action: "CREATE",
-          newValues: JSON.stringify(practicalTraining),
-          userId: session.user.id,
-        },
-      });
-
-      // Return both trainings
-      return NextResponse.json([updatedTraining, practicalTraining]);
-    }
-    // Handle normal updates (including SOP to SOP updates)
-    else {
-      const updatedTraining = await prisma.training.update({
-        where: { id },
-        data: {
-          category: json.category,
-          title: json.title,
-          isActive: json.isActive,
-        },
-      });
-
-      // Create history record
-      await prisma.history.create({
-        data: {
-          tableName: "Training",
-          recordId: id.toString(),
-          action: "UPDATE",
-          oldValues: JSON.stringify(currentTraining),
-          newValues: JSON.stringify(updatedTraining),
-          userId: session.user.id,
-        },
-      });
-
-      if (json.requirements) {
-        // Delete existing requirements
-        await prisma.trainingRequirement.deleteMany({
-          where: { trainingId: id },
-        });
-
-        // Add new requirements
-        for (const req of json.requirements) {
-          await prisma.trainingRequirement.create({
-            data: {
-              trainingId: updatedTraining.id,
-              departmentId: req.departmentId,
-              locationId: req.locationId,
-            },
-          });
-        }
-      }
-
-      return NextResponse.json(updatedTraining);
-    }
+    const result = await trainingService.updateTraining(
+      id,
+      json,
+      session.user.id,
+    );
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "TRAINING_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Training course not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error updating training course",
@@ -318,13 +131,13 @@ export async function DELETE(
   }
 
   const { id: idParam } = await params;
-
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can delete employee records
+  // Only Admins can delete training courses
   if (userRole !== "Admin") {
     return NextResponse.json({ message: "Not authorized" }, { status: 403 });
   }
+
   try {
     const id = parseInt(idParam);
 
@@ -335,54 +148,26 @@ export async function DELETE(
       );
     }
 
-    // Get the current training record for history before deletion
-    const currentTraining = await prisma.training.findUnique({
-      where: { id },
-    });
-
-    if (!currentTraining) {
-      return NextResponse.json(
-        { error: "Training course not found" },
-        { status: 404 },
-      );
-    }
-
-    // Check if there are any training records associated with this training
-    const trainingRecordsCount = await prisma.trainingRecords.count({
-      where: { trainingId: id },
-    });
-
-    if (trainingRecordsCount > 0) {
-      return NextResponse.json(
-        {
-          error: "Cannot delete training course with existing training records",
-          details: `This training course has ${trainingRecordsCount} associated training record(s). Please remove all training records before deleting the course.`,
-        },
-        { status: 400 },
-      );
-    }
-
-    await prisma.training.delete({
-      where: { id },
-    });
-    await prisma.trainingRequirement.deleteMany({
-      where: { trainingId: id },
-    });
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "Training",
-        recordId: id.toString(),
-        action: "DELETE",
-        oldValues: JSON.stringify(currentTraining),
-        userId: session.user.id,
-      },
-    });
-
-    return NextResponse.json({
-      message: "Training course deleted successfully",
-    });
+    const result = await trainingService.deleteTraining(id, session.user.id);
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "TRAINING_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Training course not found" },
+            { status: 404 },
+          );
+        case "TRAINING_HAS_RECORDS":
+          return NextResponse.json(
+            {
+              error:
+                "Cannot delete training course with existing training records",
+            },
+            { status: 400 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error deleting training course",
