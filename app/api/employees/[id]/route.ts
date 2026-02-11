@@ -26,7 +26,7 @@ export async function GET(
 
   try {
     // Check if user has access to this employee
-    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
+    const hasAccess = await hasAccessToEmployee(userId, employeeId);
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -79,7 +79,7 @@ export async function PATCH(
 
   try {
     // Check if user has access to this employee
-    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
+    const hasAccess = await hasAccessToEmployee(userId, employeeId);
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -134,7 +134,7 @@ export async function PUT(
 
   try {
     // Check if user has access to this employee
-    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
+    const hasAccess = await hasAccessToEmployee(userId, employeeId);
 
     if (!hasAccess) {
       return NextResponse.json(
