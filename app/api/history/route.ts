@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
+import { historyService } from "@/lib/services/historyService";
 
 // GET all history records (with optional filtering)
 export async function GET(request: NextRequest) {
@@ -26,110 +26,29 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const tableName = searchParams.get("tableName");
-    const recordId = searchParams.get("recordId");
-    const action = searchParams.get("action");
     const limit = searchParams.get("limit");
     const offset = searchParams.get("offset");
 
-    // Build where clause based on query parameters
-    const whereClause: any = {};
-
-    if (tableName) {
-      whereClause.tableName = tableName;
-    }
-
-    if (recordId) {
-      whereClause.recordId = recordId;
-    }
-
-    if (action) {
-      whereClause.action = action;
-    }
-
-    // If user is a Department Manager, restrict to employees in their departments
-    if (userRole === "DepartmentManager") {
-      const managedDepartments = await prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          managedDepartments: true,
-        },
-      });
-
-      if (!managedDepartments?.managedDepartments.length) {
-        return NextResponse.json(
-          { error: "No managed departments found" },
-          { status: 403 },
-        );
-      }
-
-      // If filtering by Employee table, restrict to employees in managed departments
-      if (!tableName || tableName === "Employee") {
-        const managedEmployeeIds = await prisma.employee.findMany({
-          where: {
-            departmentId: {
-              in: managedDepartments.managedDepartments.map((dept) => dept.id),
-            },
-          },
-          select: { id: true },
-        });
-
-        const employeeIdStrings = managedEmployeeIds.map((emp) =>
-          emp.id.toString(),
-        );
-
-        if (tableName === "Employee" || !tableName) {
-          whereClause.AND = [
-            whereClause,
-            {
-              OR: [
-                {
-                  tableName: { not: "Employee" },
-                },
-                {
-                  AND: [
-                    { tableName: "Employee" },
-                    { recordId: { in: employeeIdStrings } },
-                  ],
-                },
-              ],
-            },
-          ];
-        }
-      }
-    }
-
-    const history = await prisma.history.findMany({
-      where: whereClause,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        timestamp: "desc",
-      },
-      take: limit ? parseInt(limit) : undefined,
-      skip: offset ? parseInt(offset) : undefined,
+    const result = await historyService.getHistory({
+      tableName: searchParams.get("tableName"),
+      recordId: searchParams.get("recordId"),
+      action: searchParams.get("action"),
+      limit: limit ? parseInt(limit) : null,
+      offset: offset ? parseInt(offset) : null,
+      userId,
+      userRole,
     });
-
-    // Get total count for pagination
-    const totalCount = await prisma.history.count({
-      where: whereClause,
-    });
-
-    return NextResponse.json({
-      data: history,
-      totalCount,
-      hasMore: limit
-        ? totalCount > parseInt(limit) + parseInt(offset || "0")
-        : false,
-    });
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "NO_MANAGED_DEPARTMENTS":
+          return NextResponse.json(
+            { error: "No managed departments found" },
+            { status: 403 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error fetching history records",

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
+import { userService } from "@/lib/services/userService";
 
 // GET user's managed departments
 export async function GET(
@@ -26,19 +26,18 @@ export async function GET(
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      include: {
-        managedDepartments: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(user.managedDepartments);
+    const departments = await userService.getManagedDepartments(targetUserId);
+    return NextResponse.json(departments);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "USER_NOT_FOUND":
+          return NextResponse.json(
+            { message: "User not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error fetching user departments",
@@ -74,67 +73,27 @@ export async function PUT(
     const json = await request.json();
     const { departmentIds } = json;
 
-    // Get the current user for history tracking
-    const currentUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      include: { managedDepartments: true },
-    });
-
-    if (!currentUser) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
-    }
-
-    // Validate that all department IDs exist
-    if (departmentIds && departmentIds.length > 0) {
-      const existingDepartments = await prisma.department.findMany({
-        where: { id: { in: departmentIds } },
-      });
-
-      if (existingDepartments.length !== departmentIds.length) {
-        return NextResponse.json(
-          {
-            message: "One or more departments not found",
-          },
-          { status: 404 },
-        );
+    const departments = await userService.updateManagedDepartments(
+      targetUserId,
+      departmentIds,
+      session.user.id,
+    );
+    return NextResponse.json(departments);
+  } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "USER_NOT_FOUND":
+          return NextResponse.json(
+            { message: "User not found" },
+            { status: 404 },
+          );
+        case "DEPARTMENTS_NOT_FOUND":
+          return NextResponse.json(
+            { message: "One or more departments not found" },
+            { status: 404 },
+          );
       }
     }
-
-    // Update the user's managed departments
-    const updatedUser = await prisma.user.update({
-      where: { id: targetUserId },
-      data: {
-        managedDepartments: {
-          set: departmentIds ? departmentIds.map((id: number) => ({ id })) : [],
-        },
-      },
-      include: {
-        managedDepartments: true,
-      },
-    });
-
-    // Create history record
-    const oldValues = {
-      managedDepartments: currentUser.managedDepartments.map((d) => d.id),
-    };
-    const newValues = {
-      managedDepartments: updatedUser.managedDepartments.map((d) => d.id),
-    };
-
-    await prisma.history.create({
-      data: {
-        tableName: "User",
-        recordId: targetUserId,
-        action: "UPDATE",
-        changedFields: JSON.stringify(["managedDepartments"]),
-        oldValues: JSON.stringify(oldValues),
-        newValues: JSON.stringify(newValues),
-        userId: session.user.id,
-      },
-    });
-
-    return NextResponse.json(updatedUser.managedDepartments);
-  } catch (error) {
     return NextResponse.json(
       {
         error: "Error updating user departments",

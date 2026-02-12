@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
+import { userService } from "@/lib/services/userService";
 
 // GET all users
 export async function GET(request: NextRequest) {
@@ -24,23 +24,7 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const includeEmployee = url.searchParams.get("includeEmployee") === "true";
 
-    const users = await prisma.user.findMany({
-      include: {
-        employee: includeEmployee
-          ? {
-              include: {
-                department: true,
-                location: true,
-              },
-            }
-          : false,
-        managedDepartments: true,
-      },
-      orderBy: {
-        name: "asc",
-      },
-    });
-
+    const users = await userService.getUsers({ includeEmployee });
     return NextResponse.json(users);
   } catch (error) {
     return NextResponse.json(

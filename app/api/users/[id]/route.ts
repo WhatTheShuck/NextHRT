@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
+import { userService } from "@/lib/services/userService";
 
 // GET specific user
 export async function GET(
@@ -26,25 +26,18 @@ export async function GET(
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      include: {
-        employee: {
-          include: {
-            department: true,
-            location: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
-    }
-
+    const user = await userService.getUserById(targetUserId);
     return NextResponse.json(user);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "USER_NOT_FOUND":
+          return NextResponse.json(
+            { message: "User not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error fetching user",
@@ -78,70 +71,22 @@ export async function PATCH(
 
   try {
     const json = await request.json();
-
-    // Get the current user for history tracking
-    const currentUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      include: { managedDepartments: true },
-    });
-
-    if (!currentUser) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
-    }
-
-    // Prepare update data
-    const updateData: any = {};
-
-    if (json.role !== undefined) {
-      updateData.role = json.role;
-    }
-
-    // Handle managed departments for Department Managers
-    if (json.managedDepartmentIds !== undefined) {
-      updateData.managedDepartments = {
-        set: json.managedDepartmentIds.map((id: number) => ({ id })),
-      };
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { id: targetUserId },
-      data: updateData,
-      include: {
-        employee: {
-          include: {
-            department: true,
-            location: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    // Create history record
-    const changedFields = Object.keys(json);
-    const oldValues = {
-      role: currentUser.role,
-      managedDepartments: currentUser.managedDepartments.map((d) => d.id),
-    };
-    const newValues = {
-      role: updatedUser.role,
-      managedDepartments: updatedUser.managedDepartments.map((d) => d.id),
-    };
-
-    await prisma.history.create({
-      data: {
-        tableName: "User",
-        recordId: targetUserId, // Note: User ID is string, but History expects Int
-        action: "UPDATE",
-        changedFields: JSON.stringify(changedFields),
-        oldValues: JSON.stringify(oldValues),
-        newValues: JSON.stringify(newValues),
-        userId: session.user.id,
-      },
-    });
-
+    const updatedUser = await userService.updateUser(
+      targetUserId,
+      json,
+      session.user.id,
+    );
     return NextResponse.json(updatedUser);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "USER_NOT_FOUND":
+          return NextResponse.json(
+            { message: "User not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error updating user",
@@ -183,34 +128,18 @@ export async function DELETE(
   }
 
   try {
-    // Get user before deletion for history
-    const userToDelete = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      include: { managedDepartments: true },
-    });
-
-    if (!userToDelete) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
-    }
-
-    // Delete the user (this will cascade to related records due to schema)
-    await prisma.user.delete({
-      where: { id: targetUserId },
-    });
-
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "User",
-        recordId: targetUserId,
-        action: "DELETE",
-        oldValues: JSON.stringify(userToDelete),
-        userId: session.user.id,
-      },
-    });
-
-    return NextResponse.json({ message: "User deleted successfully" });
+    const result = await userService.deleteUser(targetUserId, session.user.id);
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "USER_NOT_FOUND":
+          return NextResponse.json(
+            { message: "User not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error deleting user",
