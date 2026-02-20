@@ -15,8 +15,11 @@ export async function GET(request: NextRequest) {
 
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can view all users
-  if (userRole !== "Admin") {
+  const canList = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { user: ["list"] } },
+  });
+
+  if (!canList) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

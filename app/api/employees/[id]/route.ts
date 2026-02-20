@@ -26,7 +26,7 @@ export async function GET(
 
   try {
     // Check if user has access to this employee
-    const hasAccess = await hasAccessToEmployee(userId, employeeId);
+    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -79,7 +79,7 @@ export async function PATCH(
 
   try {
     // Check if user has access to this employee
-    const hasAccess = await hasAccessToEmployee(userId, employeeId);
+    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -134,7 +134,7 @@ export async function PUT(
 
   try {
     // Check if user has access to this employee
-    const hasAccess = await hasAccessToEmployee(userId, employeeId);
+    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -187,8 +187,11 @@ export async function DELETE(
   const userRole = session.user.role as UserRole;
   const employeeId = parseInt(id);
 
-  // Only Admins can delete employees
-  if (userRole !== "Admin") {
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { employee: ["delete"] } },
+  });
+
+  if (!canDelete) {
     return NextResponse.json(
       { error: "Only administrators can delete employees" },
       { status: 403 },

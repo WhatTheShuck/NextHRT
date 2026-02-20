@@ -16,8 +16,11 @@ export async function GET(request: NextRequest) {
   const userId = session.user.id;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins and Department Managers can view history
-  if (userRole !== "Admin" && userRole !== "DepartmentManager") {
+  const canViewHistory = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { reports: ["viewEmployee"] } },
+  });
+
+  if (!canViewHistory) {
     return NextResponse.json(
       { error: "Not authorised to view history records" },
       { status: 403 },

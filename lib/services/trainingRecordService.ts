@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 import { fileUploadService } from "./fileUploadService";
+import { auth } from "../auth";
+import { getChildDepartmentIds } from "@/lib/apiRBAC";
 
 export interface GetTrainingRecordsOptions {
   activeOnly?: boolean;
@@ -29,7 +31,11 @@ export class TrainingRecordService {
       training: true,
     };
 
-    if (userRole === "Admin") {
+    const canViewAll = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewAll"] } },
+    });
+
+    if (canViewAll) {
       return await prisma.trainingRecords.findMany({
         where: whereClause,
         include: includeClause,
@@ -37,7 +43,13 @@ export class TrainingRecordService {
           dateCompleted: "desc" as const,
         },
       });
-    } else if (userRole === "DepartmentManager") {
+    }
+
+    const canViewDepartment = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewDepartment"] } },
+    });
+
+    if (canViewDepartment) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -49,17 +61,16 @@ export class TrainingRecordService {
 
       const departmentIds = user.managedDepartments.map((dept) => dept.id);
 
+      // Expand parent departments to include their children
+      const childDeptPromises = user.managedDepartments
+        .filter((dept) => dept.level === 0)
+        .map((dept) => getChildDepartmentIds(dept.id));
+      const childDeptIdsArrays = await Promise.all(childDeptPromises);
+      departmentIds.push(...childDeptIdsArrays.flat());
+
       const employees = await prisma.employee.findMany({
-        where: {
-          departmentId: { in: departmentIds },
-        },
-        include: {
-          department: true,
-          location: true,
-        },
-        orderBy: {
-          lastName: "asc",
-        },
+        where: { departmentId: { in: departmentIds } },
+        select: { id: true },
       });
       const employeeIds = employees.map((emp) => emp.id);
 
@@ -73,27 +84,27 @@ export class TrainingRecordService {
           dateCompleted: "desc" as const,
         },
       });
-    } else {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { employee: true },
-      });
-
-      if (!user || !user.employee) {
-        throw new Error("NO_EMPLOYEE_RECORD");
-      }
-
-      return await prisma.trainingRecords.findMany({
-        where: {
-          employeeId: user.employee.id,
-          ...whereClause,
-        },
-        include: includeClause,
-        orderBy: {
-          dateCompleted: "desc" as const,
-        },
-      });
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { employee: true },
+    });
+
+    if (!user || !user.employee) {
+      throw new Error("NO_EMPLOYEE_RECORD");
+    }
+
+    return await prisma.trainingRecords.findMany({
+      where: {
+        employeeId: user.employee.id,
+        ...whereClause,
+      },
+      include: includeClause,
+      orderBy: {
+        dateCompleted: "desc" as const,
+      },
+    });
   }
 
   async getTrainingRecordById(id: number) {

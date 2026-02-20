@@ -1,5 +1,7 @@
 import prisma from "@/lib/prisma";
 import { ExemptionStatus, UserRole } from "@/generated/prisma_client";
+import { auth } from "../auth";
+import { getChildDepartmentIds } from "@/lib/apiRBAC";
 
 export interface GetExemptionsOptions {
   userRole: UserRole;
@@ -28,13 +30,22 @@ export class ExemptionService {
     };
     const whereClause: any = {};
 
-    if (userRole === "Admin") {
-      const exemptions = await prisma.trainingTicketExemption.findMany({
+    const canViewAll = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewAll"] } },
+    });
+
+    if (canViewAll) {
+      return await prisma.trainingTicketExemption.findMany({
         include: includeClause,
         where: whereClause,
       });
-      return exemptions;
-    } else if (userRole === "DepartmentManager") {
+    }
+
+    const canViewDepartment = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewDepartment"] } },
+    });
+
+    if (canViewDepartment) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -46,43 +57,40 @@ export class ExemptionService {
 
       const departmentIds = user.managedDepartments.map((dept) => dept.id);
 
+      // Expand parent departments to include their children
+      const childDeptPromises = user.managedDepartments
+        .filter((dept) => dept.level === 0)
+        .map((dept) => getChildDepartmentIds(dept.id));
+      const childDeptIdsArrays = await Promise.all(childDeptPromises);
+      departmentIds.push(...childDeptIdsArrays.flat());
+
       const employees = await prisma.employee.findMany({
-        where: {
-          departmentId: { in: departmentIds },
-        },
-        include: {
-          department: true,
-          location: true,
-        },
-        orderBy: {
-          lastName: "asc",
-        },
+        where: { departmentId: { in: departmentIds } },
+        select: { id: true },
       });
       const employeeIds = employees.map((emp) => emp.id);
       whereClause.employeeId = { in: employeeIds };
 
-      const exemptions = await prisma.trainingTicketExemption.findMany({
+      return await prisma.trainingTicketExemption.findMany({
         where: whereClause,
         include: includeClause,
       });
-      return [exemptions];
-    } else {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { employee: true },
-      });
-
-      if (!user || !user.employee) {
-        throw new Error("NO_EMPLOYEE_RECORD");
-      }
-
-      whereClause.employeeId = user.employee.id;
-      const exemptions = await prisma.trainingTicketExemption.findMany({
-        where: whereClause,
-        include: includeClause,
-      });
-      return [exemptions];
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { employee: true },
+    });
+
+    if (!user || !user.employee) {
+      throw new Error("NO_EMPLOYEE_RECORD");
+    }
+
+    whereClause.employeeId = user.employee.id;
+    return await prisma.trainingTicketExemption.findMany({
+      where: whereClause,
+      include: includeClause,
+    });
   }
 
   async getExemptionById(
@@ -108,9 +116,19 @@ export class ExemptionService {
       throw new Error("EXEMPTION_NOT_FOUND");
     }
 
-    if (userRole === "Admin") {
+    const canViewAll = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewAll"] } },
+    });
+
+    if (canViewAll) {
       return exemption;
-    } else if (userRole === "DepartmentManager") {
+    }
+
+    const canViewDepartment = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewDepartment"] } },
+    });
+
+    if (canViewDepartment) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -122,27 +140,34 @@ export class ExemptionService {
 
       const departmentIds = user.managedDepartments.map((dept) => dept.id);
 
+      // Expand parent departments to include their children
+      const childDeptPromises = user.managedDepartments
+        .filter((dept) => dept.level === 0)
+        .map((dept) => getChildDepartmentIds(dept.id));
+      const childDeptIdsArrays = await Promise.all(childDeptPromises);
+      departmentIds.push(...childDeptIdsArrays.flat());
+
       if (!departmentIds.includes(exemption.employee.departmentId)) {
         throw new Error("NOT_AUTHORISED");
       }
 
       return exemption;
-    } else {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { employee: true },
-      });
-
-      if (
-        !user ||
-        !user.employee ||
-        user.employee.id !== exemption.employeeId
-      ) {
-        throw new Error("NOT_AUTHORISED");
-      }
-
-      return exemption;
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { employee: true },
+    });
+
+    if (
+      !user ||
+      !user.employee ||
+      user.employee.id !== exemption.employeeId
+    ) {
+      throw new Error("NOT_AUTHORISED");
+    }
+
+    return exemption;
   }
 
   async createExemption(

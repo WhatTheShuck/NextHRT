@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { auth } from "../auth";
 
 export interface GetHistoryOptions {
   tableName?: string | null;
@@ -37,7 +38,17 @@ export class HistoryService {
       whereClause.action = action;
     }
 
-    if (userRole === "DepartmentManager") {
+    const isDepartmentScoped = await auth.api.userHasPermission({
+      body: {
+        role: userRole,
+        permissions: { employee: ["viewDepartment"] },
+      },
+    });
+    const isUnrestricted = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewAll"] } },
+    });
+
+    if (isDepartmentScoped && !isUnrestricted) {
       const managedDepartments = await prisma.user.findUnique({
         where: { id: userId },
         include: {

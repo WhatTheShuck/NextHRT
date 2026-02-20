@@ -19,8 +19,11 @@ export async function PUT(
   const userRole = session.user.role as UserRole;
   const { id: targetUserId } = await params;
 
-  // Only Admins can manage user-employee mappings
-  if (userRole !== "Admin") {
+  const canManage = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { user: ["set-role"] } },
+  });
+
+  if (!canManage) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -80,8 +83,11 @@ export async function DELETE(
   const userRole = session.user.role as UserRole;
   const { id: targetUserId } = await params;
 
-  // Only Admins can manage user-employee mappings
-  if (userRole !== "Admin") {
+  const canManage = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { user: ["set-role"] } },
+  });
+
+  if (!canManage) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

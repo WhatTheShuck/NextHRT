@@ -34,7 +34,7 @@ export async function GET(
     }
 
     // Check if user has access to this employee
-    const hasAccess = await hasAccessToEmployee(userId, employeeId);
+    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -81,8 +81,11 @@ export async function PUT(
   const { id: idParam } = await params;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can edit ticket records
-  if (userRole !== "Admin") {
+  const canEdit = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { ticketRecord: ["edit"] } },
+  });
+
+  if (!canEdit) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -205,9 +208,12 @@ export async function DELETE(
   const { id: idParam } = await params;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can delete ticket records
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { ticketRecord: ["delete"] } },
+  });
+
+  if (!canDelete) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {

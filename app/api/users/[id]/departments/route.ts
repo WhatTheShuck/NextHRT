@@ -20,8 +20,12 @@ export async function GET(
   const currentUserId = session.user.id;
   const { id: targetUserId } = await params;
 
-  // Users can only view their own departments unless they're Admin
-  if (userRole !== "Admin" && currentUserId !== targetUserId) {
+  const canList = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { user: ["list"] } },
+  });
+
+  // Users can only view their own departments unless they have list permission (Admin)
+  if (!canList && currentUserId !== targetUserId) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -64,8 +68,11 @@ export async function PUT(
   const userRole = session.user.role as UserRole;
   const { id: targetUserId } = await params;
 
-  // Only Admins can update managed departments
-  if (userRole !== "Admin") {
+  const canSetRole = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { user: ["set-role"] } },
+  });
+
+  if (!canSetRole) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

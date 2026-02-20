@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
 import { fileUploadService } from "./fileUploadService";
+import { auth } from "../auth";
+import { getChildDepartmentIds } from "@/lib/apiRBAC";
 
 export interface GetTicketRecordsOptions {
   activeOnly?: boolean;
@@ -76,13 +78,23 @@ export class TicketRecordService {
       { ticketHolder: { lastName: "asc" as const } },
     ];
 
-    if (userRole === "Admin") {
+    const canViewAll = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewAll"] } },
+    });
+
+    if (canViewAll) {
       return await prisma.ticketRecords.findMany({
         where: whereClause,
         include: includeClause,
         orderBy,
       });
-    } else if (userRole === "DepartmentManager") {
+    }
+
+    const canViewDepartment = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { employee: ["viewDepartment"] } },
+    });
+
+    if (canViewDepartment) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -94,17 +106,16 @@ export class TicketRecordService {
 
       const departmentIds = user.managedDepartments.map((dept) => dept.id);
 
+      // Expand parent departments to include their children
+      const childDeptPromises = user.managedDepartments
+        .filter((dept) => dept.level === 0)
+        .map((dept) => getChildDepartmentIds(dept.id));
+      const childDeptIdsArrays = await Promise.all(childDeptPromises);
+      departmentIds.push(...childDeptIdsArrays.flat());
+
       const employees = await prisma.employee.findMany({
-        where: {
-          departmentId: { in: departmentIds },
-        },
-        include: {
-          department: true,
-          location: true,
-        },
-        orderBy: {
-          lastName: "asc",
-        },
+        where: { departmentId: { in: departmentIds } },
+        select: { id: true },
       });
       const employeeIds = employees.map((emp) => emp.id);
 
@@ -116,25 +127,25 @@ export class TicketRecordService {
         include: includeClause,
         orderBy,
       });
-    } else {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { employee: true },
-      });
-
-      if (!user || !user.employee) {
-        throw new Error("NO_EMPLOYEE_RECORD");
-      }
-
-      return await prisma.ticketRecords.findMany({
-        where: {
-          employeeId: user.employee.id,
-          ...whereClause,
-        },
-        include: includeClause,
-        orderBy,
-      });
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { employee: true },
+    });
+
+    if (!user || !user.employee) {
+      throw new Error("NO_EMPLOYEE_RECORD");
+    }
+
+    return await prisma.ticketRecords.findMany({
+      where: {
+        employeeId: user.employee.id,
+        ...whereClause,
+      },
+      include: includeClause,
+      orderBy,
+    });
   }
 
   async getTicketRecordById(id: number) {

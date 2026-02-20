@@ -62,9 +62,12 @@ export async function PUT(
   const { id } = await params;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can update locations
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  const canEdit = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { location: ["edit"] } },
+  });
+
+  if (!canEdit) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {
@@ -112,9 +115,12 @@ export async function DELETE(
   const { id } = await params;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can delete locations
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { location: ["delete"] } },
+  });
+
+  if (!canDelete) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {

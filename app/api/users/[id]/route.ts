@@ -20,8 +20,12 @@ export async function GET(
   const currentUserId = session.user.id;
   const { id: targetUserId } = await params;
 
-  // Users can only view themselves unless they're Admin
-  if (userRole !== "Admin" && currentUserId !== targetUserId) {
+  const canList = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { user: ["list"] } },
+  });
+
+  // Users can only view themselves unless they have list permission (Admin)
+  if (!canList && currentUserId !== targetUserId) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -64,8 +68,11 @@ export async function PATCH(
   const userRole = session.user.role as UserRole;
   const { id: targetUserId } = await params;
 
-  // Only Admins can update user roles and permissions
-  if (userRole !== "Admin") {
+  const canSetRole = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { user: ["set-role"] } },
+  });
+
+  if (!canSetRole) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -114,8 +121,11 @@ export async function DELETE(
   const currentUserId = session.user.id;
   const { id: targetUserId } = await params;
 
-  // Only Admins can delete users, and they can't delete themselves
-  if (userRole !== "Admin" || currentUserId === targetUserId) {
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { user: ["delete"] } },
+  });
+
+  if (!canDelete || currentUserId === targetUserId) {
     return NextResponse.json(
       {
         message:

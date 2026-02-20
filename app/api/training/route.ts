@@ -46,6 +46,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
+  const userRole = session.user.role;
+
+  const canCreate = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { training: ["create"] } },
+  });
+
+  if (!canCreate) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+  }
+
   try {
     const json = await request.json();
     const training = await trainingService.createTraining(

@@ -82,8 +82,11 @@ export async function PUT(
   const userRole = session.user.role as UserRole;
   const exemptionId = parseInt(id);
 
-  // Only Admins can update exemption records
-  if (userRole !== "Admin") {
+  const canEdit = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { exemption: ["edit"] } },
+  });
+
+  if (!canEdit) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -162,8 +165,11 @@ export async function DELETE(
   const userRole = session.user.role as UserRole;
   const exemptionId = parseInt(id);
 
-  // Only Admins can delete exemption records
-  if (userRole !== "Admin") {
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { exemption: ["delete"] } },
+  });
+
+  if (!canDelete) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

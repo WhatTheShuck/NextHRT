@@ -40,6 +40,7 @@ export class ImageService {
       const hasAccess = await hasAccessToEmployee(
         userId,
         ticketImage.ticketRecord.ticketHolder.id,
+        userRole,
       );
 
       if (!hasAccess) {
@@ -69,6 +70,7 @@ export class ImageService {
       const hasAccess = await hasAccessToEmployee(
         userId,
         trainingRecord.personTrained.id,
+        userRole,
       );
 
       if (!hasAccess) {

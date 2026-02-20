@@ -68,8 +68,11 @@ export async function PUT(
   const { id: idParam } = await params;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can edit training records
-  if (userRole !== "Admin") {
+  const canEdit = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { trainingRecord: ["edit"] } },
+  });
+
+  if (!canEdit) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -179,9 +182,12 @@ export async function DELETE(
   const { id: idParam } = await params;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can delete training records
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { trainingRecord: ["delete"] } },
+  });
+
+  if (!canDelete) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {

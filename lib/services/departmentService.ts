@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
+import { auth } from "../auth";
 
 export interface GetDepartmentsOptions {
   activeOnly?: boolean;
@@ -24,6 +25,10 @@ export class DepartmentService {
       whereClause.id = { not: -1 };
     }
 
+    const canViewManagers = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { user: ["list"] } },
+    });
+
     const departments = await prisma.department.findMany({
       include: {
         _count: {
@@ -39,16 +44,15 @@ export class DepartmentService {
             id: true,
           },
         },
-        managers:
-          userRole === "Admin"
-            ? {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              }
-            : false,
+        managers: canViewManagers
+          ? {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            }
+          : false,
       },
       where: whereClause,
       orderBy: {
@@ -68,6 +72,10 @@ export class DepartmentService {
 
   async getDepartmentById(id: number, options: GetDepartmentByIdOptions) {
     const { activeOnly, userRole } = options;
+
+    const canViewManagers = await auth.api.userHasPermission({
+      body: { role: userRole, permissions: { user: ["list"] } },
+    });
 
     const department = await prisma.department.findUnique({
       where: { id },
@@ -90,16 +98,15 @@ export class DepartmentService {
         _count: {
           select: { employees: true },
         },
-        managers:
-          userRole === "Admin"
-            ? {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              }
-            : false,
+        managers: canViewManagers
+          ? {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            }
+          : false,
       },
     });
 

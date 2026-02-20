@@ -37,7 +37,7 @@ export class EmployeeService {
     // Admins can see all employees
     const canViewAll = await auth.api.userHasPermission({
       body: {
-        userId,
+        role: userRole,
         permissions: { employee: ["viewAll"] },
       },
     });
@@ -58,7 +58,7 @@ export class EmployeeService {
     if (reportType === "evacuation") {
       const canViewEvac = await auth.api.userHasPermission({
         body: {
-          userId,
+          role: userRole,
           permissions: { employee: ["viewEvacReport"] },
         },
       });
@@ -97,7 +97,7 @@ export class EmployeeService {
     // Department managers can see their department employees
     const canViewDepartment = await auth.api.userHasPermission({
       body: {
-        userId,
+        role: userRole,
         permissions: { employee: ["viewDepartment"] },
       },
     });

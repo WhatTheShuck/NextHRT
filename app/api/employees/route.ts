@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
 import { employeeService } from "@/lib/services/employeeService";
-import { getCurrentUser } from "@/lib/apiRBAC";
 
 // GET all employees
 export async function GET(request: NextRequest) {
@@ -75,9 +74,13 @@ export async function POST(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
-  const user = await getCurrentUser();
+  const userRole = session.user.role as UserRole;
 
-  if (!user || user.role !== "Admin") {
+  const canCreate = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { employee: ["create"] } },
+  });
+
+  if (!canCreate) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

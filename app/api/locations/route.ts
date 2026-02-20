@@ -41,9 +41,12 @@ export async function POST(request: NextRequest) {
 
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can create locations
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  const canCreate = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { location: ["create"] } },
+  });
+
+  if (!canCreate) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {

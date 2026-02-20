@@ -64,8 +64,11 @@ export async function PUT(
   const { id } = await params;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can update departments
-  if (userRole !== "Admin") {
+  const canEdit = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { department: ["edit"] } },
+  });
+
+  if (!canEdit) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -123,8 +126,11 @@ export async function DELETE(
   const { id } = await params;
   const userRole = session.user.role as UserRole;
 
-  // Only Admins can delete departments
-  if (userRole !== "Admin") {
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { department: ["delete"] } },
+  });
+
+  if (!canDelete) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

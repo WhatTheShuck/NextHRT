@@ -18,11 +18,12 @@ export async function GET(
 
   const { id } = await params;
   const userId = session.user.id;
+  const userRole = session.user.role;
   const employeeId = parseInt(id);
 
   try {
     // Check if user has access to this employee
-    const hasAccess = await hasAccessToEmployee(userId, employeeId);
+    const hasAccess = await hasAccessToEmployee(userId, employeeId, userRole);
 
     if (!hasAccess) {
       return NextResponse.json(

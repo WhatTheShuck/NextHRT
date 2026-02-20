@@ -1,13 +1,14 @@
-import { UserRole } from "@/generated/prisma_client";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 /**
- * Check if user can access a specific employee
+ * Check if user can access a specific employee.
+ * Pass userRole from the session to avoid an extra DB lookup inside userHasPermission.
  */
 export async function hasAccessToEmployee(
   userId: string | undefined,
   employeeId: number,
+  userRole: string,
 ) {
   if (!userId) {
     console.error("hasAccessToEmployee: userId is undefined");
@@ -17,7 +18,7 @@ export async function hasAccessToEmployee(
   // Check if user can view all employees
   const canViewAll = await auth.api.userHasPermission({
     body: {
-      userId,
+      role: userRole,
       permissions: {
         employee: ["viewAll"],
       },
@@ -31,7 +32,7 @@ export async function hasAccessToEmployee(
   // Check if user can view department employees
   const canViewDepartment = await auth.api.userHasPermission({
     body: {
-      userId,
+      role: userRole,
       permissions: {
         employee: ["viewDepartment"],
       },
@@ -78,7 +79,7 @@ export async function hasAccessToEmployee(
   // Check if user can view their own employee record
   const canViewSelf = await auth.api.userHasPermission({
     body: {
-      userId,
+      role: userRole,
       permissions: {
         employee: ["viewSelf"],
       },
@@ -122,20 +123,4 @@ export async function getChildDepartmentIds(
     select: { id: true },
   });
   return childDepartments.map((dept) => dept.id);
-}
-
-// Helper to get current user from better-auth session
-export async function getCurrentUser() {
-  const session = await auth.api.getSession({
-    headers: new Headers(),
-  });
-
-  if (!session?.user) {
-    return null;
-  }
-
-  return {
-    id: session.user.id,
-    role: session.user.role as UserRole,
-  };
 }
