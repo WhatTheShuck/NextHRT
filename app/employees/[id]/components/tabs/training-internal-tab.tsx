@@ -147,7 +147,7 @@ export function InternalTrainingTab() {
                       </TableCell>
                       <TableCell>{record.trainer}</TableCell>
                       <TableCell>
-                        {record.imagePath ? (
+                        {record.images && record.images.length > 0 ? (
                           <FileImage className="h-4 w-4 text-blue-600" />
                         ) : (
                           <span className="text-muted-foreground text-sm">

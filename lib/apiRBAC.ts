@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { UserRole } from "@/generated/prisma_client";
 
 /**
  * Check if user can access a specific employee.
@@ -18,7 +19,7 @@ export async function hasAccessToEmployee(
   // Check if user can view all employees
   const canViewAll = await auth.api.userHasPermission({
     body: {
-      role: userRole,
+      role: userRole as UserRole,
       permissions: {
         employee: ["viewAll"],
       },
@@ -32,7 +33,7 @@ export async function hasAccessToEmployee(
   // Check if user can view department employees
   const canViewDepartment = await auth.api.userHasPermission({
     body: {
-      role: userRole,
+      role: userRole as UserRole,
       permissions: {
         employee: ["viewDepartment"],
       },
@@ -79,7 +80,7 @@ export async function hasAccessToEmployee(
   // Check if user can view their own employee record
   const canViewSelf = await auth.api.userHasPermission({
     body: {
-      role: userRole,
+      role: userRole as UserRole,
       permissions: {
         employee: ["viewSelf"],
       },

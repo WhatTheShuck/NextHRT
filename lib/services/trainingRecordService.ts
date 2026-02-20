@@ -29,6 +29,7 @@ export class TrainingRecordService {
         },
       },
       training: true,
+      images: true,
     };
 
     const canViewAll = await auth.api.userHasPermission({
@@ -118,6 +119,7 @@ export class TrainingRecordService {
           },
         },
         training: true,
+        images: true,
       },
     });
 
@@ -135,7 +137,7 @@ export class TrainingRecordService {
       dateCompleted: string;
       trainer: string;
     },
-    image: File | null,
+    images: File[],
     userId: string,
   ) {
     if (
@@ -169,14 +171,7 @@ export class TrainingRecordService {
       throw new Error("TRAINING_NOT_FOUND");
     }
 
-    let imagePath: string | null = null;
-    let imageType: string | null = null;
-
-    if (image && image.size > 0) {
-      const saved = await fileUploadService.saveFile(image, "training");
-      imagePath = saved.imagePath;
-      imageType = saved.imageType;
-    }
+    const savedImages = await fileUploadService.saveFiles(images, "training");
 
     const trainingRecord = await prisma.trainingRecords.create({
       data: {
@@ -184,8 +179,13 @@ export class TrainingRecordService {
         trainingId: data.trainingId,
         dateCompleted: completedDate,
         trainer: data.trainer,
-        imagePath,
-        imageType,
+        images: {
+          create: savedImages.map((img) => ({
+            imagePath: img.imagePath,
+            imageType: img.imageType,
+            originalName: img.originalName,
+          })),
+        },
       },
       include: {
         personTrained: {
@@ -195,6 +195,7 @@ export class TrainingRecordService {
           },
         },
         training: true,
+        images: true,
       },
     });
 
@@ -218,13 +219,14 @@ export class TrainingRecordService {
       trainingId: number;
       dateCompleted: string;
       trainer: string;
-      removeImage?: boolean;
+      removedImageIds?: number[];
     },
-    image: File | null,
+    images: File[],
     userId: string,
   ) {
     const currentRecord = await prisma.trainingRecords.findUnique({
       where: { id },
+      include: { images: true },
     });
 
     if (!currentRecord) {
@@ -263,21 +265,14 @@ export class TrainingRecordService {
       throw new Error("DUPLICATE_TRAINING_RECORD");
     }
 
-    let imagePath: string | null = currentRecord.imagePath;
-    let imageType: string | null = currentRecord.imageType;
-    let oldImagePath: string | null = null;
+    // Determine which images to delete from disk
+    const removedIds = data.removedImageIds ?? [];
+    const imagesToDelete = currentRecord.images.filter((img) =>
+      removedIds.includes(img.id),
+    );
 
-    if (data.removeImage || (image && image.size > 0)) {
-      oldImagePath = currentRecord.imagePath;
-      imagePath = null;
-      imageType = null;
-    }
-
-    if (image && image.size > 0) {
-      const saved = await fileUploadService.saveFile(image, "training");
-      imagePath = saved.imagePath;
-      imageType = saved.imageType;
-    }
+    // Save new images
+    const savedImages = await fileUploadService.saveFiles(images, "training");
 
     const updatedTrainingRecord = await prisma.trainingRecords.update({
       where: { id },
@@ -286,8 +281,14 @@ export class TrainingRecordService {
         trainingId: data.trainingId,
         dateCompleted: completedDate,
         trainer: data.trainer,
-        imagePath,
-        imageType,
+        images: {
+          deleteMany: removedIds.length > 0 ? { id: { in: removedIds } } : undefined,
+          create: savedImages.map((img) => ({
+            imagePath: img.imagePath,
+            imageType: img.imageType,
+            originalName: img.originalName,
+          })),
+        },
       },
       include: {
         personTrained: {
@@ -297,12 +298,14 @@ export class TrainingRecordService {
           },
         },
         training: true,
+        images: true,
       },
     });
 
-    if (oldImagePath) {
-      await fileUploadService.deleteFile(oldImagePath);
-    }
+    // Delete removed image files from disk
+    await fileUploadService.deleteFiles(
+      imagesToDelete.map((img) => img.imagePath),
+    );
 
     await prisma.history.create({
       data: {
@@ -321,19 +324,22 @@ export class TrainingRecordService {
   async deleteTrainingRecord(id: number, userId: string) {
     const currentRecord = await prisma.trainingRecords.findUnique({
       where: { id },
+      include: { images: true },
     });
 
     if (!currentRecord) {
       throw new Error("TRAINING_RECORD_NOT_FOUND");
     }
 
+    // onDelete: Cascade on TrainingImage will remove DB rows automatically.
+    // Delete image files from disk first.
+    await fileUploadService.deleteFiles(
+      currentRecord.images.map((img) => img.imagePath),
+    );
+
     await prisma.trainingRecords.delete({
       where: { id },
     });
-
-    if (currentRecord.imagePath) {
-      await fileUploadService.deleteFile(currentRecord.imagePath);
-    }
 
     await prisma.history.create({
       data: {

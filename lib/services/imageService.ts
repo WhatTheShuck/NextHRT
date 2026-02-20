@@ -47,29 +47,33 @@ export class ImageService {
         throw new Error("NOT_AUTHORISED");
       }
     } else if (filePath.startsWith("training/")) {
-      const trainingRecord = await prisma.trainingRecords.findFirst({
+      const trainingImage = await prisma.trainingImage.findFirst({
         where: {
           imagePath: filePath,
         },
         include: {
-          personTrained: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              departmentId: true,
+          trainingRecord: {
+            include: {
+              personTrained: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  departmentId: true,
+                },
+              },
             },
           },
         },
       });
 
-      if (!trainingRecord) {
+      if (!trainingImage) {
         throw new Error("IMAGE_NOT_FOUND");
       }
 
       const hasAccess = await hasAccessToEmployee(
         userId,
-        trainingRecord.personTrained.id,
+        trainingImage.trainingRecord.personTrained.id,
         userRole,
       );
 

@@ -229,7 +229,10 @@ export function SOPTrainingTab() {
     taskSheet?: TrainingRecordsWithRelations,
     practical?: TrainingRecordsWithRelations,
   ) => {
-    return !!(taskSheet?.imagePath || practical?.imagePath);
+    return !!(
+      (taskSheet?.images && taskSheet.images.length > 0) ||
+      (practical?.images && practical.images.length > 0)
+    );
   };
 
   return (

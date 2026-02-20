@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { UserRole } from "@/generated/prisma_client";
 import { trainingService } from "@/lib/services/trainingService";
 
 // GET all training courses
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = session.user.role;
+  const userRole = session.user.role as UserRole;
 
   const canCreate = await auth.api.userHasPermission({
     body: { role: userRole, permissions: { training: ["create"] } },

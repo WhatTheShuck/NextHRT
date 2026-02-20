@@ -10,6 +10,7 @@ import {
   User,
   History,
   TicketImage,
+  TrainingImage,
   UserRole,
   TrainingRequirement,
   TrainingTicketExemption,
@@ -61,6 +62,7 @@ export type EmployeeWithRequirementStatus = Employee & {
 export interface TrainingRecordsWithRelations extends TrainingRecords {
   training?: Training;
   personTrained?: EmployeeWithRelations;
+  images?: TrainingImage[];
 }
 
 export interface TrainingRequirementWithRelations extends TrainingRequirement {

@@ -80,11 +80,11 @@ export async function POST(request: NextRequest) {
       dateCompleted: formData.get("dateCompleted") as string,
       trainer: formData.get("trainer") as string,
     };
-    const imageFile = formData.get("image") as File | null;
+    const imageFiles = formData.getAll("images") as File[];
 
     const trainingRecord = await trainingRecordService.createTrainingRecord(
       data,
-      imageFile,
+      imageFiles,
       session.user.id,
     );
     return NextResponse.json(trainingRecord);

@@ -82,17 +82,28 @@ model Training {
 }
 
 model TrainingRecords {
-  id            Int      @id @default(autoincrement())
-  personTrained Employee @relation(fields: [employeeId], references: [id])
+  id            Int             @id @default(autoincrement())
+  personTrained Employee        @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateCompleted DateTime
-  training      Training @relation(fields: [trainingId], references: [id])
+  training      Training        @relation(fields: [trainingId], references: [id])
   trainingId    Int
   trainer       String
-  imagePath     String?
-  imageType     String?
+  images        TrainingImage[]
 
   @@unique([employeeId, trainingId, dateCompleted])
+}
+
+model TrainingImage {
+  id              Int             @id @default(autoincrement())
+  trainingRecord  TrainingRecords @relation(fields: [trainingRecordId], references: [id], onDelete: Cascade)
+  trainingRecordId Int
+  imagePath       String
+  imageType       String
+  originalName    String
+  uploadedAt      DateTime        @default(now())
+
+  @@index([trainingRecordId])
 }
 
 model TrainingRequirement {
@@ -206,6 +217,9 @@ model User {
   emailVerified                Boolean?
   image                        String?
   role                         UserRole?    @default(User)
+  banned                       Boolean?     // better-auth admin plugin
+  banReason                    String?      // better-auth admin plugin
+  banExpires                   DateTime?    // better-auth admin plugin
   managedDepartments           Department[] @relation("DepartmentManager")
   canManageChildrenDepartments Boolean      @default(false) // Can manage child departments
   employee                     Employee?    @relation(fields: [employeeId], references: [id])

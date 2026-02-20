@@ -18,7 +18,7 @@ export async function GET(
 
   const { id } = await params;
   const userId = session.user.id;
-  const userRole = session.user.role;
+  const userRole = (session.user.role ?? "User") as string;
   const employeeId = parseInt(id);
 
   try {

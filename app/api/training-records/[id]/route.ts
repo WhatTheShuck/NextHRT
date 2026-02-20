@@ -88,20 +88,23 @@ export async function PUT(
 
     const formData = await request.formData();
 
+    const removedImageIdsRaw = formData.get("removedImageIds");
     const data = {
       employeeId: parseInt(formData.get("employeeId") as string),
       trainingId: parseInt(formData.get("trainingId") as string),
       dateCompleted: formData.get("dateCompleted") as string,
       trainer: formData.get("trainer") as string,
-      removeImage: formData.get("removeImage") === "true",
+      removedImageIds: removedImageIdsRaw
+        ? (JSON.parse(removedImageIdsRaw as string) as number[])
+        : [],
     };
-    const imageFile = formData.get("image") as File | null;
+    const imageFiles = formData.getAll("images") as File[];
 
     const updatedTrainingRecord =
       await trainingRecordService.updateTrainingRecord(
         id,
         data,
-        imageFile,
+        imageFiles,
         session.user.id,
       );
     return NextResponse.json(updatedTrainingRecord);
