@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/card";
 import { UserRoleManagement } from "./user-role-management";
 import { UserEmployeeMapping } from "./user-employee-mapping";
+import { SuggestionPanel } from "./suggestion-panel";
 
-const VALID_TABS = ["roles", "mapping"] as const;
+const VALID_TABS = ["roles", "mapping", "suggestions"] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
 export function PermissionPageContent() {
@@ -55,9 +56,10 @@ export function PermissionPageContent() {
         onValueChange={handleTabChange}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="roles">User Roles</TabsTrigger>
           <TabsTrigger value="mapping">User-Employee Mapping</TabsTrigger>
+          <TabsTrigger value="suggestions">Suggested Links</TabsTrigger>
         </TabsList>
 
         <TabsContent value="roles">
@@ -84,6 +86,54 @@ export function PermissionPageContent() {
             </CardHeader>
             <CardContent>
               <UserEmployeeMapping />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="suggestions">
+          <Card>
+            <CardHeader>
+              <CardTitle>Suggested Links</CardTitle>
+              <CardDescription>
+                The system automatically compares unlinked user accounts against
+                employee records to find likely matches. Only users who have not
+                yet been linked to an employee will appear here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground space-y-1 mb-6 border-l-2 pl-3">
+                <p>
+                  Matches are scored using up to three strategies: comparing the
+                  email address format, checking whether the display name
+                  matches an employee&apos;s full name exactly, and fuzzy
+                  matching for names that are close but not identical. The
+                  top three candidates are shown per user, ranked by confidence.
+                </p>
+                <p>
+                  Click <strong className="text-foreground">Link</strong> to
+                  confirm a pairing. The user will immediately be associated
+                  with that employee record. If none of the suggestions look
+                  right, use the{" "}
+                  <strong className="text-foreground">
+                    User-Employee Mapping
+                  </strong>{" "}
+                  tab to link them manually.
+                </p>
+                <p>
+                  The matching strategies and confidence threshold can be tuned
+                  in{" "}
+                  <strong className="text-foreground">App Settings</strong> if
+                  the suggestions are missing expected matches or returning too
+                  many false positives.
+                </p>
+                <p>
+                  The list is not updated automatically — use the{" "}
+                  <strong className="text-foreground">Refresh</strong> button
+                  after linking users or changing settings to fetch the latest
+                  suggestions.
+                </p>
+              </div>
+              <SuggestionPanel />
             </CardContent>
           </Card>
         </TabsContent>

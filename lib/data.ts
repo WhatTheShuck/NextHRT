@@ -14,6 +14,7 @@ import {
   IdCard,
   UserPlus,
   UserCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -74,6 +75,13 @@ export const landingPageNavigationItems: NavigationItem[] = [
     icon: CalendarPlus,
     href: "/training-request",
     minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    title: "App Settings",
+    description: "Configure application behaviour and matching rules",
+    icon: SlidersHorizontal,
+    href: "/admin/settings",
+    minimumAllowedPermission: "user:impersonate",
   },
 ];
 

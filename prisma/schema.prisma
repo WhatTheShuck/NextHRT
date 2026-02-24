@@ -211,24 +211,34 @@ model History {
 }
 
 model User {
-  id                           String       @id @default(cuid())
+  id                           String        @id @default(cuid())
   name                         String?
-  email                        String?      @unique
+  email                        String?       @unique
   emailVerified                Boolean?
   image                        String?
-  role                         UserRole?    @default(User)
-  banned                       Boolean?     // better-auth admin plugin
-  banReason                    String?      // better-auth admin plugin
-  banExpires                   DateTime?    // better-auth admin plugin
-  managedDepartments           Department[] @relation("DepartmentManager")
-  canManageChildrenDepartments Boolean      @default(false) // Can manage child departments
-  employee                     Employee?    @relation(fields: [employeeId], references: [id])
-  employeeId                   Int?         @unique // Link to employee if user represents an employee
+  role                         UserRole?     @default(User)
+  banned                       Boolean?      // better-auth admin plugin
+  banReason                    String?       // better-auth admin plugin
+  banExpires                   DateTime?     // better-auth admin plugin
+  managedDepartments           Department[]  @relation("DepartmentManager")
+  canManageChildrenDepartments Boolean       @default(false) // Can manage child departments
+  employee                     Employee?     @relation(fields: [employeeId], references: [id])
+  employeeId                   Int?          @unique // Link to employee if user represents an employee
   accounts                     Account[]
   sessions                     Session[]
   historyLogs                  History[]
-  createdAt                    DateTime     @default(now())
-  updatedAt                    DateTime     @updatedAt
+  appSettingUpdates            AppSetting[]
+  createdAt                    DateTime      @default(now())
+  updatedAt                    DateTime      @updatedAt
+}
+
+model AppSetting {
+  key           String   @id
+  value         String
+  description   String?
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?
+  updatedByUser User?    @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
 }
 
 enum UserRole {
