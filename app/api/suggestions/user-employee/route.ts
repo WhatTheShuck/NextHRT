@@ -14,6 +14,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const url = new URL(request.url);
+    const employeeIdParam = url.searchParams.get("employeeId");
+
+    if (employeeIdParam) {
+      const employeeId = parseInt(employeeIdParam);
+      if (isNaN(employeeId)) {
+        return NextResponse.json(
+          { message: "Invalid employeeId" },
+          { status: 400 },
+        );
+      }
+      const candidates =
+        await matchingService.getSuggestionsForEmployee(employeeId);
+      return NextResponse.json(candidates);
+    }
+
     const suggestions = await matchingService.getSuggestions();
     return NextResponse.json(suggestions);
   } catch (error) {

@@ -27,6 +27,17 @@ export interface UserMatchSuggestion {
   candidates: UserMatchCandidate[];
 }
 
+export interface UserCandidateForEmployee {
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    role: string | null;
+  };
+  score: number;
+  breakdown: UserMatchCandidate["breakdown"];
+}
+
 // Pure TypeScript Levenshtein distance
 function levenshtein(a: string, b: string): number {
   const m = a.length;
@@ -279,6 +290,90 @@ export class MatchingService {
     }
 
     return results;
+  }
+
+  async getSuggestionsForEmployee(
+    employeeId: number,
+  ): Promise<UserCandidateForEmployee[]> {
+    const settings = await appSettingService.getSettings();
+
+    const emailEnabled = settings["matching.email.enabled"] !== "false";
+    const emailTemplate =
+      settings["matching.email.template"] ?? "{firstName}.{lastName}";
+    const nameExactEnabled =
+      settings["matching.nameExact.enabled"] !== "false";
+    const nameFuzzyEnabled =
+      settings["matching.nameFuzzy.enabled"] !== "false";
+    const fuzzyThreshold = parseFloat(
+      settings["matching.nameFuzzy.threshold"] ?? "0.7",
+    );
+    const suggestionThreshold = parseFloat(
+      settings["matching.suggestionThreshold"] ?? "50",
+    );
+
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        title: true,
+        department: { select: { name: true } },
+        location: { select: { name: true } },
+      },
+    });
+
+    if (!emp) return [];
+
+    // Fetch unlinked users (no employee, not banned)
+    const users = await prisma.user.findMany({
+      where: { employeeId: null, banned: { not: true } },
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    const candidates: UserCandidateForEmployee[] = [];
+
+    for (const user of users) {
+      const breakdown: UserMatchCandidate["breakdown"] = {};
+      const scores: number[] = [];
+
+      if (emailEnabled) {
+        const result = scoreEmail(user.email, emp, emailTemplate);
+        breakdown.email = result;
+        scores.push(result.score);
+      }
+
+      if (nameExactEnabled) {
+        const result = scoreNameExact(user.name, emp);
+        breakdown.nameExact = result;
+        scores.push(result.score);
+      }
+
+      if (nameFuzzyEnabled) {
+        const result = scoreNameFuzzy(user.name, emp, fuzzyThreshold);
+        breakdown.nameFuzzy = result;
+        scores.push(result.score);
+      }
+
+      if (scores.length === 0) continue;
+
+      const combined = Math.max(...scores);
+      if (combined >= suggestionThreshold) {
+        candidates.push({
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          },
+          score: combined,
+          breakdown,
+        });
+      }
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates.slice(0, 5);
   }
 }
 

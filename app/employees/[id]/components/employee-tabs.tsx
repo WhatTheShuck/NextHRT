@@ -11,8 +11,10 @@ import {
   BookOpen,
   IdCard,
   ShieldOff,
+  Link,
 } from "lucide-react";
 import { useEmployee } from "./employee-context";
+import { useSession } from "@/lib/auth-client";
 import { OverviewTab } from "./tabs/overview-tab";
 import { InternalTrainingTab } from "./tabs/training-internal-tab";
 import { ExternalTrainingTab } from "./tabs/training-external-tab";
@@ -20,6 +22,7 @@ import { SOPTrainingTab } from "./tabs/training-sop-tab";
 import { TicketTab } from "./tabs/tickets-tab";
 import { HistoryTab } from "./tabs/history-tab";
 import { ExemptionTab } from "./tabs/exemptions-tab";
+import { UserLinkTab } from "./tabs/user-link-tab";
 
 const VALID_TABS = [
   "overview",
@@ -29,11 +32,14 @@ const VALID_TABS = [
   "tickets",
   "history",
   "external",
+  "user-link",
 ] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
 export function EmployeeTabs() {
   const { employee } = useEmployee();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "Admin";
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -115,6 +121,15 @@ export function EmployeeTabs() {
           <Clock className="h-4 w-4 mr-2" />
           History
         </TabsTrigger>
+        {isAdmin && (
+          <TabsTrigger
+            value="user-link"
+            className="w-full sm:w-auto justify-start"
+          >
+            <Link className="h-4 w-4 mr-2" />
+            User Link
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="overview">
@@ -138,6 +153,9 @@ export function EmployeeTabs() {
       </TabsContent>
       <TabsContent value="history">
         <HistoryTab />
+      </TabsContent>
+      <TabsContent value="user-link">
+        <UserLinkTab />
       </TabsContent>
     </Tabs>
   );
