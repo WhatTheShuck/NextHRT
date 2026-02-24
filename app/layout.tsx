@@ -4,7 +4,6 @@ import "./globals.css";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Providers } from "./providers";
 import ConditionalBreadcrumbs from "@/components/conditional-breadcrumbs";
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,19 +30,17 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <Header />
-            <ConditionalBreadcrumbs />
-            {children}
-            <Footer />
-          </ThemeProvider>
-        </Providers>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Header />
+          <ConditionalBreadcrumbs />
+          {children}
+          <Footer />
+        </ThemeProvider>
       </body>
     </html>
   );

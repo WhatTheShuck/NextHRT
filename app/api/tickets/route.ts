@@ -1,12 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
+import { ticketService } from "@/lib/services/ticketService";
 
 // GET all tickets
-export const GET = auth(async function GET(request) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
@@ -15,41 +18,11 @@ export const GET = auth(async function GET(request) {
   const includeRequirements =
     searchParams.get("includeRequirements") === "true";
 
-  const whereClause: any = {};
-  if (activeOnly) {
-    whereClause.isActive = true;
-  }
-
-  const includeClause: any = {
-    _count: {
-      select: { ticketRecords: true },
-    },
-  };
-
-  if (includeRequirements) {
-    includeClause.requirements = {
-      include: {
-        ticket: true,
-        department: true,
-        location: true,
-      },
-    };
-    includeClause.ticketExemptions = {
-      include: {
-        ticket: true,
-        employee: true,
-      },
-    };
-  }
   try {
-    const tickets = await prisma.ticket.findMany({
-      include: includeClause,
-      where: whereClause,
-      orderBy: {
-        ticketName: "asc",
-      },
+    const tickets = await ticketService.getTickets({
+      activeOnly,
+      includeRequirements,
     });
-
     return NextResponse.json(tickets);
   } catch (error) {
     return NextResponse.json(
@@ -60,71 +33,31 @@ export const GET = auth(async function GET(request) {
       { status: 500 },
     );
   }
-});
+}
 
 // POST new ticket
-export const POST = auth(async function POST(req) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+export async function POST(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = req.auth.user?.role as UserRole;
+  const userRole = session.user.role as UserRole;
 
-  // Only Admins can create employee records
-  if (userRole !== "Admin") {
+  const canCreate = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { ticket: ["create"] } },
+  });
+
+  if (!canCreate) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
+
   try {
-    const json = await req.json();
-
-    // we don't care about unique ticket code for now
-    // // Check for duplicate ticket code
-    // const existingTicket = await prisma.ticket.findUnique({
-    //   where: { ticketCode: json.ticketCode },
-    // });
-
-    // if (existingTicket) {
-    //   return NextResponse.json(
-    //     {
-    //       error: "Ticket code already exists",
-    //       code: "DUPLICATE_TICKET_CODE",
-    //     },
-    //     { status: 409 },
-    //   );
-    // }
-
-    // Create the ticket
-    const ticket = await prisma.ticket.create({
-      data: {
-        ticketCode: json.ticketCode,
-        ticketName: json.ticketName,
-        renewal: json.renewal ?? null,
-      },
-    });
-    if (json.requirements) {
-      for (const req of json.requirements) {
-        await prisma.ticketRequirement.create({
-          data: {
-            ticketId: ticket.id,
-            departmentId: req.departmentId,
-            locationId: req.locationId,
-          },
-        });
-      }
-    }
-
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "Ticket",
-        recordId: ticket.id.toString(),
-        action: "CREATE",
-        newValues: JSON.stringify(ticket),
-        userId: req.auth.user?.id,
-      },
-    });
-
+    const json = await request.json();
+    const ticket = await ticketService.createTicket(json, session.user.id);
     return NextResponse.json(ticket);
   } catch (error) {
     return NextResponse.json(
@@ -135,4 +68,4 @@ export const POST = auth(async function POST(req) {
       { status: 500 },
     );
   }
-});
+}

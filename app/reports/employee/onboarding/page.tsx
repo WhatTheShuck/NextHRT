@@ -70,7 +70,7 @@ export default function Page() {
       <h1 className="text-2xl font-bold mb-6">New Hires Report</h1>
 
       {/* Configuration section */}
-      <div className="bg-muted/50 p-4 rounded-lg mb-6 space-y-4">
+      <div className="p-4 rounded-lg mb-6 space-y-4 border">
         {/* Date range selectors */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">

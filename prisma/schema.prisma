@@ -82,17 +82,28 @@ model Training {
 }
 
 model TrainingRecords {
-  id            Int      @id @default(autoincrement())
-  personTrained Employee @relation(fields: [employeeId], references: [id])
+  id            Int             @id @default(autoincrement())
+  personTrained Employee        @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateCompleted DateTime
-  training      Training @relation(fields: [trainingId], references: [id])
+  training      Training        @relation(fields: [trainingId], references: [id])
   trainingId    Int
   trainer       String
-  imagePath     String?
-  imageType     String?
+  images        TrainingImage[]
 
   @@unique([employeeId, trainingId, dateCompleted])
+}
+
+model TrainingImage {
+  id              Int             @id @default(autoincrement())
+  trainingRecord  TrainingRecords @relation(fields: [trainingRecordId], references: [id], onDelete: Cascade)
+  trainingRecordId Int
+  imagePath       String
+  imageType       String
+  originalName    String
+  uploadedAt      DateTime        @default(now())
+
+  @@index([trainingRecordId])
 }
 
 model TrainingRequirement {
@@ -203,9 +214,12 @@ model User {
   id                           String       @id @default(cuid())
   name                         String?
   email                        String?      @unique
-  emailVerified                DateTime?
+  emailVerified                Boolean?
   image                        String?
   role                         UserRole?    @default(User)
+  banned                       Boolean?     // better-auth admin plugin
+  banReason                    String?      // better-auth admin plugin
+  banExpires                   DateTime?    // better-auth admin plugin
   managedDepartments           Department[] @relation("DepartmentManager")
   canManageChildrenDepartments Boolean      @default(false) // Can manage child departments
   employee                     Employee?    @relation(fields: [employeeId], references: [id])
@@ -220,48 +234,48 @@ model User {
 enum UserRole {
   User
   DepartmentManager
-  EmployeeViewer
   FireWarden
   Admin
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
+  id                   String    @id @default(cuid())
+  userId               String
+  providerId           String    @map("provider") // Map your existing `provider` field to Better Auth's `providerId`
+  accountId            String    @map("providerAccountId")
+  refreshToken         String?   @map("refresh_token")
+  accessToken          String?   @map("access_token")
+  accessTokenExpiresAt DateTime? @map("expires_at")
+  scope                String?
+  idToken              String?   @map("id_token")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([provider, providerAccountId])
+  @@unique([providerId, accountId])
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(cuid())
+  expiresAt DateTime @map("expires") // Map your existing `expires` field to Better Auth's `expiresAt`
+  token     String   @map("sessionToken") // Map your existing `sessionToken` field to Better Auth's `token`
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  userAgent String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model VerificationToken {
+model Verification {
+  id         String   @id @default(cuid())
   identifier String
-  token      String
-  expires    DateTime
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@unique([identifier, token])
+  @@unique([identifier, value])
 }

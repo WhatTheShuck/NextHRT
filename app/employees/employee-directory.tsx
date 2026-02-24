@@ -29,22 +29,22 @@ import {
 import { Plus, Search } from "lucide-react";
 import { EmployeeAddForm } from "@/components/forms/employee-add-form";
 import { EmployeeWithRelations } from "@/lib/types";
-import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AxiosError } from "axios";
+import { authClient } from "@/lib/auth-client";
 
 const EmployeeDirectory = () => {
   const router = useRouter();
-  const session = useSession();
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
-  const isAdmin = session?.data?.user?.role === "Admin";
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
 
   useEffect(() => {
     const fetchEmployees = async () => {

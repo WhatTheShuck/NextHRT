@@ -1,25 +1,26 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-import { v4 as uuidv4 } from "uuid";
-import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 import { UserRole } from "@/generated/prisma_client";
+import { trainingRecordService } from "@/lib/services/trainingRecordService";
+import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
 // GET single training record
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id: idParam } = await params;
+
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -28,28 +29,19 @@ export const GET = auth(async function GET(
       );
     }
 
-    const trainingRecord = await prisma.trainingRecords.findUnique({
-      where: { id },
-      include: {
-        personTrained: {
-          include: {
-            department: true,
-            location: true,
-          },
-        },
-        training: true,
-      },
-    });
-
-    if (!trainingRecord) {
-      return NextResponse.json(
-        { error: "Training record not found" },
-        { status: 404 },
-      );
-    }
-
+    const trainingRecord =
+      await trainingRecordService.getTrainingRecordById(id);
     return NextResponse.json(trainingRecord);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "TRAINING_RECORD_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Training record not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error fetching training record",
@@ -58,26 +50,34 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update training record
-export const PUT = auth(async function PUT(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = req.auth.user?.role as UserRole;
+  const { id: idParam } = await params;
+  const userRole = session.user.role as UserRole;
 
-  // Only Admins can edit employee records
-  if (userRole !== "Admin") {
+  const canEdit = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { trainingRecord: ["edit"] } },
+  });
+
+  if (!canEdit) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
+
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -86,191 +86,79 @@ export const PUT = auth(async function PUT(
       );
     }
 
-    // Get current record for history and file cleanup
-    const currentRecord = await prisma.trainingRecords.findUnique({
-      where: { id },
-    });
+    const formData = await request.formData();
 
-    if (!currentRecord) {
-      return NextResponse.json(
-        { error: "Training record not found" },
-        { status: 404 },
+    const removedImageIdsRaw = formData.get("removedImageIds");
+    const data = {
+      employeeId: parseInt(formData.get("employeeId") as string),
+      trainingId: parseInt(formData.get("trainingId") as string),
+      dateCompleted: formData.get("dateCompleted") as string,
+      trainer: formData.get("trainer") as string,
+      removedImageIds: removedImageIdsRaw
+        ? (JSON.parse(removedImageIdsRaw as string) as number[])
+        : [],
+    };
+    const imageFiles = formData.getAll("images") as File[];
+
+    const updatedTrainingRecord =
+      await trainingRecordService.updateTrainingRecord(
+        id,
+        data,
+        imageFiles,
+        session.user.id,
       );
-    }
-
-    const formData = await req.formData();
-
-    // Extract form fields
-    const employeeId = parseInt(formData.get("employeeId") as string);
-    const trainingId = parseInt(formData.get("trainingId") as string);
-    const dateCompleted = formData.get("dateCompleted") as string;
-    const trainer = formData.get("trainer") as string;
-    const imageFile = formData.get("image") as File | null;
-    const removeImage = formData.get("removeImage") === "true"; // Flag to remove existing image
-
-    // Validate required fields
-    if (!employeeId || !trainingId || !dateCompleted || !trainer) {
-      return NextResponse.json(
-        {
-          error:
-            "Missing required fields: employeeId, trainingId, dateCompleted, trainer",
-        },
-        { status: 400 },
-      );
-    }
-
-    const completedDate = new Date(dateCompleted);
-
-    // Get training details to calculate expiry date
-    const training = await prisma.training.findUnique({
-      where: { id: trainingId },
-    });
-
-    if (!training) {
-      return NextResponse.json(
-        { error: "Training course not found" },
-        { status: 404 },
-      );
-    }
-
-    // Check for duplicate record (excluding current record)
-    const existingRecord = await prisma.trainingRecords.findFirst({
-      where: {
-        employeeId: employeeId,
-        trainingId: trainingId,
-        dateCompleted: completedDate,
-        NOT: {
-          id: id,
-        },
-      },
-    });
-
-    if (existingRecord) {
-      return NextResponse.json(
-        {
-          error: "Training record already exists",
-          details:
-            "A training record with the same employee, training course, and completion date already exists.",
-        },
-        { status: 409 },
-      );
-    }
-
-    // Handle file operations
-    let imagePath: string | null = currentRecord.imagePath;
-    let imageType: string | null = currentRecord.imageType;
-    let oldImagePath: string | null = null;
-
-    // If removing image or uploading new one, prepare to delete old file
-    if (removeImage || (imageFile && imageFile.size > 0)) {
-      oldImagePath = currentRecord.imagePath;
-      imagePath = null;
-      imageType = null;
-    }
-
-    // Process new file upload if present
-    if (imageFile && imageFile.size > 0) {
-      // Validate file
-      if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(imageFile.type)) {
-        return NextResponse.json(
-          {
-            error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
-          },
-          { status: 400 },
-        );
-      }
-
-      if (imageFile.size > FILE_UPLOAD_CONFIG.MAX_FILE_SIZE) {
-        return NextResponse.json(
-          {
-            error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
-          },
-          { status: 400 },
-        );
-      }
-
-      try {
-        // Create upload directory if it doesn't exist
-        const uploadDir = path.join(process.cwd(), "uploads", "training");
-        if (!existsSync(uploadDir)) {
-          await mkdir(uploadDir, { recursive: true });
-        }
-
-        // Generate unique filename
-        const fileExtension = path.extname(imageFile.name);
-        const uniqueFilename = `${uuidv4()}${fileExtension}`;
-        const filePath = path.join(uploadDir, uniqueFilename);
-
-        // Convert file to buffer and save
-        const bytes = await imageFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        await writeFile(filePath, buffer);
-
-        // Store relative path for database
-        imagePath = `training/${uniqueFilename}`;
-        imageType = imageFile.type;
-      } catch (fileError) {
-        return NextResponse.json(
-          {
-            error: "Error saving file",
-            details:
-              fileError instanceof Error
-                ? fileError.message
-                : String(fileError),
-          },
-          { status: 500 },
-        );
-      }
-    }
-
-    const updatedTrainingRecord = await prisma.trainingRecords.update({
-      where: { id },
-      data: {
-        employeeId: employeeId,
-        trainingId: trainingId,
-        dateCompleted: completedDate,
-        trainer: trainer,
-        imagePath: imagePath,
-        imageType: imageType,
-      },
-      include: {
-        personTrained: {
-          include: {
-            department: true,
-            location: true,
-          },
-        },
-        training: true,
-      },
-    });
-
-    // Clean up old file if it was replaced or removed
-    if (oldImagePath) {
-      try {
-        const oldFullPath = path.join(process.cwd(), "uploads", oldImagePath);
-        if (existsSync(oldFullPath)) {
-          await unlink(oldFullPath);
-        }
-      } catch (cleanupError) {
-        // Log error but don't fail the request
-        console.error("Error cleaning up old file:", cleanupError);
-      }
-    }
-
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "TrainingRecords",
-        recordId: id.toString(),
-        action: "UPDATE",
-        oldValues: JSON.stringify(currentRecord),
-        newValues: JSON.stringify(updatedTrainingRecord),
-        userId: req.auth.user?.id,
-      },
-    });
-
     return NextResponse.json(updatedTrainingRecord);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "TRAINING_RECORD_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Training record not found" },
+            { status: 404 },
+          );
+        case "MISSING_REQUIRED_FIELDS":
+          return NextResponse.json(
+            {
+              error:
+                "Missing required fields: employeeId, trainingId, dateCompleted, trainer",
+            },
+            { status: 400 },
+          );
+        case "TRAINING_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Training course not found" },
+            { status: 404 },
+          );
+        case "DUPLICATE_TRAINING_RECORD":
+          return NextResponse.json(
+            {
+              error: "Training record already exists",
+              details:
+                "A training record with the same employee, training course, and completion date already exists.",
+            },
+            { status: 409 },
+          );
+        case "INVALID_FILE_TYPE":
+          return NextResponse.json(
+            {
+              error: `Invalid file type. Allowed types: ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY}`,
+            },
+            { status: 400 },
+          );
+        case "FILE_TOO_LARGE":
+          return NextResponse.json(
+            {
+              error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
+            },
+            { status: 400 },
+          );
+        case "FILE_SAVE_ERROR":
+          return NextResponse.json(
+            { error: "Error saving file" },
+            { status: 500 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error updating training record",
@@ -279,27 +167,34 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE training record
-export const DELETE = auth(async function DELETE(
-  req,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!req.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id: idParam } = await params;
+  const userRole = session.user.role as UserRole;
 
-  const userRole = req.auth.user?.role as UserRole;
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { trainingRecord: ["delete"] } },
+  });
 
-  // Only Admins can delete employee records
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  if (!canDelete) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
+
   try {
-    const id = parseInt(params.id);
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -308,54 +203,21 @@ export const DELETE = auth(async function DELETE(
       );
     }
 
-    // Get current record for history before deletion
-    const currentRecord = await prisma.trainingRecords.findUnique({
-      where: { id },
-    });
-
-    if (!currentRecord) {
-      return NextResponse.json(
-        { error: "Training record not found" },
-        { status: 404 },
-      );
-    }
-
-    await prisma.trainingRecords.delete({
-      where: { id },
-    });
-
-    // Clean up associated file if it exists
-    if (currentRecord.imagePath) {
-      try {
-        const filePath = path.join(
-          process.cwd(),
-          "uploads",
-          currentRecord.imagePath,
-        );
-        if (existsSync(filePath)) {
-          await unlink(filePath);
-        }
-      } catch (cleanupError) {
-        // Log error but don't fail the request since record is already deleted
-        console.error("Error cleaning up file during deletion:", cleanupError);
+    const result = await trainingRecordService.deleteTrainingRecord(
+      id,
+      session.user.id,
+    );
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "TRAINING_RECORD_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Training record not found" },
+            { status: 404 },
+          );
       }
     }
-
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "TrainingRecords",
-        recordId: id.toString(),
-        action: "DELETE",
-        oldValues: JSON.stringify(currentRecord),
-        userId: req.auth.user?.id,
-      },
-    });
-
-    return NextResponse.json({
-      message: "Training record deleted successfully",
-    });
-  } catch (error) {
     return NextResponse.json(
       {
         error: "Error deleting training record",
@@ -364,4 +226,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

@@ -1,159 +1,60 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
-import { isAsyncFunction } from "node:util/types";
-import { getChildDepartmentIds, hasRoleAccess } from "@/lib/apiRBAC";
+import { employeeService } from "@/lib/services/employeeService";
 
 // GET all employees
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{}> },
-) {
-  // Check if the user is authenticated
-  if (!request.auth) {
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
-  const reportType = searchParams.get("reportType"); // "evacuation",
-  const startedFrom = searchParams.get("startedFrom"); // "2025-01-01"
-  const startedTo = searchParams.get("startedTo"); // "2025-12-31"
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
-
-  const whereClause: any = {};
-
-  if (activeOnly) {
-    whereClause.isActive = true;
-  }
-
-  if (startedFrom) {
-    whereClause.startDate = { gte: new Date(startedFrom) };
-    if (startedTo) {
-      whereClause.startDate = {
-        ...whereClause.startDate,
-        lte: new Date(startedTo),
-      };
-    }
-  }
+  const reportType = searchParams.get("reportType");
+  const startedFrom = searchParams.get("startedFrom");
+  const startedTo = searchParams.get("startedTo");
+  const filterByUserId = searchParams.get("userId");
+  const userRole = session.user.role as UserRole;
+  const userId = session.user.id;
 
   try {
-    // Different query based on user role
-    if (hasRoleAccess(userRole, "Admin")) {
-      // Admins can see all employees
-      const employees = await prisma.employee.findMany({
-        include: {
-          department: true,
-          location: true,
-        },
-        where: whereClause,
-        orderBy: {
-          lastName: "asc",
-        },
-      });
-      return NextResponse.json(employees);
-    } else if (reportType === "evacuation") {
-      if (hasRoleAccess(userRole, "EmployeeViewer")) {
-        const employees = await prisma.employee.findMany({
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            title: true,
-            isActive: true,
-            department: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            location: {
-              select: {
-                id: true,
-                name: true,
-                state: true,
-              },
-            },
-          },
-          where: whereClause,
-          orderBy: {
-            lastName: "asc",
-          },
-        });
+    const employees = await employeeService.getEmployees({
+      activeOnly,
+      reportType,
+      startedFrom,
+      startedTo,
+      userRole,
+      userId,
+      filterByUserId,
+    });
 
-        return NextResponse.json(employees);
-      } else {
-        return NextResponse.json(
-          { message: "No Employee Viewer access to run this report" },
-          { status: 403 },
-        );
-      }
-    } else if (hasRoleAccess(userRole, "DepartmentManager")) {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { managedDepartments: true },
-      });
-
-      if (!user) {
-        return NextResponse.json(
-          { message: "User not found" },
-          { status: 404 },
-        );
-      }
-
-      const departmentIds = user.managedDepartments.map((dept) => dept.id);
-
-      // Fetch child department IDs for parent departments (level === 0)
-      const childDeptPromises = user.managedDepartments
-        .filter((dept) => dept.level === 0)
-        .map((dept) => getChildDepartmentIds(dept.id));
-
-      const childDeptIdsArrays = await Promise.all(childDeptPromises);
-      const childDeptIds = childDeptIdsArrays.flat();
-      departmentIds.push(...childDeptIds);
-
-      // Combine base filters with department filter
-      const employees = await prisma.employee.findMany({
-        where: {
-          ...whereClause,
-          departmentId: { in: departmentIds },
-        },
-        include: {
-          department: true,
-          location: true,
-        },
-        orderBy: {
-          lastName: "asc",
-        },
-      });
-      return NextResponse.json(employees);
-    } else {
-      // Regular users can only see themselves
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { employee: true },
-      });
-
-      if (!user || !user.employee) {
-        return NextResponse.json(
-          { message: "No associated employee record" },
-          { status: 403 },
-        );
-      }
-
-      const employee = await prisma.employee.findUnique({
-        where: { id: user.employee.id },
-        include: {
-          department: true,
-          location: true,
-        },
-      });
-
-      return NextResponse.json([employee]); // Return as array for consistent frontend handling
-    }
+    return NextResponse.json(employees);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "NO_EMPLOYEE_VIEWER_ACCESS":
+          return NextResponse.json(
+            { message: "No Employee Viewer access to run this report" },
+            { status: 403 },
+          );
+        case "USER_NOT_FOUND":
+          return NextResponse.json(
+            { message: "User not found" },
+            { status: 404 },
+          );
+        case "NO_EMPLOYEE_RECORD":
+          return NextResponse.json(
+            { message: "No associated employee record" },
+            { status: 403 },
+          );
+      }
+    }
+
     return NextResponse.json(
       {
         error: "Error fetching employees",
@@ -162,109 +63,48 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // POST new employee
-export const POST = auth(async function POST(req) {
-  // Check if the user is authenticated
-  if (!req.auth) {
+export async function POST(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
+  const userRole = session.user.role as UserRole;
 
-  const userRole = req.auth.user?.role as UserRole;
+  const canCreate = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { employee: ["create"] } },
+  });
 
-  // Only Admins can create new employees
-  if (userRole !== "Admin") {
+  if (!canCreate) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {
-    const json = await req.json();
-
-    // Check for duplicate detection unless confirmDuplicate flag is set
-    if (!json.confirmDuplicate) {
-      // Look for potential duplicates based on first and last name
-      const potentialDuplicates = await prisma.employee.findMany({
-        where: {
-          firstName: {
-            equals: json.firstName,
-          },
-          lastName: {
-            equals: json.lastName,
-          },
+    const json = await request.json();
+    const employee = await employeeService.createEmployee(
+      json,
+      session.user.id,
+    );
+    return NextResponse.json(employee);
+  } catch (error: any) {
+    // Handle duplicate employee error
+    if (error?.code === "DUPLICATE_EMPLOYEE") {
+      return NextResponse.json(
+        {
+          error: "Potential duplicate employee found",
+          code: "DUPLICATE_EMPLOYEE",
+          matches: error.matches,
+          suggestions: error.suggestions,
         },
-        include: {
-          department: true,
-          location: true,
-        },
-        orderBy: {
-          finishDate: "desc", // Show most recent records first
-        },
-      });
-
-      // If duplicates found, return 409 with details
-      if (potentialDuplicates.length > 0) {
-        const suggestions = {
-          rehire: potentialDuplicates.some((emp) => !emp.isActive), // True if any inactive employees found
-          duplicate: true,
-        };
-
-        return NextResponse.json(
-          {
-            error: "Potential duplicate employee found",
-            code: "DUPLICATE_EMPLOYEE",
-            matches: potentialDuplicates.map((emp) => ({
-              id: emp.id,
-              firstName: emp.firstName,
-              lastName: emp.lastName,
-              title: emp.title,
-              department: emp.department || "Unknown",
-              location: emp.location || "Unknown",
-              isActive: emp.isActive,
-              startDate: emp.startDate,
-              finishDate: emp.finishDate,
-            })),
-            suggestions,
-          },
-          { status: 409 },
-        );
-      }
+        { status: 409 },
+      );
     }
 
-    // Create the employee (either no duplicates found or confirmDuplicate is true)
-    const employee = await prisma.employee.create({
-      data: {
-        firstName: json.firstName,
-        lastName: json.lastName,
-        title: json.title,
-        startDate: json.startDate ? new Date(json.startDate) : null,
-        finishDate: json.finishDate ? new Date(json.finishDate) : null,
-        department: {
-          connect: { id: json.departmentId },
-        },
-        location: {
-          connect: { id: json.locationId },
-        },
-        notes: json.notes,
-        usi: json.usi,
-        status: json.status,
-        isActive: json.isActive ?? true,
-      },
-    });
-
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "Employee",
-        recordId: employee.id.toString(),
-        action: "CREATE",
-        newValues: JSON.stringify(employee),
-        userId: req.auth.user?.id,
-      },
-    });
-
-    return NextResponse.json(employee);
-  } catch (error) {
     return NextResponse.json(
       {
         error: "Error creating employee",
@@ -273,4 +113,4 @@ export const POST = auth(async function POST(req) {
       { status: 500 },
     );
   }
-});
+}

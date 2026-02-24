@@ -30,8 +30,8 @@ export function TrainingAddForm({
   // Form state
   const [trainingId, setTrainingId] = useState("");
   const [provider, setProvider] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string>("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [completionDate, setCompletionDate] = useState<Date>(new Date());
 
   // Data fetching state
@@ -66,30 +66,34 @@ export function TrainingAddForm({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setFileError("");
+    const files = Array.from(e.target.files || []);
+    const newErrors: string[] = [];
+    const validFiles: File[] = [];
 
-    if (!file) {
-      setSelectedFile(null);
-      return;
-    }
+    files.forEach((file) => {
+      const error = validateFile(file);
+      if (error) {
+        newErrors.push(`${file.name}: ${error}`);
+      } else {
+        validFiles.push(file);
+      }
+    });
 
-    const error = validateFile(file);
-    if (error) {
-      setFileError(error);
-      setSelectedFile(null);
-      // Clear the input
-      e.target.value = "";
-      return;
-    }
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
+    setFileErrors(newErrors);
 
-    setSelectedFile(file);
+    // Clear the input to allow re-selecting the same files
+    e.target.value = "";
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
-    setFileError("");
-    // Clear the file input
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFileErrors((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setSelectedFiles([]);
+    setFileErrors([]);
     const fileInput = document.getElementById(
       "image-upload",
     ) as HTMLInputElement;
@@ -103,22 +107,19 @@ export function TrainingAddForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setSubmitError(""); // Clear any previous errors
+    setSubmitError("");
 
     try {
-      // Create FormData instead of JSON
       const formData = new FormData();
       formData.append("employeeId", employee.id.toString());
       formData.append("trainingId", trainingId);
       formData.append("trainer", provider);
       formData.append("dateCompleted", completionDate.toISOString());
 
-      // Add file if selected
-      if (selectedFile) {
-        formData.append("image", selectedFile);
-      }
+      selectedFiles.forEach((file) => {
+        formData.append("images", file);
+      });
 
-      // Send FormData (axios will automatically set the correct Content-Type)
       await api.post("/api/training-records", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -129,37 +130,23 @@ export function TrainingAddForm({
       setTrainingId("");
       setProvider("");
       setCompletionDate(new Date());
-      setSelectedFile(null);
-      setFileError("");
+      setSelectedFiles([]);
+      setFileErrors([]);
 
-      // Clear file input
-      const fileInput = document.getElementById(
-        "image-upload",
-      ) as HTMLInputElement;
-      if (fileInput) {
-        fileInput.value = "";
-      }
-
-      // Call success callback
       onSuccess?.();
     } catch (err: any) {
       console.error("API error:", err);
 
-      // Handle different error types
       if (err.response?.status === 409) {
-        // Duplicate record error
         setSubmitError(
           err.response.data?.details ||
             "A training record with the same training course and completion date already exists for this employee.",
         );
       } else if (err.response?.data?.error) {
-        // Other API errors with error messages
         setSubmitError(err.response.data.error);
       } else if (err.message) {
-        // Network or other errors
         setSubmitError(`Error saving training record: ${err.message}`);
       } else {
-        // Fallback error message
         setSubmitError("An unexpected error occurred. Please try again.");
       }
     } finally {
@@ -239,7 +226,7 @@ export function TrainingAddForm({
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY} (MAX.{" "}
-                  {FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY})
+                  {FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY} each)
                 </p>
               </div>
             </label>
@@ -249,39 +236,70 @@ export function TrainingAddForm({
               className="hidden"
               accept={FILE_UPLOAD_CONFIG.ALLOWED_TYPES.join(",")}
               onChange={handleFileChange}
+              multiple
             />
           </div>
 
-          {/* File Error */}
-          {fileError && (
-            <div className="text-sm text-red-600 dark:text-red-400">
-              {fileError}
+          {/* File Errors */}
+          {fileErrors.length > 0 && (
+            <div className="space-y-1">
+              {fileErrors.map((error, index) => (
+                <div
+                  key={index}
+                  className="text-sm text-red-600 dark:text-red-400"
+                >
+                  {error}
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Selected File Display */}
-          {selectedFile && !fileError && (
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <FileImage className="w-5 h-5 text-gray-500" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {formatFileSize(selectedFile.size)}
-                  </p>
-                </div>
+          {/* Selected Files List */}
+          {selectedFiles.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Selected Images ({selectedFiles.length})
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFiles}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  Clear All
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={removeFile}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <X className="w-4 h-4" />
-              </Button>
+              <div className="grid grid-cols-1 gap-2 max-h-128 overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg min-w-0"
+                  >
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <FileImage className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0 ml-2"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

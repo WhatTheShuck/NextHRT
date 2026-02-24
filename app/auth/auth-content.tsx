@@ -9,13 +9,16 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Building2 } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/lib/auth-client"; // Changed from next-auth/react
 import { companyDetails } from "@/lib/data";
 
 export function LoginPageContent() {
   // Handle Microsoft sign-in
   const handleMicrosoftSignIn = async () => {
-    await signIn("microsoft-entra-id");
+    await signIn.social({
+      provider: "microsoft",
+      callbackURL: "/", // Redirects to home after sign in
+    });
   };
 
   return (
@@ -23,10 +26,19 @@ export function LoginPageContent() {
       <div className="w-full max-w-md px-4">
         {/* Logo and Company Name */}
         <div className="text-center mb-8">
-          <Building2 className="mx-auto h-12 w-12 text-primary" />
-          <h1 className="mt-4 text-3xl font-bold">
-            {companyDetails.name || "HR Portal"}
-          </h1>
+          {/*<Building2 className="mx-auto h-12 w-12 text-primary" />*/}
+          {/*<img
+            src="/HRT Favicon - 32x32.png"
+            alt="NextHRT Logo"
+            className="mx-auto h-24 w-24 object-contain"
+          />*/}
+          <img
+            src="/web-app-manifest-512x512.png"
+            alt="NextHRT Logo"
+            className="mx-auto"
+          />
+          {/*<h1 className="mt-4 text-3xl font-bold">{"NextHRT"}</h1>*/}
+          <h1 className="mt-4 text-3xl font-bold">{companyDetails.name}</h1>
           <p className="mt-2">
             Welcome! Please sign in with your company account.
           </p>

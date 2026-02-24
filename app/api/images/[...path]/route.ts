@@ -1,162 +1,70 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { readFile } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client";
-import { hasAccessToEmployee } from "@/lib/apiRBAC";
+import { imageService } from "@/lib/services/imageService";
 
 // GET serve image files with RBAC
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ path: string[] }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userId = request.auth.user?.id;
-  const userRole = request.auth.user?.role as UserRole;
+  const { path: pathSegments } = await params;
+  const userId = session.user.id;
+  const userRole = session.user.role as UserRole;
 
   try {
-    // Reconstruct the file path from the dynamic route segments
-    const filePath = params.path.join("/");
+    const filePath = pathSegments.join("/");
+    const { buffer, contentType } = await imageService.getImage(
+      filePath,
+      userId,
+      userRole,
+    );
 
-    // Security: Prevent directory traversal attacks
-    if (filePath.includes("..") || filePath.includes("\\")) {
-      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
-    }
-
-    // Extract the filename from the path to search in database
-    const fileName = path.basename(filePath);
-
-    // Check if this is a ticket image (based on folder structure)
-    if (filePath.startsWith("tickets/")) {
-      // Find the ticket image record that matches this file path
-      const ticketImage = await prisma.ticketImage.findFirst({
-        where: {
-          imagePath: filePath,
-        },
-        include: {
-          ticketRecord: {
-            include: {
-              ticketHolder: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  departmentId: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (!ticketImage) {
-        return NextResponse.json({ error: "Image not found" }, { status: 404 });
-      }
-
-      // Check if user has access to this employee's records
-      const hasAccess = await hasAccessToEmployee(
-        userId,
-        ticketImage.ticketRecord.ticketHolder.id,
-        userRole,
-      );
-
-      if (!hasAccess) {
-        return NextResponse.json(
-          { error: "Not authorised to view this image" },
-          { status: 403 },
-        );
-      }
-    }
-    // Handle training images (these still use the old structure based on your schema)
-    else if (filePath.startsWith("training/")) {
-      // Find the training record that owns this image
-      const trainingRecord = await prisma.trainingRecords.findFirst({
-        where: {
-          imagePath: filePath,
-        },
-        include: {
-          personTrained: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              departmentId: true,
-            },
-          },
-        },
-      });
-
-      if (!trainingRecord) {
-        return NextResponse.json({ error: "Image not found" }, { status: 404 });
-      }
-
-      // Check if user has access to this employee's records
-      const hasAccess = await hasAccessToEmployee(
-        userId,
-        trainingRecord.personTrained.id,
-        userRole,
-      );
-
-      if (!hasAccess) {
-        return NextResponse.json(
-          { error: "Not authorised to view this image" },
-          { status: 403 },
-        );
-      }
-    } else {
-      // Unknown image type - deny access
-      return NextResponse.json(
-        { error: "Unauthorised image access" },
-        { status: 403 },
-      );
-    }
-
-    // Construct full file path
-    const fullPath = path.join(process.cwd(), "uploads", filePath);
-
-    // Check if file exists
-    if (!existsSync(fullPath)) {
-      return NextResponse.json({ error: "File not found" }, { status: 404 });
-    }
-
-    // Read file
-    const fileBuffer = await readFile(fullPath);
-
-    // Determine content type based on file extension
-    const ext = path.extname(filePath).toLowerCase();
-    let contentType = "application/octet-stream";
-
-    switch (ext) {
-      case ".jpg":
-      case ".jpeg":
-        contentType = "image/jpeg";
-        break;
-      case ".png":
-        contentType = "image/png";
-        break;
-      case ".webp":
-        contentType = "image/webp";
-        break;
-      case ".pdf":
-        contentType = "application/pdf";
-        break;
-    }
-
-    // Return file with appropriate headers
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(buffer, {
       headers: {
         "Content-Type": contentType,
-        "Content-Length": fileBuffer.length.toString(),
-        "Cache-Control": "private, max-age=3600", // Cache for 1 hour, but mark as private
+        "Content-Length": buffer.length.toString(),
+        "Cache-Control": "private, max-age=3600",
       },
     });
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "INVALID_FILE_PATH":
+          return NextResponse.json(
+            { error: "Invalid file path" },
+            { status: 400 },
+          );
+        case "IMAGE_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Image not found" },
+            { status: 404 },
+          );
+        case "NOT_AUTHORISED":
+          return NextResponse.json(
+            { error: "Not authorised to view this image" },
+            { status: 403 },
+          );
+        case "UNAUTHORISED_IMAGE_ACCESS":
+          return NextResponse.json(
+            { error: "Unauthorised image access" },
+            { status: 403 },
+          );
+        case "FILE_NOT_FOUND":
+          return NextResponse.json(
+            { error: "File not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error serving file",
@@ -165,4 +73,4 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}

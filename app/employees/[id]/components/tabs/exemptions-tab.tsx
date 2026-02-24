@@ -25,16 +25,20 @@ import {
 import { format } from "date-fns";
 import { TrainingTicketExemptionWithRelations } from "@/lib/types";
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+// import { useSession } from "next-auth/react";
 import { AddTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/add-exemption-dialog";
 import { EditTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/edit-exemption-dialog";
 import { DeleteTrainingTicketExemptionDialog } from "@/components/dialogs/exemptions/delete-exemption-dialog";
+import { authClient } from "@/lib/auth-client";
 
 export function ExemptionTab() {
   const { employee } = useEmployee();
   const exemptionRecords = useEmployeeTrainingTicketExemptions();
-  const session = useSession();
-  const isAdmin = session?.data?.user.role === "Admin";
+
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
+
+  // const session = useSession();
   const [editingRecord, setEditingRecord] =
     useState<TrainingTicketExemptionWithRelations | null>(null);
   const [deletingRecord, setDeletingRecord] =

@@ -49,7 +49,7 @@ import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-recor
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState, useMemo } from "react";
 import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 
 interface SOPGroup {
   name: string;
@@ -59,8 +59,8 @@ interface SOPGroup {
 
 export function SOPTrainingTab() {
   const { employee } = useEmployee();
-  const session = useSession();
-  const isAdmin = session?.data?.user.role === "Admin";
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
   const trainingRecords = useEmployeeTrainingRecords().filter(
     (record) => record.training?.category === "SOP",
   );
@@ -229,7 +229,10 @@ export function SOPTrainingTab() {
     taskSheet?: TrainingRecordsWithRelations,
     practical?: TrainingRecordsWithRelations,
   ) => {
-    return !!(taskSheet?.imagePath || practical?.imagePath);
+    return !!(
+      (taskSheet?.images && taskSheet.images.length > 0) ||
+      (practical?.images && practical.images.length > 0)
+    );
   };
 
   return (

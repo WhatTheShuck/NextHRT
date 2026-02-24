@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { Pencil, Save, X } from "lucide-react";
-import { useSession } from "next-auth/react";
 import api from "@/lib/axios";
+import { authClient } from "@/lib/auth-client";
 
 interface NotesEditorProps {
   employeeId: number;
@@ -17,11 +17,11 @@ export default function NotesEditor({
   notes,
   onNotesUpdate,
 }: NotesEditorProps) {
-  const session = useSession();
-  const isAdmin = session?.data?.user.role === "Admin";
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState(notes || "");
   const [isSaving, setIsSaving] = useState(false);
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
 
   const handleEdit = () => {
     setEditedNotes(notes || "");

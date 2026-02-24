@@ -1,59 +1,41 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client";
+import { locationService } from "@/lib/services/locationService";
 
 // GET single location
-export const GET = auth(async function GET(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
+  const { id } = await params;
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
 
   try {
-    const id = parseInt(params.id);
-    const location = await prisma.location.findUnique({
-      where: { id },
-      include: {
-        employees: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            title: true,
-            department: {
-              select: {
-                name: true,
-              },
-            },
-          },
-          where: activeOnly
-            ? {
-                isActive: true,
-              }
-            : undefined,
-        },
-        _count: {
-          select: { employees: true },
-        },
-      },
+    const locationId = parseInt(id);
+    const location = await locationService.getLocationById(locationId, {
+      activeOnly,
     });
-
-    if (!location) {
-      return NextResponse.json(
-        { error: "Location not found" },
-        { status: 404 },
-      );
-    }
-
     return NextResponse.json(location);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "LOCATION_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Location not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error fetching location",
@@ -62,65 +44,51 @@ export const GET = auth(async function GET(
       { status: 500 },
     );
   }
-});
+}
 
 // PUT update location
-export const PUT = auth(async function PUT(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
 
-  // Only Admins can update locations
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  const canEdit = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { location: ["edit"] } },
+  });
+
+  if (!canEdit) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {
-    const id = parseInt(params.id);
-
-    // Get current location data for history
-    const currentLocation = await prisma.location.findUnique({
-      where: { id },
-    });
-
-    if (!currentLocation) {
-      return NextResponse.json(
-        { error: "Location not found" },
-        { status: 404 },
-      );
-    }
-
+    const locationId = parseInt(id);
     const json = await request.json();
-
-    const updatedLocation = await prisma.location.update({
-      where: { id },
-      data: {
-        name: json.name,
-        state: json.state,
-      },
-    });
-
-    // Create history record
-    await prisma.history.create({
-      data: {
-        tableName: "Location",
-        recordId: id.toString(),
-        action: "UPDATE",
-        oldValues: JSON.stringify(currentLocation),
-        newValues: JSON.stringify(updatedLocation),
-        userId: userId,
-      },
-    });
-
+    const updatedLocation = await locationService.updateLocation(
+      locationId,
+      json,
+      session.user.id,
+    );
     return NextResponse.json(updatedLocation);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "LOCATION_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Location not found" },
+            { status: 404 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error updating location",
@@ -129,73 +97,54 @@ export const PUT = auth(async function PUT(
       { status: 500 },
     );
   }
-});
+}
 
 // DELETE location
-export const DELETE = auth(async function DELETE(
-  request,
-  props: { params: Promise<{ id: string }> },
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!request.auth) {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const params = await props.params;
-  const userRole = request.auth.user?.role as UserRole;
-  const userId = request.auth.user?.id;
+  const { id } = await params;
+  const userRole = session.user.role as UserRole;
 
-  // Only Admins can delete locations
-  if (userRole !== "Admin") {
-    return NextResponse.json({ message: "Not authorized" }, { status: 403 });
+  const canDelete = await auth.api.userHasPermission({
+    body: { role: userRole, permissions: { location: ["delete"] } },
+  });
+
+  if (!canDelete) {
+    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
   try {
-    const id = parseInt(params.id);
-
-    // Check if there are employees at this location
-    const employeeCount = await prisma.employee.count({
-      where: { locationId: id },
-    });
-
-    if (employeeCount > 0) {
-      return NextResponse.json(
-        { error: "Cannot delete location with active employees" },
-        { status: 400 },
-      );
-    }
-
-    // Get current location data for history
-    const currentLocation = await prisma.location.findUnique({
-      where: { id },
-    });
-
-    if (!currentLocation) {
-      return NextResponse.json(
-        { error: "Location not found" },
-        { status: 404 },
-      );
-    }
-
-    // Delete location
-    await prisma.$transaction([
-      // Create history record
-      prisma.history.create({
-        data: {
-          tableName: "Location",
-          recordId: id.toString(),
-          action: "DELETE",
-          oldValues: JSON.stringify(currentLocation),
-          userId: userId,
-        },
-      }),
-      // Delete the location
-      prisma.location.delete({
-        where: { id },
-      }),
-    ]);
-
-    return NextResponse.json({ message: "Location deleted successfully" });
+    const locationId = parseInt(id);
+    const result = await locationService.deleteLocation(
+      locationId,
+      session.user.id,
+    );
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "LOCATION_NOT_FOUND":
+          return NextResponse.json(
+            { error: "Location not found" },
+            { status: 404 },
+          );
+        case "LOCATION_HAS_EMPLOYEES":
+          return NextResponse.json(
+            { error: "Cannot delete location with active employees" },
+            { status: 400 },
+          );
+      }
+    }
     return NextResponse.json(
       {
         error: "Error deleting location",
@@ -204,4 +153,4 @@ export const DELETE = auth(async function DELETE(
       { status: 500 },
     );
   }
-});
+}

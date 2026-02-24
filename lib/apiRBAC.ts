@@ -1,28 +1,47 @@
-import { UserRole } from "@/generated/prisma_client";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { UserRole } from "@/generated/prisma_client";
 
-const roleHierarchy: Record<UserRole, UserRole[]> = {
-  Admin: ["DepartmentManager", "FireWarden", "EmployeeViewer", "User"],
-  DepartmentManager: ["EmployeeViewer", "User"],
-  FireWarden: ["EmployeeViewer", "User"],
-  EmployeeViewer: ["User"],
-  User: [],
-};
+/**
+ * Check if user can access a specific employee.
+ * Pass userRole from the session to avoid an extra DB lookup inside userHasPermission.
+ */
 export async function hasAccessToEmployee(
   userId: string | undefined,
   employeeId: number,
-  userRole: UserRole,
+  userRole: string,
 ) {
   if (!userId) {
     console.error("hasAccessToEmployee: userId is undefined");
     return false;
   }
-  if (hasRoleAccess(userRole, "Admin")) {
+
+  // Check if user can view all employees
+  const canViewAll = await auth.api.userHasPermission({
+    body: {
+      role: userRole as UserRole,
+      permissions: {
+        employee: ["viewAll"],
+      },
+    },
+  });
+
+  if (canViewAll) {
     return true;
   }
 
-  if (hasRoleAccess(userRole, "DepartmentManager")) {
-    // Check if employee is in one of the departments managed by this user
+  // Check if user can view department employees
+  const canViewDepartment = await auth.api.userHasPermission({
+    body: {
+      role: userRole as UserRole,
+      permissions: {
+        employee: ["viewDepartment"],
+      },
+    },
+  });
+
+  if (canViewDepartment) {
+    // Get user's managed departments
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { managedDepartments: true },
@@ -32,7 +51,6 @@ export async function hasAccessToEmployee(
 
     // Get all accessible department IDs
     const accessibleDepartmentIds: number[] = [];
-
     for (const dept of user.managedDepartments) {
       if (dept.level === 0) {
         // Parent department - get all child departments
@@ -40,7 +58,7 @@ export async function hasAccessToEmployee(
           where: { parentDepartmentId: dept.id },
           select: { id: true },
         });
-        accessibleDepartmentIds.push(dept.id); // Include the parent itself
+        accessibleDepartmentIds.push(dept.id);
         accessibleDepartmentIds.push(
           ...childDepartments.map((child) => child.id),
         );
@@ -56,17 +74,24 @@ export async function hasAccessToEmployee(
     });
 
     if (!employee) return false;
-
     return accessibleDepartmentIds.includes(employee.departmentId);
   }
 
-  if (hasRoleAccess(userRole, "User")) {
-    // Check if this employee is linked to the user
+  // Check if user can view their own employee record
+  const canViewSelf = await auth.api.userHasPermission({
+    body: {
+      role: userRole as UserRole,
+      permissions: {
+        employee: ["viewSelf"],
+      },
+    },
+  });
+
+  if (canViewSelf) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { employeeId: true },
     });
-
     return user?.employeeId === employeeId;
   }
 
@@ -80,7 +105,6 @@ export async function getManagedDepartmentIds(userId: string) {
   });
 
   if (!user) return [];
-
   return user.managedDepartments.map((dept) => dept.id);
 }
 
@@ -89,17 +113,7 @@ export async function getUserEmployeeId(userId: string) {
     where: { id: userId },
     select: { employeeId: true },
   });
-
   return user?.employeeId;
-}
-
-export function hasRoleAccess(
-  userRole: UserRole,
-  requiredRole: UserRole,
-): boolean {
-  if (userRole === requiredRole) return true;
-
-  return roleHierarchy[userRole]?.includes(requiredRole) || false;
 }
 
 export async function getChildDepartmentIds(
@@ -109,6 +123,5 @@ export async function getChildDepartmentIds(
     where: { parentDepartmentId: departmentId },
     select: { id: true },
   });
-
   return childDepartments.map((dept) => dept.id);
 }
