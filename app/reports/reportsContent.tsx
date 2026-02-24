@@ -1,10 +1,42 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { NavigationCard } from "@/components/navigation-card";
 import { reportsNavigationItems } from "@/lib/data";
 import { authClient } from "@/lib/auth-client";
 
-export function ReportsContent() {
+const REPORT_CATEGORIES = [
+  {
+    label: "Employee Reports",
+    prefix: "/reports/employee",
+    href: "/reports/employee",
+  },
+  {
+    label: "Training Reports",
+    prefix: "/reports/training",
+    href: "/reports/training",
+  },
+  {
+    label: "Ticket Reports",
+    prefix: "/reports/tickets",
+    href: "/reports/tickets",
+  },
+];
+
+type ReportCategory = "employee" | "training" | "tickets";
+
+export function ReportsContent({
+  category,
+}: {
+  category?: ReportCategory;
+}) {
+  const items = category
+    ? reportsNavigationItems.filter((item) =>
+        item.href.startsWith(`/reports/${category}`),
+      )
+    : reportsNavigationItems;
+
   const { data: session } = authClient.useSession();
   const [visibleItems, setVisibleItems] = useState<
     typeof reportsNavigationItems
@@ -23,7 +55,7 @@ export function ReportsContent() {
       // Group items by their permission requirement to check each unique permission only once
       const permissionGroups = new Map<string, typeof reportsNavigationItems>();
 
-      reportsNavigationItems.forEach((item) => {
+      items.forEach((item) => {
         const permission = item.minimumAllowedPermission;
         if (!permissionGroups.has(permission)) {
           permissionGroups.set(permission, []);
@@ -59,8 +91,8 @@ export function ReportsContent() {
 
       permissionResults.forEach(({ permission, hasAccess }) => {
         if (hasAccess) {
-          const items = permissionGroups.get(permission) || [];
-          itemsWithPermission.push(...items);
+          const permittedItems = permissionGroups.get(permission) || [];
+          itemsWithPermission.push(...permittedItems);
         }
       });
 
@@ -70,19 +102,45 @@ export function ReportsContent() {
 
     checkPermissions();
   }, [session?.user?.id]);
+
+  if (visibleItems.length === 0) return null;
+
+  const categorized = REPORT_CATEGORIES.map((cat) => ({
+    ...cat,
+    items: visibleItems.filter((item) => item.href.startsWith(cat.prefix)),
+  })).filter((cat) => cat.items.length > 0);
+
+  const isMultiCategory = categorized.length > 1;
+
   return (
-    <>
-      {visibleItems.length > 0 && (
-        <div className="space-y-6">
-          <br />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleItems.map((item) => (
-              <NavigationCard key={item.href} {...item} />
-            ))}
+    <div className="space-y-8 mt-6">
+      {isMultiCategory ? (
+        categorized.map((cat) => (
+          <div key={cat.href} className="space-y-4">
+            <Link
+              href={cat.href}
+              className="inline-flex items-center gap-1 group"
+            >
+              <h2 className="text-xl font-semibold group-hover:underline">
+                {cat.label}
+              </h2>
+              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {cat.items.map((item) => (
+                <NavigationCard key={item.href} {...item} />
+              ))}
+            </div>
           </div>
+        ))
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {visibleItems.map((item) => (
+            <NavigationCard key={item.href} {...item} />
+          ))}
         </div>
       )}
-    </>
+    </div>
   );
 }
 

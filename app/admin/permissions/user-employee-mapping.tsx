@@ -349,7 +349,7 @@ export function UserEmployeeMapping() {
                         </span>
                       ) : (
                         <span className="text-muted-foreground flex items-center gap-2">
-                          <Search className="h-4 w-4 flex-shrink-0" />
+                          <Search className="h-4 w-4 shrink-0" />
                           Select Employee
                         </span>
                       )}
@@ -368,7 +368,7 @@ export function UserEmployeeMapping() {
                       placeholder="Search employees..."
                       className="h-9"
                     />
-                    <CommandList className="max-h-[200px] overflow-y-auto">
+                    <CommandList className="max-h-50 overflow-y-auto">
                       <CommandEmpty>No employees found.</CommandEmpty>
                       <CommandGroup>
                         {/* Option to clear selection */}
@@ -381,7 +381,7 @@ export function UserEmployeeMapping() {
                           className="cursor-pointer"
                         >
                           <Check
-                            className={`mr-2 h-4 w-4 flex-shrink-0 ${
+                            className={`mr-2 h-4 w-4 shrink-0 ${
                               !selectedEmployeeId ? "opacity-100" : "opacity-0"
                             }`}
                           />
@@ -400,7 +400,7 @@ export function UserEmployeeMapping() {
                             className="cursor-pointer min-w-0"
                           >
                             <Check
-                              className={`mr-2 h-4 w-4 flex-shrink-0 ${
+                              className={`mr-2 h-4 w-4 shrink-0 ${
                                 selectedEmployeeId === employee.id.toString()
                                   ? "opacity-100"
                                   : "opacity-0"
