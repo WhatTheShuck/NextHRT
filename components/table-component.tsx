@@ -20,11 +20,13 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  onSortedDataChange?: (sortedData: TData[], isSorted: boolean) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  onSortedDataChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -38,6 +40,15 @@ export function DataTable<TData, TValue>({
       sorting,
     },
   });
+
+  React.useEffect(() => {
+    if (onSortedDataChange) {
+      const sortedRows = table.getRowModel().rows.map((row) => row.original);
+      onSortedDataChange(sortedRows, sorting.length > 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sorting, data]);
+
   return (
     <div className="rounded-md border">
       <Table>

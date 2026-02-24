@@ -22,6 +22,10 @@ export default function Page() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedTicketName, setSelectedTicketName] = useState<string>("");
+  const [sortedData, setSortedData] = useState<EmployeeWithRequirementStatus[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -135,9 +139,18 @@ export default function Page() {
               columns={columns}
               filename={`ticket-requirements-${selectedTicketName.toLowerCase().replace(/\s+/g, "-")}`}
               title={`Ticket Requirements Report - ${selectedTicketName}`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
           </div>
-          <DataTable columns={columns} data={displayedEmployees} />
+          <DataTable
+            columns={columns}
+            data={displayedEmployees}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </div>

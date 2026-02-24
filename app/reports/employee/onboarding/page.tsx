@@ -17,6 +17,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
+  const [sortedData, setSortedData] = useState<EmployeeWithRelations[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
 
   // Set default dates to current year (Jan 1 to Dec 31)
   const [startedFrom, setStartedFrom] = useState<Date>(() => {
@@ -128,9 +130,18 @@ export default function Page() {
               columns={columns}
               filename="new-hires-report"
               title={`New Hires Report (${startedFrom.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" })} - ${startedTo.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" })})`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
           </div>
-          <DataTable columns={columns} data={filteredEmployees} />
+          <DataTable
+            columns={columns}
+            data={filteredEmployees}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data as EmployeeWithRelations[]);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </div>

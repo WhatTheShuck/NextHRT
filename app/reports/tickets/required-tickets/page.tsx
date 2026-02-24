@@ -12,6 +12,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [uniqueEmployees, setUniqueEmployees] = useState<number>(0);
   const [rowCount, setRowCount] = useState<number>(0);
+  const [sortedData, setSortedData] = useState<Employee[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -62,9 +64,18 @@ export default function Page() {
               columns={columns}
               filename={`ticket-requirements-complete)}`}
               title={`Ticket Requirements Report`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
           </div>
-          <DataTable columns={columns} data={allEmployees} />
+          <DataTable
+            columns={columns}
+            data={allEmployees}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </div>

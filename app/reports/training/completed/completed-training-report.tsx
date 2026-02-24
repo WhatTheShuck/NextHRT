@@ -34,6 +34,10 @@ export function CompletedTrainingClient() {
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortedData, setSortedData] = useState<TrainingRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   // New state for toggles
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
@@ -192,6 +196,8 @@ export function CompletedTrainingClient() {
               columns={columns}
               filename={`${selectedTrainingTitle}-completions`}
               title={`${selectedTrainingTitle} - Completion Records`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
 
             <div className="flex items-center gap-4">
@@ -201,7 +207,14 @@ export function CompletedTrainingClient() {
             </div>
           </div>
 
-          <DataTable columns={columns} data={filteredTrainingRecords} />
+          <DataTable
+            columns={columns}
+            data={filteredTrainingRecords}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </>

@@ -30,6 +30,10 @@ export default function CompletedTicketPage() {
   const [error, setError] = useState<string | null>(null);
   const [includeLegacyTicket, setIncludeLegacyTicket] = useState(false);
   const [includeExpiredTickets, setIncludeExpiredTickets] = useState(false);
+  const [sortedData, setSortedData] = useState<TicketRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   // Fetch tickets based on legacy and expired toggles
   const fetchTickets = async (
@@ -130,9 +134,18 @@ export default function CompletedTicketPage() {
                 columns={columns}
                 filename={`${selectedTicketTitle || "all-tickets"}-completions`}
                 title={`${selectedTicketTitle || "All Tickets"} - Completion Records`}
+                sortedData={sortedData}
+                isSorted={isSorted}
               />
             </div>
-            <DataTable columns={columns} data={filteredTicketRecords} />
+            <DataTable
+              columns={columns}
+              data={filteredTicketRecords}
+              onSortedDataChange={(data, sorted) => {
+                setSortedData(data);
+                setIsSorted(sorted);
+              }}
+            />
           </div>
         )}
       </div>

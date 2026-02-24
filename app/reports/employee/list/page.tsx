@@ -23,6 +23,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<string[]>([]);
+  const [sortedData, setSortedData] = useState<EmployeeWithRelations[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -86,6 +88,8 @@ export default function Page() {
           columns={columns}
           filename="active-employees"
           title="Active Employees Report"
+          sortedData={sortedData}
+          isSorted={isSorted}
         />
         <p className="font-medium">
           {" "}
@@ -130,7 +134,14 @@ export default function Page() {
           </PopoverContent>
         </Popover>
       </div>
-      <DataTable columns={columns} data={filteredEmployees} />
+      <DataTable
+        columns={columns}
+        data={filteredEmployees}
+        onSortedDataChange={(data, sorted) => {
+          setSortedData(data as EmployeeWithRelations[]);
+          setIsSorted(sorted);
+        }}
+      />
     </div>
   );
 }

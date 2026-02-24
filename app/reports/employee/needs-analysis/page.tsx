@@ -36,6 +36,8 @@ export default function Page() {
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
   const [includeCompletedRecords, setIncludeCompletedRecords] = useState(false);
+  const [sortedData, setSortedData] = useState<RequirementItem[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
 
   // Compute filtered employees based on toggle
   const filteredEmployees = useMemo(() => {
@@ -275,9 +277,18 @@ export default function Page() {
                 columns={columns}
                 filename="employee-requirements"
                 title="Employee Requirements Report"
+                sortedData={sortedData}
+                isSorted={isSorted}
               />
             </div>
-            <DataTable columns={columns} data={filteredRequirements} />
+            <DataTable
+              columns={columns}
+              data={filteredRequirements}
+              onSortedDataChange={(data, sorted) => {
+                setSortedData(data);
+                setIsSorted(sorted);
+              }}
+            />
           </div>
         )}
       </div>

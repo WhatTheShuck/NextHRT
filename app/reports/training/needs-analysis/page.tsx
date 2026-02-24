@@ -24,6 +24,10 @@ export default function Page() {
     null,
   );
   const [selectedTrainingName, setSelectedTrainingName] = useState<string>("");
+  const [sortedData, setSortedData] = useState<EmployeeWithRequirementStatus[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   useEffect(() => {
     const fetchTraining = async () => {
@@ -139,9 +143,18 @@ export default function Page() {
               columns={columns}
               filename={`training-requirements-${selectedTrainingName.toLowerCase().replace(/\s+/g, "-")}`}
               title={`Training Requirements Report - ${selectedTrainingName}`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
           </div>
-          <DataTable columns={columns} data={displayedEmployees} />
+          <DataTable
+            columns={columns}
+            data={displayedEmployees}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </div>

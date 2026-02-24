@@ -41,6 +41,10 @@ export function ExpiringTicketRecordsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<string[]>([]);
+  const [sortedData, setSortedData] = useState<TicketRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
@@ -345,6 +349,8 @@ export function ExpiringTicketRecordsPage() {
               columns={columns}
               filename={`${selectedTicketTitle}-expiring-${selectedExpirationDays}days${includeRecentlyExpired ? `-expired-${recentlyExpiredDays}days` : ""}`}
               title={`${selectedTicketTitle} - Expiring Records (${selectedExpirationDays} days)${includeRecentlyExpired ? ` & Recently Expired (${recentlyExpiredDays} days)` : ""}`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
             <p className="font-medium">
               Record Count: {filteredTicketRecords.length}
@@ -390,7 +396,14 @@ export function ExpiringTicketRecordsPage() {
               </PopoverContent>
             </Popover>
           </div>
-          <DataTable columns={columns} data={filteredTicketRecords} />
+          <DataTable
+            columns={columns}
+            data={filteredTicketRecords}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </>

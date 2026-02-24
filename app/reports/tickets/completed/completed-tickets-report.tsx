@@ -41,6 +41,10 @@ export function CompletedTicketPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<string[]>([]);
+  const [sortedData, setSortedData] = useState<TicketRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
@@ -211,6 +215,8 @@ export function CompletedTicketPage() {
               columns={columns}
               filename={`${selectedTicketTitle}-completions`}
               title={`${selectedTicketTitle} - Completion Records`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
             <p className="font-medium">
               {" "}
@@ -257,7 +263,14 @@ export function CompletedTicketPage() {
               </PopoverContent>
             </Popover>
           </div>
-          <DataTable columns={columns} data={filteredTicketRecords} />
+          <DataTable
+            columns={columns}
+            data={filteredTicketRecords}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </>

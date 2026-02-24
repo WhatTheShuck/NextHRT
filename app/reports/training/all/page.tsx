@@ -25,6 +25,10 @@ export default function CompletedTrainingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [includeLegacyTraining, setIncludeLegacyTraining] = useState(false);
+  const [sortedData, setSortedData] = useState<TrainingRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   // Fetch training based on legacy and expired toggles
   const fetchTraining = async (includeLegacy: boolean = false) => {
@@ -100,9 +104,18 @@ export default function CompletedTrainingPage() {
                 columns={columns}
                 filename={`${selectedTrainingTitle || "all-training"}-completions`}
                 title={`${selectedTrainingTitle || "All Training"} - Completion Records`}
+                sortedData={sortedData}
+                isSorted={isSorted}
               />
             </div>
-            <DataTable columns={columns} data={filteredTrainingRecords} />
+            <DataTable
+              columns={columns}
+              data={filteredTrainingRecords}
+              onSortedDataChange={(data, sorted) => {
+                setSortedData(data);
+                setIsSorted(sorted);
+              }}
+            />
           </div>
         )}
       </div>
