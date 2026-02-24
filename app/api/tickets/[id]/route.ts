@@ -20,6 +20,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const expirationDays = searchParams.get("expirationDays");
   const activeOnly = searchParams.get("activeOnly") === "true";
+  const expiredDays = searchParams.get("includeExpired"); // how many days back to include expired tickets
   const includeRequirements =
     searchParams.get("includeRequirements") === "true";
 
