@@ -298,6 +298,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
       <AddDepartmentDialog
         open={isDepartmentDialogOpen}
         onOpenChange={setIsDepartmentDialogOpen}
+        departments={departments}
         onDepartmentAdded={(dept) => {
           setDepartments([...departments, dept]);
           setDepartmentId(dept.id.toString());

@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const hasAccess = await hasAccessToEmployee(session.user.id, employeeId);
+    const hasAccess = await hasAccessToEmployee(session.user.id, employeeId, session.user.role as string);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Not authorised to view this employee" },

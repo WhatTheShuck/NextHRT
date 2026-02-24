@@ -9,7 +9,7 @@ export function SignOut() {
   return (
     <button
       className="flex w-full items-center text-sm"
-      onClick={() => startTransition(() => signOut())}
+      onClick={() => startTransition(() => { void signOut(); })}
       disabled={isPending}
     >
       <LogOut className="mr-2 h-4 w-4" />

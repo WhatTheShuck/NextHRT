@@ -303,6 +303,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       <AddDepartmentDialog
         open={isDepartmentDialogOpen}
         onOpenChange={setIsDepartmentDialogOpen}
+        departments={departments}
         onDepartmentAdded={(dept) => {
           setDepartments([...departments, dept]);
           setDepartmentId(dept.id.toString());

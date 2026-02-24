@@ -222,16 +222,16 @@ export function DuplicateEmployeeDialog({
 
                     <div className="flex items-center gap-2 text-gray-700">
                       <Building className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                      <span className="font-medium">Business Area:</span>
+                      <span className="font-medium">Department:</span>
                       <span className="text-gray-600">
-                        {match.businessArea}
+                        {match.department?.name || "Not specified"}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2 text-gray-700">
                       <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                      <span className="font-medium">Job:</span>
-                      <span className="text-gray-600">{match.job}</span>
+                      <span className="font-medium">Title:</span>
+                      <span className="text-gray-600">{match.title}</span>
                     </div>
 
                     {match.startDate && (
