@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { Category } from "@/generated/prisma_client";
+import { Category } from "@/generated/prisma_client/client";
 
 export interface GetTrainingsOptions {
   activeOnly?: boolean;

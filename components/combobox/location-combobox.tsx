@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Location } from "@/generated/prisma_client";
+import { Location } from "@/generated/prisma_client/client";
 
 interface LocationComboboxProps {
   locations: Location[];

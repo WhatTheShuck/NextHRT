@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import { DateSelector } from "@/components/date-selector";
 import { ExpiryRecalcDialog } from "@/components/dialogs/ticket-records/ticket-record-expiry-recalc-dialog";
 import api from "@/lib/axios";

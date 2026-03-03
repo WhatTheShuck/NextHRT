@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Location } from "@/generated/prisma_client";
+import { Location } from "@/generated/prisma_client/client";
 
 interface AddLocationDialogProps {
   open: boolean;

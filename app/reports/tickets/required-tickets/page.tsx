@@ -4,7 +4,7 @@ import { columns } from "./columns";
 import { ExportButtons } from "@/components/ExportButtons";
 import React, { useEffect, useMemo, useState } from "react";
 import api from "@/lib/axios";
-import { Employee } from "@/generated/prisma_client";
+import { Employee } from "@/generated/prisma_client/client";
 
 export default function Page() {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);

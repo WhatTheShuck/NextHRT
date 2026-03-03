@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { NewTrainingDialog } from "@/components/dialogs/training/add-training-dialog";
 import { useEffect, useState } from "react";
-import { Training } from "@/generated/prisma_client";
+import { Training } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import { EditTrainingDialog } from "@/components/dialogs/training/edit-training-dialog";
 import { DeleteTrainingDialog } from "@/components/dialogs/training/delete-training-dialog";

@@ -54,7 +54,7 @@ import {
   User2,
 } from "lucide-react";
 import type { UserCandidateForEmployee } from "@/lib/services/matchingService";
-import { User } from "@/generated/prisma_client";
+import { User } from "@/generated/prisma_client/client";
 
 type LinkedUser = {
   id: string;

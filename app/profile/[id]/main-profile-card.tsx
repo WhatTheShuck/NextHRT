@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/axios";
-import { User } from "@/generated/prisma_client";
+import { User } from "@/generated/prisma_client/client";
 import { AlertTriangle } from "lucide-react";
 interface MainProfileCardProps {
   userId: string;

@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { auth } from "../auth";
-import { UserRole } from "@/generated/prisma_client";
+import { UserRole } from "@/generated/prisma_client/client";
 
 export interface GetHistoryOptions {
   tableName?: string | null;

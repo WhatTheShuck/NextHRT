@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Archive, Check, Users } from "lucide-react";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import { TicketRecordsWithRelations, TicketWithRelations } from "@/lib/types";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";

@@ -10,7 +10,7 @@ import { AxiosError } from "axios";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { TicketCombobox } from "@/components/combobox/ticket-combobox";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 
 export default function Page() {
   const [allEmployees, setAllEmployees] = useState<

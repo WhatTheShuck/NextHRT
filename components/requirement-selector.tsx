@@ -1,6 +1,6 @@
 "use client";
 
-import { Department, Location } from "@/generated/prisma_client";
+import { Department, Location } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import React, { useEffect, useState } from "react";
 import { DepartmentCombobox } from "./combobox/department-combobox";

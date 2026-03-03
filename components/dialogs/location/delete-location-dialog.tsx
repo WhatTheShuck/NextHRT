@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertTriangle } from "lucide-react";
-import { Location } from "@/generated/prisma_client";
+import { Location } from "@/generated/prisma_client/client";
 
 interface DeleteLocationDialogProps {
   open: boolean;

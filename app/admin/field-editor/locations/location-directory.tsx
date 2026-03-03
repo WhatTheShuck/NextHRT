@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
 import { useEffect, useState } from "react";
-import { Location } from "@/generated/prisma_client";
+import { Location } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import { EditLocationDialog } from "@/components/dialogs/location/edit-location-dialog";
 import { DeleteLocationDialog } from "@/components/dialogs/location/delete-location-dialog";

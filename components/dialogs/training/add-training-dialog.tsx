@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Training, Category } from "@/generated/prisma_client";
+import { Training, Category } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import {

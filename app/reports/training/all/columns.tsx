@@ -3,7 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { TrainingRecords } from "@/generated/prisma_client";
+import { TrainingRecords } from "@/generated/prisma_client/client";
 
 export const columns: ColumnDef<TrainingRecords>[] = [
   {

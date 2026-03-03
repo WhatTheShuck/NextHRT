@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
-import { Department, User, UserRole } from "@/generated/prisma_client";
+import { Department, User, UserRole } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { useRouter } from "next/navigation";

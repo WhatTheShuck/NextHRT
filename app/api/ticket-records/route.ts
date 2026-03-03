@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { UserRole } from "@/generated/prisma_client";
+import { UserRole } from "@/generated/prisma_client/client";
 import { ticketRecordService } from "@/lib/services/ticketRecordService";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 

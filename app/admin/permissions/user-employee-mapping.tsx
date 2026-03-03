@@ -43,7 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { EmployeeWithRelations } from "@/lib/types";
-import { User } from "@/generated/prisma_client";
+import { User } from "@/generated/prisma_client/client";
 
 export function UserEmployeeMapping() {
   const [users, setUsers] = useState<User[]>([]);

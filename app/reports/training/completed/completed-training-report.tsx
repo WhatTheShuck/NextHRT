@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Check, Users, Archive } from "lucide-react";
-import { Training } from "@/generated/prisma_client";
+import { Training } from "@/generated/prisma_client/client";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
 import { ExportButtons } from "@/components/ExportButtons";

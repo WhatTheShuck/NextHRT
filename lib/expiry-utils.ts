@@ -1,4 +1,4 @@
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 
 /**
  * Calculate expiry date based on issue date and ticket renewal period

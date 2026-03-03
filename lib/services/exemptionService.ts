@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { ExemptionStatus, UserRole } from "@/generated/prisma_client";
+import { ExemptionStatus, UserRole } from "@/generated/prisma_client/client";
 import { auth } from "../auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 

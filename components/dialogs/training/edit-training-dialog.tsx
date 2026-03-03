@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Training, Category } from "@/generated/prisma_client";
+import { Training, Category } from "@/generated/prisma_client/client";
 import { Switch } from "@/components/ui/switch";
 import {
   RequirementPair,

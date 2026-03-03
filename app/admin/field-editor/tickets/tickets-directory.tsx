@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 import { NewTicketDialog } from "@/components/dialogs/tickets/add-ticket-dialog";
 import { useEffect, useState } from "react";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import { EditTicketDialog } from "@/components/dialogs/tickets/edit-ticket-dialog";
 import { DeleteTicketDialog } from "@/components/dialogs/tickets/delete-ticket-dialog";
