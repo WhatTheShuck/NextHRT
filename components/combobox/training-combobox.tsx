@@ -24,7 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Training } from "@/generated/prisma_client";
+import { Training } from "@/generated/prisma_client/client";
 import { NewTrainingDialog } from "@/components/dialogs/training/add-training-dialog";
 
 interface TrainingComboboxProps {

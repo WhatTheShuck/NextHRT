@@ -21,7 +21,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { AlertTriangle } from "lucide-react";
-import { Training } from "@/generated/prisma_client";
+import { Training } from "@/generated/prisma_client/client";
 
 interface DeleteTrainingDialogProps {
   open: boolean;

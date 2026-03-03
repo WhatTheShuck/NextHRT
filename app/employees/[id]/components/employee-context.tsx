@@ -13,7 +13,7 @@ import {
   TrainingRecordsWithRelations,
 } from "@/lib/types";
 import { AxiosError } from "axios";
-import { TrainingTicketExemption } from "@/generated/prisma_client";
+import { TrainingTicketExemption } from "@/generated/prisma_client/client";
 
 type EmployeeContextType = {
   employee: EmployeeWithRelations | null;

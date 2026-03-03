@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
 import { useEffect, useState } from "react";
-import { Department } from "@/generated/prisma_client";
+import { Department } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import { EditDepartmentDialog } from "@/components/dialogs/department/edit-department-dialog";
 import { DeleteDepartmentDialog } from "@/components/dialogs/department/delete-department-dialog";

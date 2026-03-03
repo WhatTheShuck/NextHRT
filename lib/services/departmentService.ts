@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { UserRole } from "@/generated/prisma_client";
+import { UserRole } from "@/generated/prisma_client/client";
 import { auth } from "../auth";
 
 export interface GetDepartmentsOptions {

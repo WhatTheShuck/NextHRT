@@ -26,7 +26,7 @@ import {
   Ticket,
   Training,
   TrainingTicketExemption,
-} from "@/generated/prisma_client";
+} from "@/generated/prisma_client/client";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DateSelector } from "@/components/date-selector";
 import { TicketCombobox } from "@/components/combobox/ticket-combobox";

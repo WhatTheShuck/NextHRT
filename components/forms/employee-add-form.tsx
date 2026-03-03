@@ -18,7 +18,7 @@ import {
   Department,
   EmployeeStatus,
   Location,
-} from "@/generated/prisma_client";
+} from "@/generated/prisma_client/client";
 import { Plus } from "lucide-react";
 import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
 import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";

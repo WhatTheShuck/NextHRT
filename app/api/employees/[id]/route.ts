@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { UserRole } from "@/generated/prisma_client";
+import { UserRole } from "@/generated/prisma_client/client";
 import { employeeService } from "@/lib/services/employeeService";
 import { hasAccessToEmployee } from "@/lib/apiRBAC";
 

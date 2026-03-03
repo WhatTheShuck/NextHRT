@@ -2,7 +2,7 @@ import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import prisma from "@/lib/prisma";
-import { UserRole } from "@/generated/prisma_client";
+import { UserRole } from "@/generated/prisma_client/client";
 import { hasAccessToEmployee } from "@/lib/apiRBAC";
 
 export class ImageService {

@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { UserRole } from "@/generated/prisma_client";
+import { UserRole } from "@/generated/prisma_client/client";
 import { fileUploadService } from "./fileUploadService";
 import { auth } from "../auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Employee, Training } from "@/generated/prisma_client";
+import { Employee, Training } from "@/generated/prisma_client/client";
 import { EmployeeSelector } from "./components/employee-selector";
 import { AlertBox } from "@/components/ui/alert-box";
 import api from "@/lib/axios";

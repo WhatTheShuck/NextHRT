@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Location } from "@/generated/prisma_client";
+import { Location } from "@/generated/prisma_client/client";
 import { Switch } from "@/components/ui/switch";
 
 interface EditLocationDialogProps {

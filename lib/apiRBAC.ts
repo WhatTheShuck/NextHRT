@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { UserRole } from "@/generated/prisma_client";
+import { UserRole } from "@/generated/prisma_client/client";
 
 /**
  * Check if user can access a specific employee.

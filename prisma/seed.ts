@@ -1,6 +1,12 @@
-import { PrismaClient, Category } from "../generated/prisma_client";
+import "dotenv/config";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaClient, Category } from "../generated/prisma_client/client";
 import { faker } from "@faker-js/faker";
-const prisma = new PrismaClient();
+
+const url = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
+const filePath = url.replace(/^file:/, "");
+const adapter = new PrismaBetterSqlite3({ url: filePath });
+const prisma = new PrismaClient({ adapter });
 
 // Configuration
 const NUM_EMPLOYEES = 1000;

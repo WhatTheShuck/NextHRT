@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Department } from "@/generated/prisma_client";
+import { Department } from "@/generated/prisma_client/client";
 
 interface DepartmentComboboxProps {
   departments: Department[];

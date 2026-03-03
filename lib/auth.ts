@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { PrismaClient } from "@/generated/prisma_client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaClient } from "@/generated/prisma_client/client";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins";
 import {
@@ -10,7 +11,10 @@ import {
   fireWardenRole,
   userRole,
 } from "@/lib/permissions";
-const prisma = new PrismaClient();
+const dbUrl = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
+const prisma = new PrismaClient({
+  adapter: new PrismaBetterSqlite3({ url: dbUrl.replace(/^file:/, "") }),
+});
 export const auth = betterAuth({
   socialProviders: {
     microsoft: {
