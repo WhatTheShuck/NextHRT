@@ -3,6 +3,7 @@ import { NavigationCard } from "@/components/navigation-card";
 import { landingPageNavigationItems } from "@/lib/data";
 import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function LandingPageContent() {
   const { data: session } = authClient.useSession();
@@ -101,8 +102,19 @@ export function LandingPageContent() {
   if (isCheckingPermissions) {
     return (
       <div className="min-h-screen bg-background p-8">
-        <div className="max-w-6xl mx-auto">
-          <p className="text-muted-foreground">Loading your dashboard...</p>
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-5 w-96" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-36" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full rounded-lg" />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );

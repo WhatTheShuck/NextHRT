@@ -11,6 +11,7 @@ import { EmployeeWithRelations } from "@/lib/types";
 import { EmployeeAccessInfo, AccessorInfo } from "@/lib/services/accessCheckService";
 import api from "@/lib/axios";
 import { Archive, Building2, MapPin, Users } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function AccessorBadge({ reason }: { reason: AccessorInfo["accessReason"] }) {
   if (reason === "Admin") return <Badge className="bg-blue-500 text-white">Admin</Badge>;
@@ -129,7 +130,26 @@ export function AccessCheckAdminContent() {
       </div>
 
       {/* Access result */}
-      {loading && <p className="text-muted-foreground">Loading access information...</p>}
+      {loading && (
+        <div className="space-y-4">
+          <Skeleton className="h-4 w-72" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="border rounded-lg p-4 space-y-3">
+                <Skeleton className="h-5 w-24" />
+                <div className="space-y-2">
+                  {Array.from({ length: 2 }).map((_, j) => (
+                    <div key={j} className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                      <Skeleton className="h-4 w-28" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="text-destructive bg-destructive/10 rounded-lg p-4">{error}</div>

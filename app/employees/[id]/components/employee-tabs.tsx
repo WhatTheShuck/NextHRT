@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEmployee } from "./employee-context";
 import { useSession } from "@/lib/auth-client";
+import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewTab } from "./tabs/overview-tab";
 import { InternalTrainingTab } from "./tabs/training-internal-tab";
 import { ExternalTrainingTab } from "./tabs/training-external-tab";
@@ -37,7 +38,7 @@ const VALID_TABS = [
 type TabValue = (typeof VALID_TABS)[number];
 
 export function EmployeeTabs() {
-  const { employee } = useEmployee();
+  const { employee, isLoading } = useEmployee();
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "Admin";
   const router = useRouter();
@@ -68,6 +69,36 @@ export function EmployeeTabs() {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-full rounded-md" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="border rounded-lg p-6 space-y-4">
+            <Skeleton className="h-5 w-40" />
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-28 ml-auto" />
+              </div>
+            ))}
+          </div>
+          <div className="border rounded-lg p-6 space-y-4">
+            <Skeleton className="h-5 w-24" />
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-28 ml-auto" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!employee) return null;
 

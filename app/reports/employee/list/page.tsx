@@ -13,6 +13,7 @@ import { Check } from "lucide-react";
 import { EmployeeWithRelations } from "@/lib/types";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Page() {
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
@@ -74,7 +75,25 @@ export default function Page() {
   };
 
   if (loading) {
-    return <div className="text-center py-4">Loading employees...</div>;
+    return (
+      <div className="container py-10 mx-auto">
+        <div className="flex justify-between items-center mb-4">
+          <Skeleton className="h-9 w-32" />
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-9 w-36" />
+        </div>
+        <div className="border rounded-md">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex gap-6 p-3 border-b last:border-0 items-center">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 flex-1" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {

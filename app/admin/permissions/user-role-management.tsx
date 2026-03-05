@@ -18,6 +18,7 @@ import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { useRouter } from "next/navigation";
 import { EditUserRoleDialog } from "@/components/dialogs/user/edit-user-role-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function UserRoleManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -105,7 +106,40 @@ export function UserRoleManagement() {
   };
 
   if (loading && users.length === 0) {
-    return <div className="flex justify-center my-8">Loading users...</div>;
+    return (
+      <div>
+        <div className="flex items-center space-x-2 mb-4">
+          <Skeleton className="h-9 flex-1" />
+        </div>
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Current Role</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end space-x-2">
+                      <Skeleton className="h-8 w-24" />
+                      <Skeleton className="h-8 w-20" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
   }
 
   if (error) {

@@ -9,6 +9,7 @@ import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DateSelector } from "@/components/date-selector";
 
 export default function Page() {
@@ -111,7 +112,13 @@ export default function Page() {
       </div>
 
       {/* Loading state */}
-      {loading && <div className="text-centre py-8">Loading...</div>}
+      {loading && (
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
+      )}
 
       {/* Error state */}
       {error && (

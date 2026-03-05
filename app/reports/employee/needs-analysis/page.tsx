@@ -10,6 +10,7 @@ import { AxiosError } from "axios";
 import { EmployeeCombobox } from "@/components/combobox/employee-combobox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Unified requirement item interface for display
 export interface RequirementItem extends Record<string, unknown> {
@@ -260,7 +261,13 @@ export default function Page() {
           />
         </div>
 
-        {loading && <div className="text-center py-4">Loading...</div>}
+        {loading && (
+          <div className="space-y-2 py-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-md" />
+            ))}
+          </div>
+        )}
 
         {error && (
           <div className="text-center py-4 text-red-500">Error: {error}</div>

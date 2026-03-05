@@ -7,6 +7,7 @@ import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -336,8 +337,21 @@ export function UserLinkTab() {
           </CardHeader>
           <CardContent>
             {loadingSuggestions ? (
-              <div className="flex justify-center my-4 text-sm text-muted-foreground">
-                Loading suggestions...
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex gap-4 items-center border-b pb-2 last:border-0">
+                    <div className="flex-1 space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                    <div className="flex gap-1">
+                      <Skeleton className="h-5 w-14 rounded-full" />
+                      <Skeleton className="h-5 w-14 rounded-full" />
+                    </div>
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="border rounded-md">

@@ -16,6 +16,7 @@ import { LinkIcon, ChevronDown, ChevronRight, RefreshCw, Search } from "lucide-r
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import type { UserMatchSuggestion } from "@/lib/services/matchingService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function SuggestionPanel() {
   const [suggestions, setSuggestions] = useState<UserMatchSuggestion[]>([]);
@@ -105,7 +106,57 @@ export function SuggestionPanel() {
   };
 
   if (loading && suggestions.length === 0) {
-    return <div className="flex justify-center my-8">Loading suggestions...</div>;
+    return (
+      <div>
+        <div className="flex items-center space-x-2 mb-4">
+          <Skeleton className="h-9 flex-1" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-8" />
+                <TableHead>User</TableHead>
+                <TableHead>Top Candidate</TableHead>
+                <TableHead>Score</TableHead>
+                <TableHead>Strategies</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell />
+                  <TableCell>
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-40" />
+                    </div>
+                  </TableCell>
+                  <TableCell><Skeleton className="h-5 w-12 rounded-full" /></TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-8 w-16 ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
   }
 
   if (error) {

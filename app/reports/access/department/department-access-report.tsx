@@ -11,6 +11,7 @@ import { columns } from "./columns";
 import { EmployeeAccessInfo } from "@/lib/services/accessCheckService";
 import { Department } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function DepartmentAccessReport() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -62,7 +63,13 @@ export function DepartmentAccessReport() {
         />
       </div>
 
-      {loading && <div className="text-center py-4">Loading access data...</div>}
+      {loading && (
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="text-destructive bg-destructive/10 rounded-lg p-4">{error}</div>

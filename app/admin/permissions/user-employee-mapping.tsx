@@ -44,6 +44,7 @@ import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { EmployeeWithRelations } from "@/lib/types";
 import { User } from "@/generated/prisma_client/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function UserEmployeeMapping() {
   const [users, setUsers] = useState<User[]>([]);
@@ -222,7 +223,39 @@ export function UserEmployeeMapping() {
   };
 
   if (loading && users.length === 0) {
-    return <div className="flex justify-center my-8">Loading data...</div>;
+    return (
+      <div>
+        <div className="flex items-center space-x-2 mb-4">
+          <Skeleton className="h-9 flex-1" />
+        </div>
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Linked Employee</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-36 rounded-full" /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Skeleton className="h-8 w-16" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
   }
 
   if (error) {

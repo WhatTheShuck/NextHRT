@@ -15,13 +15,30 @@ import { useEmployee } from "./employee-context";
 import { EmployeeEditForm } from "@/components/forms/employee-edit-form";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function EmployeeHeader() {
-  const { employee } = useEmployee();
+  const { employee, isLoading } = useEmployee();
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user.role === "Admin";
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-16 w-16 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!employee) return null;
 

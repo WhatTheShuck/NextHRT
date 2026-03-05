@@ -17,6 +17,7 @@ import { ExportButtons } from "@/components/ExportButtons";
 import { TrainingCombobox } from "../../../../components/combobox/training-combobox";
 import api from "@/lib/axios";
 import { TrainingRecordsWithRelations } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function CompletedTrainingClient() {
   const [trainingSelection, setTrainingSelection] = useState<Training[]>([]);
@@ -177,7 +178,11 @@ export function CompletedTrainingClient() {
 
       {/* Loading and error states */}
       {loading && (
-        <div className="text-center py-4">Loading Training Records...</div>
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
       )}
 
       {error && (
