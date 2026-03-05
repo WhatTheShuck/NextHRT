@@ -253,7 +253,7 @@ export function TrainingEditForm({
                     onClick={() =>
                       window.open(`/api/images/${image.imagePath}`, "_blank")
                     }
-                    className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full"
+                    className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full cursor-pointer"
                   >
                     {isPDF(image.originalName) ? (
                       <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 dark:bg-red-900/20">
