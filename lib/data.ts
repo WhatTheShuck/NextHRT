@@ -15,6 +15,7 @@ import {
   UserPlus,
   UserCheck,
   SlidersHorizontal,
+  Eye,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -82,6 +83,13 @@ export const landingPageNavigationItems: NavigationItem[] = [
     icon: SlidersHorizontal,
     href: "/admin/settings",
     minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Access Check",
+    description: "See who has access to employee data",
+    icon: Eye,
+    href: "/access-check",
+    minimumAllowedPermission: "employee:viewSelf",
   },
 ];
 
@@ -171,6 +179,27 @@ export const reportsNavigationItems: NavigationItem[] = [
     icon: ShieldCheck,
     href: "/reports/tickets/required-tickets",
     minimumAllowedPermission: "department:manage",
+  },
+  {
+    title: "All Staff Access Report",
+    description: "View which users can access each employee's data",
+    icon: Eye,
+    href: "/reports/access/all",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Department Access Report",
+    description: "View access by department",
+    icon: Eye,
+    href: "/reports/access/department",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Location Access Report",
+    description: "View access by location",
+    icon: Eye,
+    href: "/reports/access/location",
+    minimumAllowedPermission: "user:impersonate",
   },
 ];
 

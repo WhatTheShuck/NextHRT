@@ -22,9 +22,14 @@ const REPORT_CATEGORIES = [
     prefix: "/reports/tickets",
     href: "/reports/tickets",
   },
+  {
+    label: "Access Reports",
+    prefix: "/reports/access",
+    href: "/reports/access",
+  },
 ];
 
-type ReportCategory = "employee" | "training" | "tickets";
+type ReportCategory = "employee" | "training" | "tickets" | "access";
 
 export function ReportsContent({
   category,
