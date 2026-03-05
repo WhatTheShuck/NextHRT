@@ -72,7 +72,7 @@ export async function PUT(
     body: { role: userRole, permissions: { trainingRecord: ["edit"] } },
   });
 
-  if (!canEdit) {
+  if (!canEdit.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -189,7 +189,7 @@ export async function DELETE(
     body: { role: userRole, permissions: { trainingRecord: ["delete"] } },
   });
 
-  if (!canDelete) {
+  if (!canDelete.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

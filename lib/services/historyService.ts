@@ -49,7 +49,7 @@ export class HistoryService {
       body: { role: userRole as UserRole, permissions: { employee: ["viewAll"] } },
     });
 
-    if (isDepartmentScoped && !isUnrestricted) {
+    if (isDepartmentScoped.success && !isUnrestricted.success) {
       const managedDepartments = await prisma.user.findUnique({
         where: { id: userId },
         include: {

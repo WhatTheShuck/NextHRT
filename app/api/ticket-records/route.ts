@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     body: { role: userRole, permissions: { ticketRecord: ["create"] } },
   });
 
-  if (!canCreate) {
+  if (!canCreate.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

@@ -25,7 +25,7 @@ export async function GET(
   });
 
   // Users can only view their own departments unless they have list permission (Admin)
-  if (!canList && currentUserId !== targetUserId) {
+  if (!canList.success && currentUserId !== targetUserId) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -72,7 +72,7 @@ export async function PUT(
     body: { role: userRole, permissions: { user: ["set-role"] } },
   });
 
-  if (!canSetRole) {
+  if (!canSetRole.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

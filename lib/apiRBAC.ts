@@ -26,7 +26,7 @@ export async function hasAccessToEmployee(
     },
   });
 
-  if (canViewAll) {
+  if (canViewAll.success) {
     return true;
   }
 
@@ -40,7 +40,7 @@ export async function hasAccessToEmployee(
     },
   });
 
-  if (canViewDepartment) {
+  if (canViewDepartment.success) {
     // Get user's managed departments
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -87,7 +87,7 @@ export async function hasAccessToEmployee(
     },
   });
 
-  if (canViewSelf) {
+  if (canViewSelf.success) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { employeeId: true },

@@ -82,7 +82,7 @@ export class TicketRecordService {
       body: { role: userRole, permissions: { employee: ["viewAll"] } },
     });
 
-    if (canViewAll) {
+    if (canViewAll.success) {
       return await prisma.ticketRecords.findMany({
         where: whereClause,
         include: includeClause,
@@ -94,7 +94,7 @@ export class TicketRecordService {
       body: { role: userRole, permissions: { employee: ["viewDepartment"] } },
     });
 
-    if (canViewDepartment) {
+    if (canViewDepartment.success) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },

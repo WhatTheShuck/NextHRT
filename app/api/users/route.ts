@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     body: { role: userRole, permissions: { user: ["list"] } },
   });
 
-  if (!canList) {
+  if (!canList.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

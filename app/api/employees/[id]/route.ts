@@ -191,7 +191,7 @@ export async function DELETE(
     body: { role: userRole, permissions: { employee: ["delete"] } },
   });
 
-  if (!canDelete) {
+  if (!canDelete.success) {
     return NextResponse.json(
       { error: "Only administrators can delete employees" },
       { status: 403 },

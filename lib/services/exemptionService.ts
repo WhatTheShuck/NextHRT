@@ -34,7 +34,7 @@ export class ExemptionService {
       body: { role: userRole, permissions: { employee: ["viewAll"] } },
     });
 
-    if (canViewAll) {
+    if (canViewAll.success) {
       return await prisma.trainingTicketExemption.findMany({
         include: includeClause,
         where: whereClause,
@@ -45,7 +45,7 @@ export class ExemptionService {
       body: { role: userRole, permissions: { employee: ["viewDepartment"] } },
     });
 
-    if (canViewDepartment) {
+    if (canViewDepartment.success) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -120,7 +120,7 @@ export class ExemptionService {
       body: { role: userRole, permissions: { employee: ["viewAll"] } },
     });
 
-    if (canViewAll) {
+    if (canViewAll.success) {
       return exemption;
     }
 
@@ -128,7 +128,7 @@ export class ExemptionService {
       body: { role: userRole, permissions: { employee: ["viewDepartment"] } },
     });
 
-    if (canViewDepartment) {
+    if (canViewDepartment.success) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },

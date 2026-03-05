@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     body: { role: userRole, permissions: { department: ["create"] } },
   });
 
-  if (!canCreate) {
+  if (!canCreate.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 

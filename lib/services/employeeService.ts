@@ -41,7 +41,7 @@ export class EmployeeService {
         permissions: { employee: ["viewAll"] },
       },
     });
-    if (canViewAll) {
+    if (canViewAll.success) {
       return await prisma.employee.findMany({
         include: {
           department: true,
@@ -62,7 +62,7 @@ export class EmployeeService {
           permissions: { employee: ["viewEvacReport"] },
         },
       });
-      if (!canViewEvac) {
+      if (!canViewEvac.success) {
         throw new Error("NO_EMPLOYEE_VIEWER_ACCESS");
       }
 
@@ -101,7 +101,7 @@ export class EmployeeService {
         permissions: { employee: ["viewDepartment"] },
       },
     });
-    if (canViewDepartment) {
+    if (canViewDepartment.success) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },

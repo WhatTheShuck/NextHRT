@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     body: { role: userRole, permissions: { reports: ["viewEmployee"] } },
   });
 
-  if (!canViewHistory) {
+  if (!canViewHistory.success) {
     return NextResponse.json(
       { error: "Not authorised to view history records" },
       { status: 403 },

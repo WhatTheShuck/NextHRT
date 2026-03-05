@@ -25,7 +25,7 @@ export async function GET(
   });
 
   // Users can only view themselves unless they have list permission (Admin)
-  if (!canList && currentUserId !== targetUserId) {
+  if (!canList.success && currentUserId !== targetUserId) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -72,7 +72,7 @@ export async function PATCH(
     body: { role: userRole, permissions: { user: ["set-role"] } },
   });
 
-  if (!canSetRole) {
+  if (!canSetRole.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -125,7 +125,7 @@ export async function DELETE(
     body: { role: userRole, permissions: { user: ["delete"] } },
   });
 
-  if (!canDelete || currentUserId === targetUserId) {
+  if (!canDelete.success || currentUserId === targetUserId) {
     return NextResponse.json(
       {
         message:

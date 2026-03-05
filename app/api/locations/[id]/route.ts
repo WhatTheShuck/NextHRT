@@ -66,7 +66,7 @@ export async function PUT(
     body: { role: userRole, permissions: { location: ["edit"] } },
   });
 
-  if (!canEdit) {
+  if (!canEdit.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
@@ -119,7 +119,7 @@ export async function DELETE(
     body: { role: userRole, permissions: { location: ["delete"] } },
   });
 
-  if (!canDelete) {
+  if (!canDelete.success) {
     return NextResponse.json({ message: "Not authorised" }, { status: 403 });
   }
 
