@@ -269,7 +269,7 @@ model Account {
 model Session {
   id        String   @id @default(cuid())
   expiresAt DateTime @map("expires") // Map your existing `expires` field to Better Auth's `expiresAt`
-  token     String   @map("sessionToken") // Map your existing `sessionToken` field to Better Auth's `token`
+  token     String   @unique @map("sessionToken") // Map your existing `sessionToken` field to Better Auth's `token`
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ipAddress String?
