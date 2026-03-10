@@ -61,9 +61,15 @@ export function TrainingAddForm({
     fetchData();
   }, []);
 
-  const addTraining = (newTraining: Training) => {
-    setTrainings([...trainings, newTraining]);
-    setTrainingId(newTraining.id.toString());
+  const addTraining = (newTraining: Training | Training[]) => {
+    if (Array.isArray(newTraining)) {
+      // SOP creation returns [taskSheet, practical] — add both, pre-select task sheet
+      setTrainings([...trainings, ...newTraining]);
+      setTrainingId(newTraining[0].id.toString());
+    } else {
+      setTrainings([...trainings, newTraining]);
+      setTrainingId(newTraining.id.toString());
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,7 +170,7 @@ export function TrainingAddForm({
       {/* Error Message Display */}
       {submitError && (
         <div className="flex items-start space-x-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm text-red-800 dark:text-red-200">
               {submitError}
@@ -190,6 +196,7 @@ export function TrainingAddForm({
           onNewTraining={addTraining}
           showAddButton={true}
           label="Training Course"
+          categoryHint={categoryHint}
         />
       </div>
 
@@ -283,7 +290,7 @@ export function TrainingAddForm({
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg min-w-0"
                   >
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <FileImage className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                      <FileImage className="w-5 h-5 text-gray-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {file.name}
@@ -298,7 +305,7 @@ export function TrainingAddForm({
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(index)}
-                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0 ml-2"
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 shrink-0 ml-2"
                     >
                       <X className="w-4 h-4" />
                     </Button>

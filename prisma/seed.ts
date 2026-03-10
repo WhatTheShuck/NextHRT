@@ -156,12 +156,12 @@ const EXTERNAL_TRAININGS = [
   "HAZCHEM Handling",
 ];
 
-const SOP_TRAININGS = [
-  "SOP - Forklift Operation",
-  "SOP - Chemical Handling",
-  "SOP - Electrical Isolation (LOTO)",
-  "SOP - Working at Heights",
-  "SOP - Emergency Shutdown",
+const SOP_NAMES = [
+  "Forklift Operation",
+  "Chemical Handling",
+  "Electrical Isolation (LOTO)",
+  "Working at Heights",
+  "Emergency Shutdown",
 ];
 
 const TICKETS = [
@@ -313,9 +313,10 @@ async function main() {
     ...EXTERNAL_TRAININGS.map((title) =>
       prisma.training.create({ data: { category: Category.External, title } }),
     ),
-    ...SOP_TRAININGS.map((title) =>
-      prisma.training.create({ data: { category: Category.SOP, title } }),
-    ),
+    ...SOP_NAMES.flatMap((name) => [
+      prisma.training.create({ data: { category: Category.SOP, title: `${name} - Task Sheet` } }),
+      prisma.training.create({ data: { category: Category.SOP, title: `${name} - Practical` } }),
+    ]),
   ]);
   const trainingByTitle = Object.fromEntries(trainings.map((t) => [t.title, t]));
 
@@ -331,14 +332,18 @@ async function main() {
 
   type Req = { training: string; dept: string; location: string };
   const trainingReqs: Req[] = [
-    { training: "Workplace Safety Fundamentals", dept: "Production", location: "Bundamba" },
-    { training: "Workplace Safety Fundamentals", dept: "Production", location: "Ipswich" },
-    { training: "SOP - Forklift Operation",       dept: "Production", location: "Bundamba" },
-    { training: "SOP - Forklift Operation",       dept: "Production", location: "Ipswich" },
-    { training: "SOP - Chemical Handling",         dept: "Safety & Environment", location: "Bundamba" },
-    { training: "SOP - Working at Heights",        dept: "Projects",  location: "Hope Valley" },
-    { training: "Code of Conduct and Ethics",      dept: "IT",        location: "Brisbane" },
-    { training: "Cyber Security Awareness",        dept: "IT",        location: "Brisbane" },
+    { training: "Workplace Safety Fundamentals",          dept: "Production",          location: "Bundamba"    },
+    { training: "Workplace Safety Fundamentals",          dept: "Production",          location: "Ipswich"     },
+    { training: "Forklift Operation - Task Sheet",        dept: "Production",          location: "Bundamba"    },
+    { training: "Forklift Operation - Practical",         dept: "Production",          location: "Bundamba"    },
+    { training: "Forklift Operation - Task Sheet",        dept: "Production",          location: "Ipswich"     },
+    { training: "Forklift Operation - Practical",         dept: "Production",          location: "Ipswich"     },
+    { training: "Chemical Handling - Task Sheet",         dept: "Safety & Environment", location: "Bundamba"   },
+    { training: "Chemical Handling - Practical",          dept: "Safety & Environment", location: "Bundamba"   },
+    { training: "Working at Heights - Task Sheet",        dept: "Projects",            location: "Hope Valley" },
+    { training: "Working at Heights - Practical",         dept: "Projects",            location: "Hope Valley" },
+    { training: "Code of Conduct and Ethics",             dept: "IT",                  location: "Brisbane"    },
+    { training: "Cyber Security Awareness",               dept: "IT",                  location: "Brisbane"    },
     // Emergency Response Procedures required at all sites for Safety & Environment
     ...LOCATIONS.map((l) => ({
       training: "Emergency Response Procedures",
@@ -570,7 +575,7 @@ async function main() {
       data: {
         employeeId: productionEmployees[0].id,
         type: ExemptionType.Training,
-        trainingId: trainingByTitle["SOP - Forklift Operation"].id,
+        trainingId: trainingByTitle["Forklift Operation - Task Sheet"].id,
         reason:
           "Employee has a pre-existing medical restriction and has been permanently reassigned to non-forklift duties.",
         status: ExemptionStatus.Active,

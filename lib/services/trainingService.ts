@@ -322,7 +322,98 @@ export class TrainingService {
       });
 
       return [updatedTraining, practicalTraining];
+    } else if (currentTraining.category === "SOP" && data.category !== "SOP") {
+      // SOP → non-SOP: strip suffix, delete sibling, update this record
+
+      // Strip " - Task Sheet" or " - Practical" suffix the admin may have left in
+      let baseTitle = data.title;
+      if (baseTitle.endsWith(" - Task Sheet")) {
+        baseTitle = baseTitle.slice(0, -" - Task Sheet".length);
+      } else if (baseTitle.endsWith(" - Practical")) {
+        baseTitle = baseTitle.slice(0, -" - Practical".length);
+      }
+
+      // Derive sibling title from the current stored title
+      let siblingTitle: string | null = null;
+      if (currentTraining.title.endsWith(" - Task Sheet")) {
+        siblingTitle =
+          currentTraining.title.slice(0, -" - Task Sheet".length) +
+          " - Practical";
+      } else if (currentTraining.title.endsWith(" - Practical")) {
+        siblingTitle =
+          currentTraining.title.slice(0, -" - Practical".length) +
+          " - Task Sheet";
+      }
+
+      if (siblingTitle) {
+        const sibling = await prisma.training.findFirst({
+          where: { title: siblingTitle, category: "SOP" },
+          include: { _count: { select: { trainingRecords: true } } },
+        });
+
+        if (sibling) {
+          if (sibling._count.trainingRecords > 0) {
+            throw new Error("SOP_SIBLING_HAS_RECORDS");
+          }
+
+          await prisma.trainingRequirement.deleteMany({
+            where: { trainingId: sibling.id },
+          });
+          await prisma.trainingTicketExemption.deleteMany({
+            where: { trainingId: sibling.id },
+          });
+          await prisma.training.delete({ where: { id: sibling.id } });
+
+          await prisma.history.create({
+            data: {
+              tableName: "Training",
+              recordId: sibling.id.toString(),
+              action: "DELETE",
+              oldValues: JSON.stringify(sibling),
+              userId,
+            },
+          });
+        }
+      }
+
+      const updatedTraining = await prisma.training.update({
+        where: { id },
+        data: {
+          category: data.category,
+          title: baseTitle,
+          isActive: data.isActive,
+        },
+      });
+
+      await prisma.history.create({
+        data: {
+          tableName: "Training",
+          recordId: id.toString(),
+          action: "UPDATE",
+          oldValues: JSON.stringify(currentTraining),
+          newValues: JSON.stringify(updatedTraining),
+          userId,
+        },
+      });
+
+      if (data.requirements) {
+        await prisma.trainingRequirement.deleteMany({
+          where: { trainingId: id },
+        });
+        for (const req of data.requirements) {
+          await prisma.trainingRequirement.create({
+            data: {
+              trainingId: updatedTraining.id,
+              departmentId: req.departmentId,
+              locationId: req.locationId,
+            },
+          });
+        }
+      }
+
+      return updatedTraining;
     } else {
+      // Normal update: non-SOP → non-SOP or SOP → SOP (title/active/requirements change)
       const updatedTraining = await prisma.training.update({
         where: { id },
         data: {
@@ -363,7 +454,7 @@ export class TrainingService {
     }
   }
 
-  async deleteTraining(id: number, userId: string) {
+  async deleteTraining(id: number, userId: string, deletePair = false) {
     const currentTraining = await prisma.training.findUnique({
       where: { id },
     });
@@ -380,24 +471,60 @@ export class TrainingService {
       throw new Error("TRAINING_HAS_RECORDS");
     }
 
-    await prisma.training.delete({
-      where: { id },
-    });
-    await prisma.trainingRequirement.deleteMany({
-      where: { trainingId: id },
-    });
+    // Resolve sibling for SOP pair deletion
+    let sibling: (typeof currentTraining) | null = null;
+    if (deletePair && currentTraining.category === "SOP") {
+      let siblingTitle: string | null = null;
+      if (currentTraining.title.endsWith(" - Task Sheet")) {
+        siblingTitle =
+          currentTraining.title.slice(0, -" - Task Sheet".length) +
+          " - Practical";
+      } else if (currentTraining.title.endsWith(" - Practical")) {
+        siblingTitle =
+          currentTraining.title.slice(0, -" - Practical".length) +
+          " - Task Sheet";
+      }
 
-    await prisma.history.create({
-      data: {
-        tableName: "Training",
-        recordId: id.toString(),
-        action: "DELETE",
-        oldValues: JSON.stringify(currentTraining),
-        userId,
-      },
-    });
+      if (siblingTitle) {
+        sibling = await prisma.training.findFirst({
+          where: { title: siblingTitle, category: "SOP" },
+        });
 
-    return { message: "Training course deleted successfully" };
+        if (sibling) {
+          const siblingRecords = await prisma.trainingRecords.count({
+            where: { trainingId: sibling.id },
+          });
+          if (siblingRecords > 0) {
+            throw new Error("SOP_SIBLING_HAS_RECORDS");
+          }
+        }
+      }
+    }
+
+    // Helper to fully remove a training
+    const deleteOne = async (t: typeof currentTraining) => {
+      await prisma.trainingRequirement.deleteMany({
+        where: { trainingId: t.id },
+      });
+      await prisma.trainingTicketExemption.deleteMany({
+        where: { trainingId: t.id },
+      });
+      await prisma.training.delete({ where: { id: t.id } });
+      await prisma.history.create({
+        data: {
+          tableName: "Training",
+          recordId: t.id.toString(),
+          action: "DELETE",
+          oldValues: JSON.stringify(t),
+          userId,
+        },
+      });
+    };
+
+    await deleteOne(currentTraining);
+    if (sibling) await deleteOne(sibling);
+
+    return sibling ? [currentTraining, sibling] : [currentTraining];
   }
 }
 

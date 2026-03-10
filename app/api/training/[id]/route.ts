@@ -108,6 +108,14 @@ export async function PUT(
             { error: "Training course not found" },
             { status: 404 },
           );
+        case "SOP_SIBLING_HAS_RECORDS":
+          return NextResponse.json(
+            {
+              error:
+                "Cannot change category: the paired SOP training has existing training records. Delete those records first.",
+            },
+            { status: 409 },
+          );
       }
     }
     return NextResponse.json(
@@ -154,7 +162,13 @@ export async function DELETE(
       );
     }
 
-    const result = await trainingService.deleteTraining(id, session.user.id);
+    const { searchParams } = new URL(request.url);
+    const deletePair = searchParams.get("deletePair") === "true";
+    const result = await trainingService.deleteTraining(
+      id,
+      session.user.id,
+      deletePair,
+    );
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Error) {
@@ -171,6 +185,14 @@ export async function DELETE(
                 "Cannot delete training course with existing training records",
             },
             { status: 400 },
+          );
+        case "SOP_SIBLING_HAS_RECORDS":
+          return NextResponse.json(
+            {
+              error:
+                "Cannot delete the paired SOP training: it has existing training records. Delete those records first, or delete this training individually.",
+            },
+            { status: 409 },
           );
       }
     }
