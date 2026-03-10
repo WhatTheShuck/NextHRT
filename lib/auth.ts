@@ -23,7 +23,6 @@ export const auth = betterAuth({
       // Optional
       tenantId: process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID as string,
       authority: "https://login.microsoftonline.com", // Authentication authority URL
-      prompt: "none", // "select_account" Forces account selection
     },
   },
   database: prismaAdapter(prisma, {
