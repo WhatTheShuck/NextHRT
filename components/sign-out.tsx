@@ -9,7 +9,13 @@ export function SignOut() {
   return (
     <button
       className="flex w-full items-center text-sm"
-      onClick={() => startTransition(() => { void signOut(); })}
+      onClick={() =>
+        startTransition(() => {
+          void signOut().then(() => {
+            window.location.href = "/auth";
+          });
+        })
+      }
       disabled={isPending}
     >
       <LogOut className="mr-2 h-4 w-4" />
