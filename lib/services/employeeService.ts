@@ -238,6 +238,10 @@ export class EmployeeService {
         status: data.status as any,
         isActive: data.isActive ?? true,
       },
+      include: {
+        department: true,
+        location: true,
+      },
     });
 
     // Create history record
