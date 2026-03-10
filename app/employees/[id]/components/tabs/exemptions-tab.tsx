@@ -32,7 +32,7 @@ import { DeleteTrainingTicketExemptionDialog } from "@/components/dialogs/exempt
 import { authClient } from "@/lib/auth-client";
 
 export function ExemptionTab() {
-  const { employee } = useEmployee();
+  const { employee, refreshData } = useEmployee();
   const exemptionRecords = useEmployeeTrainingTicketExemptions();
 
   const { data: session } = authClient.useSession();
@@ -51,7 +51,7 @@ export function ExemptionTab() {
 
   const handleEditSheetClose = () => {
     setEditingRecord(null);
-    window.location.reload();
+    refreshData();
   };
 
   const handleEditRecord = (record: TrainingTicketExemptionWithRelations) => {
@@ -182,7 +182,8 @@ export function ExemptionTab() {
         onOpenChange={setIsExemptionAddDialogOpen}
         employeeId={employee?.id!}
         onTrainingTicketExemptionAdded={() => {
-          window.location.reload();
+          setIsExemptionAddDialogOpen(false);
+          refreshData();
         }}
       />
       <EditTrainingTicketExemptionDialog
@@ -198,7 +199,9 @@ export function ExemptionTab() {
         onOpenChange={setIsDeleteDialogOpen}
         exemption={deletingRecord}
         onTrainingTicketExemptionDeleted={() => {
-          window.location.reload();
+          setDeletingRecord(null);
+          setIsDeleteDialogOpen(false);
+          refreshData();
         }}
       />
     </>

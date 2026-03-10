@@ -192,8 +192,11 @@ const LocationsDirectory = () => {
       <AddLocationDialog
         open={isLocationAddDialogOpen}
         onOpenChange={setIsLocationAddDialogOpen}
-        onLocationAdded={(dept) => {
-          setLocations([...locations, dept]);
+        onLocationAdded={(loc) => {
+          setLocations([
+            ...locations,
+            { ...loc, _count: { employees: 0, activeEmployees: 0 } },
+          ]);
         }}
       />
 
@@ -201,10 +204,10 @@ const LocationsDirectory = () => {
         open={isLocationEditDialogOpen}
         onOpenChange={setIsLocationEditDialogOpen}
         location={selectedRecord}
-        onLocationUpdated={(updatedDept) => {
+        onLocationUpdated={(updatedLoc) => {
           setLocations((prev) =>
-            prev.map((dept) =>
-              dept.id === updatedDept.id ? updatedDept : dept,
+            prev.map((loc) =>
+              loc.id === updatedLoc.id ? { ...loc, ...updatedLoc } : loc,
             ),
           );
         }}

@@ -307,12 +307,16 @@ const TrainingDirectory = () => {
         isOpen={isTrainingAddDialogOpen}
         onOpenChange={setIsTrainingAddDialogOpen}
         onTrainingCreated={(training) => {
+          const withDefaults = (t: TrainingWithRelations): TrainingWithRelations => ({
+            requirements: [],
+            trainingExemptions: [],
+            _count: { trainingRecords: 0 },
+            ...t,
+          });
           if (Array.isArray(training)) {
-            // Handle multiple trainings (SOP case)
-            setTrainings((prev) => [...prev, ...training]);
+            setTrainings((prev) => [...prev, ...training.map(withDefaults)]);
           } else {
-            // Handle single training (Internal/External case)
-            setTrainings((prev) => [...prev, training]);
+            setTrainings((prev) => [...prev, withDefaults(training)]);
           }
         }}
       />
@@ -324,7 +328,9 @@ const TrainingDirectory = () => {
         onTrainingUpdated={(updatedTraining) => {
           setTrainings((prev) =>
             prev.map((training) =>
-              training.id === updatedTraining.id ? updatedTraining : training,
+              training.id === updatedTraining.id
+                ? { ...training, ...updatedTraining }
+                : training,
             ),
           );
         }}

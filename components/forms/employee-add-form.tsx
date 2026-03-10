@@ -28,7 +28,7 @@ import { DuplicateEmployeeDialog } from "@/components/dialogs/duplicate-employee
 import { DateSelector } from "@/components/date-selector";
 
 interface EmployeeAddFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (employee?: EmployeeWithRelations) => void;
 }
 interface DuplicateResponse {
   error: string;
@@ -105,7 +105,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
 
     setIsSubmitting(true);
     try {
-      await api.post("/api/employees", {
+      const response = await api.post<EmployeeWithRelations>("/api/employees", {
         firstName,
         lastName,
         title,
@@ -118,7 +118,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
         startDate: startDate?.toISOString() || null,
       });
 
-      onSuccess?.();
+      onSuccess?.(response.data);
     } catch (err) {
       if (err instanceof AxiosError && err.response?.status === 409) {
         // Handle duplicate employee case

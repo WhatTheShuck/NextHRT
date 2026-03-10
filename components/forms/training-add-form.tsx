@@ -15,9 +15,10 @@ import {
   formatFileSize,
 } from "@/lib/file-config";
 import { TrainingCombobox } from "../combobox/training-combobox";
+import { TrainingRecordsWithRelations } from "@/lib/types";
 
 interface TrainingAddFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (record: TrainingRecordsWithRelations) => void;
   categoryHint: Category;
 }
 
@@ -120,11 +121,15 @@ export function TrainingAddForm({
         formData.append("images", file);
       });
 
-      await api.post("/api/training-records", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+      const response = await api.post<TrainingRecordsWithRelations>(
+        "/api/training-records",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         },
-      });
+      );
 
       // Reset form on success
       setTrainingId("");
@@ -133,7 +138,7 @@ export function TrainingAddForm({
       setSelectedFiles([]);
       setFileErrors([]);
 
-      onSuccess?.();
+      onSuccess?.(response.data);
     } catch (err: any) {
       console.error("API error:", err);
 

@@ -36,7 +36,7 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 export function TicketTab() {
-  const { employee } = useEmployee();
+  const { employee, addTicketRecord, updateTicketRecord, deleteTicketRecord } = useEmployee();
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user.role === "Admin";
   const ticketRecords = useEmployeeTicketRecords();
@@ -51,15 +51,15 @@ export function TicketTab() {
     useState<TicketRecordsWithRelations | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const handleAddSheetClose = () => {
+  const handleAddSuccess = (record: TicketRecordsWithRelations) => {
     setIsAddSheetOpen(false);
-    window.location.reload();
+    addTicketRecord(record);
   };
 
-  const handleEditSheetClose = () => {
+  const handleEditSuccess = (record: TicketRecordsWithRelations) => {
     setIsEditSheetOpen(false);
     setEditingRecord(null);
-    window.location.reload();
+    updateTicketRecord(record);
   };
 
   const handleViewDetails = (record: TicketRecordsWithRelations) => {
@@ -136,7 +136,7 @@ export function TicketTab() {
                   <SheetHeader>
                     <SheetTitle>Add Ticket</SheetTitle>
                   </SheetHeader>
-                  <TicketAddForm onSuccess={handleAddSheetClose} />
+                  <TicketAddForm onSuccess={handleAddSuccess} />
                 </SheetContent>
               </Sheet>
             )}
@@ -252,7 +252,7 @@ export function TicketTab() {
           {editingRecord && (
             <TicketEditForm
               ticketRecord={editingRecord}
-              onSuccess={handleEditSheetClose}
+              onSuccess={handleEditSuccess}
             />
           )}
         </SheetContent>
@@ -271,9 +271,9 @@ export function TicketTab() {
         ticketRecord={deletingRecord}
         employee={employee}
         onTicketRecordDeleted={() => {
+          if (deletingRecord) deleteTicketRecord(deletingRecord.id);
           setDeletingRecord(null);
           setIsDeleteDialogOpen(false);
-          window.location.reload();
         }}
       />
     </>

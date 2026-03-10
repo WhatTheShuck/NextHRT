@@ -279,7 +279,15 @@ const TicketsDirectory = () => {
         isOpen={isTicketAddDialogOpen}
         onOpenChange={setIsTicketAddDialogOpen}
         onTicketCreated={(ticket) => {
-          setTickets([...tickets, ticket]);
+          setTickets([
+            ...tickets,
+            {
+              requirements: [],
+              ticketExemptions: [],
+              _count: { ticketRecords: 0 },
+              ...ticket,
+            },
+          ]);
         }}
       />
 
@@ -290,7 +298,9 @@ const TicketsDirectory = () => {
         onTicketUpdated={(updatedTicket) => {
           setTickets((prev) =>
             prev.map((ticket) =>
-              ticket.id === updatedTicket.id ? updatedTicket : ticket,
+              ticket.id === updatedTicket.id
+                ? { ...ticket, ...updatedTicket }
+                : ticket,
             ),
           );
         }}

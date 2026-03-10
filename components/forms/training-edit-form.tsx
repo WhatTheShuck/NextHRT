@@ -19,7 +19,7 @@ import { TrainingCombobox } from "../combobox/training-combobox";
 
 interface TrainingEditFormProps {
   trainingRecord: TrainingRecordsWithRelations;
-  onSuccess?: () => void;
+  onSuccess?: (record: TrainingRecordsWithRelations) => void;
 }
 
 export function TrainingEditForm({
@@ -153,13 +153,17 @@ export function TrainingEditForm({
         formData.append("images", file);
       });
 
-      await api.put(`/api/training-records/${trainingRecord.id}`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+      const response = await api.put<TrainingRecordsWithRelations>(
+        `/api/training-records/${trainingRecord.id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         },
-      });
+      );
 
-      onSuccess?.();
+      onSuccess?.(response.data);
     } catch (err) {
       console.error("API error:", err);
     } finally {

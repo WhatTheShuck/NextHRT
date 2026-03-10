@@ -99,9 +99,11 @@ const EmployeeDirectory = () => {
     router.push(`/employees/${employeeId}`);
   };
 
-  const handleSheetClose = () => {
+  const handleAddSuccess = (employee?: EmployeeWithRelations) => {
     setIsSheetOpen(false);
-    window.location.reload();
+    if (employee) {
+      setEmployees((prev) => [...prev, employee]);
+    }
   };
 
   if (error) {
@@ -146,7 +148,7 @@ const EmployeeDirectory = () => {
                   <SheetHeader>
                     <SheetTitle>Add New Employee</SheetTitle>
                   </SheetHeader>
-                  <EmployeeAddForm onSuccess={handleSheetClose} />
+                  <EmployeeAddForm onSuccess={handleAddSuccess} />
                 </SheetContent>
               </Sheet>
             )}

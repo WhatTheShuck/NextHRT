@@ -35,7 +35,7 @@ import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record
 import { authClient } from "@/lib/auth-client";
 
 export function ExternalTrainingTab() {
-  const { employee } = useEmployee();
+  const { employee, addTrainingRecord, updateTrainingRecord, deleteTrainingRecord } = useEmployee();
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user.role === "Admin";
   const trainingRecords = useEmployeeTrainingRecords().filter(
@@ -52,15 +52,15 @@ export function ExternalTrainingTab() {
     useState<TrainingRecordsWithRelations | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const handleAddSheetClose = () => {
+  const handleAddSuccess = (record: TrainingRecordsWithRelations) => {
     setIsAddSheetOpen(false);
-    window.location.reload();
+    addTrainingRecord(record);
   };
 
-  const handleEditSheetClose = () => {
+  const handleEditSuccess = (record: TrainingRecordsWithRelations) => {
     setIsEditSheetOpen(false);
     setEditingRecord(null);
-    window.location.reload();
+    updateTrainingRecord(record);
   };
 
   const handleViewDetails = (record: TrainingRecordsWithRelations) => {
@@ -104,7 +104,7 @@ export function ExternalTrainingTab() {
                     <SheetTitle>Add Training</SheetTitle>
                   </SheetHeader>
                   <TrainingAddForm
-                    onSuccess={handleAddSheetClose}
+                    onSuccess={handleAddSuccess}
                     categoryHint="External"
                   />
                 </SheetContent>
@@ -203,7 +203,7 @@ export function ExternalTrainingTab() {
           {editingRecord && (
             <TrainingEditForm
               trainingRecord={editingRecord}
-              onSuccess={handleEditSheetClose}
+              onSuccess={handleEditSuccess}
             />
           )}
         </SheetContent>
@@ -223,9 +223,9 @@ export function ExternalTrainingTab() {
         trainingRecord={deletingRecord}
         employee={employee}
         onTrainingRecordDeleted={() => {
+          if (deletingRecord) deleteTrainingRecord(deletingRecord.id);
           setDeletingRecord(null);
           setIsDeleteDialogOpen(false);
-          window.location.reload();
         }}
       />
     </>

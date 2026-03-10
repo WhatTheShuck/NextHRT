@@ -25,7 +25,7 @@ import { TicketCombobox } from "../combobox/ticket-combobox";
 
 interface TicketEditFormProps {
   ticketRecord: TicketRecordsWithRelations;
-  onSuccess?: () => void;
+  onSuccess?: (record: TicketRecordsWithRelations) => void;
 }
 
 export function TicketEditForm({
@@ -249,13 +249,17 @@ export function TicketEditForm({
         formData.append("images", file);
       });
 
-      await api.put(`/api/ticket-records/${ticketRecord.id}`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+      const response = await api.put<TicketRecordsWithRelations>(
+        `/api/ticket-records/${ticketRecord.id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         },
-      });
+      );
 
-      onSuccess?.();
+      onSuccess?.(response.data);
     } catch (err) {
       console.error("API error:", err);
     } finally {

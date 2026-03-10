@@ -202,7 +202,10 @@ const DepartmentsDirectory = () => {
         open={isDepartmentAddDialogOpen}
         onOpenChange={setIsDepartmentAddDialogOpen}
         onDepartmentAdded={(dept) => {
-          setDepartments([...departments, dept]);
+          setDepartments([
+            ...departments,
+            { ...dept, _count: { employees: 0, activeEmployees: 0 } },
+          ]);
         }}
         departments={departments}
       />
@@ -214,7 +217,7 @@ const DepartmentsDirectory = () => {
         onDepartmentUpdated={(updatedDept) => {
           setDepartments((prev) =>
             prev.map((dept) =>
-              dept.id === updatedDept.id ? updatedDept : dept,
+              dept.id === updatedDept.id ? { ...dept, ...updatedDept } : dept,
             ),
           );
         }}

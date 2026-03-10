@@ -58,7 +58,7 @@ interface SOPGroup {
 }
 
 export function SOPTrainingTab() {
-  const { employee } = useEmployee();
+  const { employee, addTrainingRecord, updateTrainingRecord, deleteTrainingRecord } = useEmployee();
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user.role === "Admin";
   const trainingRecords = useEmployeeTrainingRecords().filter(
@@ -106,15 +106,15 @@ export function SOPTrainingTab() {
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
   }, [trainingRecords]);
 
-  const handleAddSheetClose = () => {
+  const handleAddSuccess = (record: TrainingRecordsWithRelations) => {
     setIsAddSheetOpen(false);
-    window.location.reload();
+    addTrainingRecord(record);
   };
 
-  const handleEditSheetClose = () => {
+  const handleEditSuccess = (record: TrainingRecordsWithRelations) => {
     setIsEditSheetOpen(false);
     setEditingRecord(null);
-    window.location.reload();
+    updateTrainingRecord(record);
   };
 
   const handleViewDetails = (record: TrainingRecordsWithRelations) => {
@@ -261,7 +261,7 @@ export function SOPTrainingTab() {
                     <SheetTitle>Add SOP</SheetTitle>
                   </SheetHeader>
                   <TrainingAddForm
-                    onSuccess={handleAddSheetClose}
+                    onSuccess={handleAddSuccess}
                     categoryHint="SOP"
                   />
                 </SheetContent>
@@ -467,7 +467,7 @@ export function SOPTrainingTab() {
           {editingRecord && (
             <TrainingEditForm
               trainingRecord={editingRecord}
-              onSuccess={handleEditSheetClose}
+              onSuccess={handleEditSuccess}
             />
           )}
         </SheetContent>
@@ -487,9 +487,9 @@ export function SOPTrainingTab() {
         trainingRecord={deletingRecord}
         employee={employee}
         onTrainingRecordDeleted={() => {
+          if (deletingRecord) deleteTrainingRecord(deletingRecord.id);
           setDeletingRecord(null);
           setIsDeleteDialogOpen(false);
-          window.location.reload();
         }}
       />
     </>
