@@ -46,3 +46,4 @@ HRT/
 generated/
 
 prisma/dev.db
+.worktrees/
