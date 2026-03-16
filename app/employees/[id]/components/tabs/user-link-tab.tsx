@@ -3,10 +3,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useEmployee } from "../employee-context";
 import { useSession } from "@/lib/auth-client";
+import { useMediaQuery } from "usehooks-ts";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
@@ -27,28 +29,25 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  GenericCombobox,
+  ComboboxItem,
+  createComboboxItem,
+} from "@/components/ui/generic-combobox";
+import { cn } from "@/lib/utils";
 import {
   LinkIcon,
   Link2Off,
-  ChevronsUpDown,
-  Check,
   RefreshCw,
   Mail,
   Shield,
@@ -64,14 +63,71 @@ type LinkedUser = {
   role: string | null;
 };
 
+interface LinkFormProps {
+  employee: { firstName: string; lastName: string } | null;
+  linkedUser: LinkedUser | null;
+  userItems: ComboboxItem[];
+  selectedUserItem: ComboboxItem | null;
+  onUserSelect: (item: ComboboxItem | null) => void;
+  loadingUsers: boolean;
+  linking: boolean;
+  onSave: () => void;
+  onClose: () => void;
+  className?: string;
+}
+
+function LinkForm({
+  employee,
+  linkedUser,
+  userItems,
+  selectedUserItem,
+  onUserSelect,
+  loadingUsers,
+  linking,
+  onSave,
+  onClose,
+  className,
+}: LinkFormProps) {
+  return (
+    <div className={cn("space-y-4", className)}>
+      <div className="space-y-2">
+        <Label>User</Label>
+        <GenericCombobox
+          items={userItems}
+          selectedItem={selectedUserItem}
+          onSelect={onUserSelect}
+          placeholder="Select a user..."
+          searchPlaceholder="Search users..."
+          emptyMessage="No unlinked users found."
+          showSubtitle={true}
+          width="w-full"
+          disabled={loadingUsers || linking}
+        />
+      </div>
+      <div className="flex flex-col space-y-2 w-full md:flex-row-reverse pb-2 md:gap-2 md:space-y-0 md:justify-start">
+        <Button
+          onClick={onSave}
+          disabled={!selectedUserItem || linking}
+        >
+          {linking ? "Linking..." : "Save Link"}
+        </Button>
+        <Button variant="outline" onClick={onClose} disabled={linking}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function UserLinkTab() {
   const { employee, employeeId } = useEmployee();
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "Admin";
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const [linkedUser, setLinkedUser] = useState<LinkedUser | null | undefined>(
     undefined,
-  ); // undefined = not yet loaded
+  );
   const [suggestions, setSuggestions] = useState<UserCandidateForEmployee[]>(
     [],
   );
@@ -87,9 +143,7 @@ export function UserLinkTab() {
 
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [comboOpen, setComboOpen] = useState(false);
 
-  // Fetch users list and find the one linked to this employee
   const fetchLinkedUser = useCallback(async () => {
     try {
       setLoadingUser(true);
@@ -142,7 +196,6 @@ export function UserLinkTab() {
     try {
       setLoadingUsers(true);
       const res = await api.get<User[]>("/api/users");
-      // Only show unlinked users as candidates
       setAllUsers(res.data.filter((u) => u.employeeId === null));
     } catch {
       // fail silently; combobox will show empty
@@ -156,7 +209,6 @@ export function UserLinkTab() {
     else setLoadingUser(false);
   }, [isAdmin, fetchLinkedUser]);
 
-  // Once we know the employee isn't linked, load suggestions
   useEffect(() => {
     if (!loadingUser && linkedUser === null && isAdmin) {
       fetchSuggestions();
@@ -167,7 +219,6 @@ export function UserLinkTab() {
     try {
       setLinking(true);
       setError(null);
-      // If currently linked to a different user, remove that link first
       if (linkedUser && linkedUser.id !== userId) {
         await api.delete(`/api/users/${linkedUser.id}/employee`);
       }
@@ -205,6 +256,39 @@ export function UserLinkTab() {
     } finally {
       setUnlinking(false);
     }
+  };
+
+  const userItems: ComboboxItem[] = allUsers.map((user) =>
+    createComboboxItem(
+      user.id,
+      user.name || user.email || "Unknown",
+      `${user.name ?? ""} ${user.email ?? ""}`.trim(),
+      user.email || undefined,
+    ),
+  );
+
+  const selectedUserItem =
+    userItems.find((u) => String(u.id) === selectedUserId) ?? null;
+
+  const handleUserSelect = (item: ComboboxItem | null) => {
+    setSelectedUserId(item ? String(item.id) : null);
+  };
+
+  const linkDialogTitle = linkedUser ? "Change Linked User" : "Link User Account";
+  const linkDialogDescription = linkedUser
+    ? `Select a replacement for ${employee?.firstName} ${employee?.lastName}. The current link will be removed first.`
+    : `Select a user account to link to ${employee?.firstName} ${employee?.lastName}.`;
+
+  const linkFormProps: LinkFormProps = {
+    employee,
+    linkedUser: linkedUser ?? null,
+    userItems,
+    selectedUserItem,
+    onUserSelect: handleUserSelect,
+    loadingUsers,
+    linking,
+    onSave: () => selectedUserId && handleLink(selectedUserId),
+    onClose: () => setShowLinkDialog(false),
   };
 
   if (!employee) return null;
@@ -339,7 +423,10 @@ export function UserLinkTab() {
             {loadingSuggestions ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="flex gap-4 items-center border-b pb-2 last:border-0">
+                  <div
+                    key={i}
+                    className="flex gap-4 items-center border-b pb-2 last:border-0"
+                  >
                     <div className="flex-1 space-y-1">
                       <Skeleton className="h-4 w-32" />
                       <Skeleton className="h-3 w-48" />
@@ -360,7 +447,9 @@ export function UserLinkTab() {
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Score</TableHead>
-                      <TableHead>Strategies</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Strategies
+                      </TableHead>
                       <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -388,7 +477,7 @@ export function UserLinkTab() {
                           <TableCell>
                             <ScoreBadge score={candidate.score} />
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <BreakdownBadges breakdown={candidate.breakdown} />
                           </TableCell>
                           <TableCell className="text-right">
@@ -412,103 +501,30 @@ export function UserLinkTab() {
         </Card>
       )}
 
-      {/* Link / Change Link Dialog */}
-      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {linkedUser ? "Change Linked User" : "Link User Account"}
-            </DialogTitle>
-            <DialogDescription>
-              {linkedUser
-                ? `Select a replacement for ${employee.firstName} ${employee.lastName}. The current link will be removed first.`
-                : `Select a user account to link to ${employee.firstName} ${employee.lastName}.`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">User</label>
-              <Popover open={comboOpen} onOpenChange={setComboOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={comboOpen}
-                    className="w-full justify-between"
-                  >
-                    {selectedUserId
-                      ? (allUsers.find((u) => u.id === selectedUserId)?.name ??
-                        allUsers.find((u) => u.id === selectedUserId)?.email ??
-                        "Unknown")
-                      : "Select a user..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="p-0"
-                  align="start"
-                  style={{ width: "var(--radix-popover-trigger-width)" }}
-                >
-                  <Command>
-                    <CommandInput
-                      placeholder="Search users..."
-                      className="h-9"
-                    />
-                    <CommandList className="max-h-[200px] overflow-y-auto">
-                      <CommandEmpty>No unlinked users found.</CommandEmpty>
-                      <CommandGroup>
-                        {loadingUsers ? (
-                          <CommandItem disabled>Loading...</CommandItem>
-                        ) : (
-                          allUsers.map((user) => (
-                            <CommandItem
-                              key={user.id}
-                              value={`${user.name} ${user.email}`}
-                              onSelect={() => {
-                                setSelectedUserId(user.id);
-                                setComboOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  selectedUserId === user.id
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                }`}
-                              />
-                              <div className="flex flex-col">
-                                <span>{user.name || "—"}</span>
-                                <span className="text-sm text-muted-foreground">
-                                  {user.email || "—"}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          ))
-                        )}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+      {/* Link / Change Link Dialog — responsive */}
+      {isDesktop ? (
+        <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{linkDialogTitle}</DialogTitle>
+              <DialogDescription>{linkDialogDescription}</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <LinkForm {...linkFormProps} />
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowLinkDialog(false)}
-              disabled={linking}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => selectedUserId && handleLink(selectedUserId)}
-              disabled={!selectedUserId || linking}
-            >
-              {linking ? "Linking..." : "Save Link"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <Drawer open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+          <DrawerContent className="max-h-[90vh]">
+            <DrawerHeader className="text-left">
+              <DrawerTitle>{linkDialogTitle}</DrawerTitle>
+              <DrawerDescription>{linkDialogDescription}</DrawerDescription>
+            </DrawerHeader>
+            <LinkForm className="px-4" {...linkFormProps} />
+          </DrawerContent>
+        </Drawer>
+      )}
     </div>
   );
 }

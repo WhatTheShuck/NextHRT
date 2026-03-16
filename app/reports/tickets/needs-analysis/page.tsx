@@ -85,14 +85,14 @@ export default function Page() {
   }, [allEmployees, includeCompletedRecords]);
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">
+    <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+      <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
         Individual Ticket Needs Analysis Report
       </h1>
 
       {/* Configuration toggles */}
-      <div className="p-4 rounded-lg mb-6">
-        <div className="flex items-center gap-8">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <div className="flex items-center space-x-2">
             <Switch
               id="completed-records"
@@ -109,7 +109,7 @@ export default function Page() {
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-4 mb-6">
+      <div className="mb-6">
         <TicketCombobox
           tickets={tickets}
           selectedTicketId={selectedTicketId}
@@ -137,7 +137,7 @@ export default function Page() {
       {/* Data table */}
       {selectedTicketId && !loading && !error && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {displayedEmployees.length} employee(s)
             </div>

@@ -122,24 +122,26 @@ const EmployeeDirectory = () => {
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Employee Directory</CardTitle>
             <CardDescription>
               Select an employee to view their records
             </CardDescription>
           </div>
-          <div className="flex justify-between items-center space-x-2">
-            <Switch
-              id="activeEmployees"
-              checked={showActiveOnly}
-              onCheckedChange={setShowActiveOnly}
-            />
-            <Label htmlFor="activeEmployees">Active Only</Label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="activeEmployees"
+                checked={showActiveOnly}
+                onCheckedChange={setShowActiveOnly}
+              />
+              <Label htmlFor="activeEmployees">Active Only</Label>
+            </div>
             {isAdmin && (
               <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button>
+                  <Button className="w-full sm:w-auto">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Employee
                   </Button>

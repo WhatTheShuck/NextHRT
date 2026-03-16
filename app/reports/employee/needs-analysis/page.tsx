@@ -214,14 +214,14 @@ export default function Page() {
 
   return (
     <>
-      <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-6">
+      <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+        <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
           Individual Employee Needs Analysis
         </h1>
 
         {/* Configuration toggles */}
         <div className="p-4 rounded-lg mb-6">
-          <div className="flex items-center gap-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
             <div className="flex items-center space-x-2">
               <Switch
                 id="inactive-employees"
@@ -275,7 +275,7 @@ export default function Page() {
 
         {selectedEmployeeId && !loading && !error && (
           <div className="container py-4 mx-auto">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
               <div className="text-sm text-muted-foreground">
                 Showing {filteredRequirements.length} requirement(s)
               </div>

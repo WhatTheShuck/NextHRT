@@ -85,16 +85,12 @@ export function TicketTab() {
     const now = new Date();
     const expiryDate = new Date(record.expiryDate);
 
-    if (expiryDate < now) {
-      return "Expired";
-    }
+    if (expiryDate < now) return "Expired";
 
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    if (expiryDate <= thirtyDaysFromNow) {
-      return "Expiring Soon";
-    }
+    if (expiryDate <= thirtyDaysFromNow) return "Expiring Soon";
 
     return "Valid";
   };
@@ -116,7 +112,7 @@ export function TicketTab() {
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Ticket Records</CardTitle>
               <CardDescription>
@@ -127,7 +123,7 @@ export function TicketTab() {
             {isAdmin && (
               <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button>
+                  <Button className="w-full sm:w-auto">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Ticket
                   </Button>
@@ -143,103 +139,199 @@ export function TicketTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ticket</TableHead>
-                <TableHead>Ticket Code</TableHead>
-                <TableHead>Date Issued</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead>Licence Number</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Image</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ticketRecords.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center text-muted-foreground"
-                  >
-                    No ticket records found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                ticketRecords.map((record: TicketRecordsWithRelations) => {
+          {ticketRecords.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No ticket records found
+            </p>
+          ) : (
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden space-y-3">
+                {ticketRecords.map((record: TicketRecordsWithRelations) => {
                   const status = getTicketStatus(record);
                   return (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        {record.ticket?.ticketName}
-                      </TableCell>
-                      <TableCell>{record.ticket?.ticketCode}</TableCell>
-                      <TableCell>
-                        {format(new Date(record.dateIssued), "PP")}
-                      </TableCell>
-                      <TableCell>
-                        {record.expiryDate
-                          ? format(new Date(record.expiryDate), "PP")
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell>{record.licenseNumber}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusVariant(status)}>
+                    <div
+                      key={record.id}
+                      className="border rounded-lg p-4 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium leading-tight">
+                          {record.ticket?.ticketName}
+                        </p>
+                        <Badge
+                          variant={getStatusVariant(status)}
+                          className="shrink-0"
+                        >
                           {status}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {record.images && record.images.length > 0 ? (
-                          <div className="flex items-center gap-1">
-                            <FileImage className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm text-blue-600">
+                      </div>
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        {record.ticket?.ticketCode && (
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Code:
+                            </span>{" "}
+                            {record.ticket.ticketCode}
+                          </p>
+                        )}
+                        <p>
+                          <span className="font-medium text-foreground">
+                            Issued:
+                          </span>{" "}
+                          {format(new Date(record.dateIssued), "PP")}
+                        </p>
+                        <p>
+                          <span className="font-medium text-foreground">
+                            Expires:
+                          </span>{" "}
+                          {record.expiryDate
+                            ? format(new Date(record.expiryDate), "PP")
+                            : "N/A"}
+                        </p>
+                        {record.licenseNumber && (
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Licence:
+                            </span>{" "}
+                            {record.licenseNumber}
+                          </p>
+                        )}
+                        {record.images && record.images.length > 0 && (
+                          <div className="flex items-center gap-1 text-blue-600">
+                            <FileImage className="h-4 w-4" />
+                            <span>
                               {record.images.length} image
                               {record.images.length !== 1 ? "s" : ""}
                             </span>
                           </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">
-                            —
-                          </span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(record)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditRecord(record)}
-                            disabled={!isAdmin}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteRecord(record)}
-                            disabled={!isAdmin}
-                          >
-                            <Trash className="h-4 w-4 mr-1" />
-                            Delete
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="flex gap-2 flex-wrap pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewDetails(record)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        {isAdmin && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditRecord(record)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteRecord(record)}
+                            >
+                              <Trash className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   );
-                })
-              )}
-            </TableBody>
-          </Table>
+                })}
+              </div>
+
+              {/* Desktop table view */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ticket</TableHead>
+                      <TableHead>Ticket Code</TableHead>
+                      <TableHead>Date Issued</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Licence Number</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Image</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ticketRecords.map((record: TicketRecordsWithRelations) => {
+                      const status = getTicketStatus(record);
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-medium">
+                            {record.ticket?.ticketName}
+                          </TableCell>
+                          <TableCell>{record.ticket?.ticketCode}</TableCell>
+                          <TableCell>
+                            {format(new Date(record.dateIssued), "PP")}
+                          </TableCell>
+                          <TableCell>
+                            {record.expiryDate
+                              ? format(new Date(record.expiryDate), "PP")
+                              : "N/A"}
+                          </TableCell>
+                          <TableCell>{record.licenseNumber}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusVariant(status)}>
+                              {status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {record.images && record.images.length > 0 ? (
+                              <div className="flex items-center gap-1">
+                                <FileImage className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm text-blue-600">
+                                  {record.images.length} image
+                                  {record.images.length !== 1 ? "s" : ""}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewDetails(record)}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditRecord(record)}
+                                disabled={!isAdmin}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteRecord(record)}
+                                disabled={!isAdmin}
+                              >
+                                <Trash className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -258,13 +350,11 @@ export function TicketTab() {
         </SheetContent>
       </Sheet>
 
-      {/* Ticket Record Details Dialog */}
       <TicketRecordDetailsDialog
         record={selectedRecord}
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
       />
-      {/* Delete Ticket Record Dialog */}
       <DeleteTicketRecordDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}

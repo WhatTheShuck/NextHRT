@@ -127,8 +127,8 @@ export function CompletedTrainingClient() {
   return (
     <>
       {/* Configuration toggles */}
-      <div className="p-4 rounded-lg mb-6">
-        <div className="flex items-center gap-8">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <div className="flex items-center space-x-2">
             <Switch
               id="legacy-training"
@@ -162,7 +162,7 @@ export function CompletedTrainingClient() {
       </div>
 
       {/* Training selection */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="mb-6">
         <TrainingCombobox
           trainings={trainingSelection}
           onSelect={handleTrainingSelect}
@@ -194,8 +194,8 @@ export function CompletedTrainingClient() {
 
       {/* Data table and filters */}
       {selectedTrainingId && !loading && !error && (
-        <div className="container py-10 mx-auto">
-          <div className="flex justify-between items-center mb-4">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
             <ExportButtons
               data={filteredTrainingRecords}
               columns={columns}

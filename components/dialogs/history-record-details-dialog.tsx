@@ -1,13 +1,19 @@
 "use client";
 
+import { useMediaQuery } from "usehooks-ts";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { HistoryWithRelations } from "@/lib/types";
@@ -18,13 +24,11 @@ interface HistoryRecordDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function HistoryRecordDetailsDialog({
-  record,
-  open,
-  onOpenChange,
-}: HistoryRecordDetailsDialogProps) {
-  if (!record) return null;
+interface RecordContentProps {
+  record: HistoryWithRelations;
+}
 
+function RecordContent({ record }: RecordContentProps) {
   const parseJsonSafely = (jsonString?: string) => {
     if (!jsonString) return null;
     try {
@@ -68,7 +72,6 @@ export function HistoryRecordDetailsDialog({
 
     const changes: Array<{ field: string; oldValue: any; newValue: any }> = [];
 
-    // Compare all fields in newData
     Object.keys(newData).forEach((key) => {
       if (oldData[key] !== newData[key]) {
         changes.push({
@@ -90,7 +93,6 @@ export function HistoryRecordDetailsDialog({
       value.includes("T") &&
       value.includes(":")
     ) {
-      // Likely a date string
       try {
         return format(new Date(value), "PP");
       } catch {
@@ -101,135 +103,150 @@ export function HistoryRecordDetailsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>History Record Details</DialogTitle>
-        </DialogHeader>
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Section
-                </label>
-                <p>{getTableDisplayName(record.tableName)}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Action
-                </label>
-                <div>
-                  <Badge variant={getActionVariant(record.action)}>
-                    {record.action}
-                  </Badge>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Modified By
-                </label>
-                <p>{record.user?.name || record.user?.email || "System"}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Date & Time
-                </label>
-                <p>{format(new Date(record.timestamp), "PPp")}</p>
-              </div>
-            </div>
-
-            {record.action === "UPDATE" && (
-              <>
-                <Separator />
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Changes Made</h3>
-                  {(() => {
-                    const changes = renderValueDifferences(
-                      record.oldValues || undefined,
-                      record.newValues || undefined,
-                    );
-
-                    if (!changes || changes.length === 0) {
-                      return (
-                        <p className="text-muted-foreground">
-                          No detailed changes available
-                        </p>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-3">
-                        {changes.map((change, index) => (
-                          <div key={index} className="border rounded-lg p-3">
-                            <h4 className="font-medium text-sm mb-2 capitalize">
-                              {change.field.replace(/([A-Z])/g, " $1").trim()}
-                            </h4>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <span className="text-muted-foreground">
-                                  Before:
-                                </span>
-                                <p className="font-mono bg-muted p-1 rounded mt-1">
-                                  {formatValue(change.oldValue)}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">
-                                  After:
-                                </span>
-                                <p className="font-mono bg-muted p-1 rounded mt-1">
-                                  {formatValue(change.newValue)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </>
-            )}
-
-            {record.action === "CREATE" && record.newValues && (
-              <>
-                <Separator />
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Record Created</h3>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <pre className="text-sm whitespace-pre-wrap">
-                      {JSON.stringify(
-                        parseJsonSafely(record.newValues),
-                        null,
-                        2,
-                      )}
-                    </pre>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {record.action === "DELETE" && record.oldValues && (
-              <>
-                <Separator />
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Record Deleted</h3>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <pre className="text-sm whitespace-pre-wrap">
-                      {JSON.stringify(
-                        parseJsonSafely(record.oldValues),
-                        null,
-                        2,
-                      )}
-                    </pre>
-                  </div>
-                </div>
-              </>
-            )}
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">
+            Section
+          </label>
+          <p>{getTableDisplayName(record.tableName)}</p>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">
+            Action
+          </label>
+          <div>
+            <Badge variant={getActionVariant(record.action)}>
+              {record.action}
+            </Badge>
           </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">
+            Modified By
+          </label>
+          <p>{record.user?.name || record.user?.email || "System"}</p>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">
+            Date & Time
+          </label>
+          <p>{format(new Date(record.timestamp), "PPp")}</p>
+        </div>
+      </div>
+
+      {record.action === "UPDATE" && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-3">Changes Made</h3>
+            {(() => {
+              const changes = renderValueDifferences(
+                record.oldValues || undefined,
+                record.newValues || undefined,
+              );
+
+              if (!changes || changes.length === 0) {
+                return (
+                  <p className="text-muted-foreground">
+                    No detailed changes available
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {changes.map((change, index) => (
+                    <div key={index} className="border rounded-lg p-3">
+                      <h4 className="font-medium text-sm mb-2 capitalize">
+                        {change.field.replace(/([A-Z])/g, " $1").trim()}
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Before:</span>
+                          <p className="font-mono bg-muted p-1 rounded mt-1">
+                            {formatValue(change.oldValue)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">After:</span>
+                          <p className="font-mono bg-muted p-1 rounded mt-1">
+                            {formatValue(change.newValue)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </>
+      )}
+
+      {record.action === "CREATE" && record.newValues && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-3">Record Created</h3>
+            <div className="bg-muted p-3 rounded-lg">
+              <pre className="text-sm whitespace-pre-wrap">
+                {JSON.stringify(parseJsonSafely(record.newValues), null, 2)}
+              </pre>
+            </div>
+          </div>
+        </>
+      )}
+
+      {record.action === "DELETE" && record.oldValues && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-3">Record Deleted</h3>
+            <div className="bg-muted p-3 rounded-lg">
+              <pre className="text-sm whitespace-pre-wrap">
+                {JSON.stringify(parseJsonSafely(record.oldValues), null, 2)}
+              </pre>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function HistoryRecordDetailsDialog({
+  record,
+  open,
+  onOpenChange,
+}: HistoryRecordDetailsDialogProps) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
+  if (!record) return null;
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>History Record Details</DialogTitle>
+          </DialogHeader>
+          <RecordContent record={record} />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[90vh]">
+        <DrawerHeader className="text-left">
+          <DrawerTitle>History Record Details</DrawerTitle>
+        </DrawerHeader>
+        <div className="px-4 pb-4 overflow-y-auto">
+          <RecordContent record={record} />
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }

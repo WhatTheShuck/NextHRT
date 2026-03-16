@@ -16,21 +16,21 @@ async function Profile() {
         <Card className="shadow-lg">
           <CardContent className="p-0">
             {/* Header Section */}
-            <div className="bg-linear-to-r from-blue-500 to-purple-600 rounded-t-lg p-8 text-white">
-              <div className="flex flex-col items-center space-y-4">
-                <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
+            <div className="bg-linear-to-r from-blue-500 to-purple-600 rounded-t-lg p-5 md:p-8 text-white">
+              <div className="flex flex-col items-center space-y-3 md:space-y-4">
+                <Avatar className="w-16 h-16 md:w-24 md:h-24 border-4 border-white shadow-lg">
                   <AvatarImage
                     src={session.user.image || ""}
                     alt={session.user.name || ""}
                   />
-                  <AvatarFallback className="bg-white text-purple-600 text-2xl font-bold">
+                  <AvatarFallback className="bg-white text-purple-600 text-xl md:text-2xl font-bold">
                     {session.user.name?.charAt(0).toUpperCase()}
                     {session.user.name?.split(" ")[1]?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="text-center">
-                  <h1 className="text-3xl font-bold">{session.user.name}</h1>
-                  <p className="text-blue-100 text-lg">{session.user.email}</p>
+                <div className="text-center px-2">
+                  <h1 className="text-xl md:text-3xl font-bold break-words">{session.user.name}</h1>
+                  <p className="text-blue-100 text-sm md:text-lg break-all">{session.user.email}</p>
                 </div>
               </div>
             </div>

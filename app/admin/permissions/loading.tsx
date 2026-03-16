@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PermissionsLoading() {
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto px-4 sm:px-6 py-10">
       <Skeleton className="h-9 w-52 mb-6" />
       <Skeleton className="h-10 w-full rounded-md mb-4" />
       <div className="border rounded-lg p-6 space-y-4">

@@ -7,7 +7,7 @@ import {
 
 export default function EmployeesLoading() {
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-8">
       <Card className="w-full max-w-4xl mx-auto">
         <CardHeader>
           <div className="flex justify-between items-center">

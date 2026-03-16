@@ -74,11 +74,11 @@ export function ExportButtons<T extends Record<string, unknown>>({
 
   return (
     <>
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
           onClick={handleExcelExport}
-          className="flex items-center gap-2 bg-[#10793F]"
+          className="flex items-center gap-2 bg-[#10793F] text-white hover:bg-[#0d6235] hover:text-white border-transparent"
         >
           <Sheet className="h-4 w-4" />
           Export to Excel
@@ -86,7 +86,7 @@ export function ExportButtons<T extends Record<string, unknown>>({
         <Button
           variant="outline"
           onClick={handlePDFExport}
-          className="flex items-center gap-2 bg-[#FA0F00]"
+          className="flex items-center gap-2 bg-[#FA0F00] text-white hover:bg-[#c80c00] hover:text-white border-transparent"
         >
           <FileText className="h-4 w-4" />
           Export to PDF

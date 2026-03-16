@@ -82,7 +82,6 @@ export function SOPTrainingTab() {
     trainingRecords.forEach((record) => {
       const title = record.training?.title || "";
 
-      // Extract SOP name and type
       if (title.includes(" - Task Sheet")) {
         const sopName = title.replace(" - Task Sheet", "");
         if (!groups[sopName]) groups[sopName] = { name: sopName };
@@ -92,9 +91,7 @@ export function SOPTrainingTab() {
         if (!groups[sopName]) groups[sopName] = { name: sopName };
         groups[sopName].practical = record;
       } else {
-        // Handle any SOPs that don't follow the naming convention
         if (!groups[title]) groups[title] = { name: title };
-        // Could be either - check if we already have one type
         if (!groups[title].taskSheet) {
           groups[title].taskSheet = record;
         } else {
@@ -118,7 +115,6 @@ export function SOPTrainingTab() {
   };
 
   const handleViewDetails = (record: TrainingRecordsWithRelations) => {
-    // Small delay to allow dropdown to close properly before opening dialog
     setTimeout(() => {
       setSelectedRecord(record);
       setIsDetailsOpen(true);
@@ -173,28 +169,26 @@ export function SOPTrainingTab() {
   const getCheckboxes = (
     taskSheet?: TrainingRecordsWithRelations,
     practical?: TrainingRecordsWithRelations,
-  ) => {
-    return (
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-1">
-          {taskSheet ? (
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          ) : (
-            <Circle className="h-4 w-4 text-gray-400" />
-          )}
-          <span className="text-sm text-muted-foreground">Task Sheet</span>
-        </div>
-        <div className="flex items-center space-x-1">
-          {practical ? (
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          ) : (
-            <Circle className="h-4 w-4 text-gray-400" />
-          )}
-          <span className="text-sm text-muted-foreground">Practical</span>
-        </div>
+  ) => (
+    <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-1">
+        {taskSheet ? (
+          <CheckCircle className="h-4 w-4 text-green-600" />
+        ) : (
+          <Circle className="h-4 w-4 text-gray-400" />
+        )}
+        <span className="text-sm text-muted-foreground">Task Sheet</span>
       </div>
-    );
-  };
+      <div className="flex items-center space-x-1">
+        {practical ? (
+          <CheckCircle className="h-4 w-4 text-green-600" />
+        ) : (
+          <Circle className="h-4 w-4 text-gray-400" />
+        )}
+        <span className="text-sm text-muted-foreground">Practical</span>
+      </div>
+    </div>
+  );
 
   const getLastCompleted = (
     taskSheet?: TrainingRecordsWithRelations,
@@ -203,9 +197,7 @@ export function SOPTrainingTab() {
     const dates = [];
     if (taskSheet) dates.push(new Date(taskSheet.dateCompleted));
     if (practical) dates.push(new Date(practical.dateCompleted));
-
     if (dates.length === 0) return "—";
-
     const latestDate = new Date(Math.max(...dates.map((d) => d.getTime())));
     return format(latestDate, "PP");
   };
@@ -214,44 +206,151 @@ export function SOPTrainingTab() {
     taskSheet?: TrainingRecordsWithRelations,
     practical?: TrainingRecordsWithRelations,
   ) => {
-    // If both exist, show both trainers if different, otherwise just one
     if (taskSheet && practical) {
-      if (taskSheet.trainer === practical.trainer) {
-        return taskSheet.trainer;
-      }
+      if (taskSheet.trainer === practical.trainer) return taskSheet.trainer;
       return `${taskSheet.trainer} / ${practical.trainer}`;
     }
-
     return taskSheet?.trainer || practical?.trainer || "—";
   };
 
   const hasImage = (
     taskSheet?: TrainingRecordsWithRelations,
     practical?: TrainingRecordsWithRelations,
-  ) => {
-    return !!(
+  ) =>
+    !!(
       (taskSheet?.images && taskSheet.images.length > 0) ||
       (practical?.images && practical.images.length > 0)
     );
-  };
+
+  const renderActionDropdowns = (group: SOPGroup) => (
+    <div className="flex gap-2 flex-wrap">
+      {/* View Dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!group.taskSheet && !group.practical}
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            View
+            <ChevronDown className="h-3 w-3 ml-1" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {group.taskSheet && (
+            <DropdownMenuItem
+              onClick={() => handleViewDetails(group.taskSheet!)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Task Sheet
+            </DropdownMenuItem>
+          )}
+          {group.practical && (
+            <DropdownMenuItem
+              onClick={() => handleViewDetails(group.practical!)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Practical
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Edit Dropdown - Admins only */}
+      {isAdmin && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!group.taskSheet && !group.practical}
+            >
+              <Edit className="h-4 w-4 mr-1" />
+              Edit
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {group.taskSheet && (
+              <DropdownMenuItem
+                onClick={() => handleEditRecord(group.taskSheet!)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Task Sheet
+              </DropdownMenuItem>
+            )}
+            {group.practical && (
+              <DropdownMenuItem
+                onClick={() => handleEditRecord(group.practical!)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Practical
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* Delete Dropdown - Admins only */}
+      {isAdmin && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!group.taskSheet && !group.practical}
+            >
+              <Trash className="h-4 w-4 mr-1" />
+              Delete
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {group.taskSheet && (
+              <DropdownMenuItem
+                onClick={() => handleDeleteRecord(group.taskSheet!)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash className="h-4 w-4 mr-2" />
+                Task Sheet
+              </DropdownMenuItem>
+            )}
+            {group.practical && (
+              <>
+                {group.taskSheet && <DropdownMenuSeparator />}
+                <DropdownMenuItem
+                  onClick={() => handleDeleteRecord(group.practical!)}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <Trash className="h-4 w-4 mr-2" />
+                  Practical
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
 
   return (
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>SOP Training Records</CardTitle>
               <CardDescription>
                 Showing {sopGroups.length} SOP
-                {sopGroups.length !== 1 ? "s" : ""}({trainingRecords.length}{" "}
+                {sopGroups.length !== 1 ? "s" : ""} ({trainingRecords.length}{" "}
                 total record{trainingRecords.length !== 1 ? "s" : ""})
               </CardDescription>
             </div>
             {isAdmin && (
               <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button>
+                  <Button className="w-full sm:w-auto">
                     <Plus className="h-4 w-4 mr-2" />
                     Add SOP
                   </Button>
@@ -270,97 +369,100 @@ export function SOPTrainingTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>SOP Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Last Completed</TableHead>
-                <TableHead>Trainer</TableHead>
-                <TableHead>Image</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sopGroups.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-center text-muted-foreground"
+          {sopGroups.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No SOPs found
+            </p>
+          ) : (
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden space-y-3">
+                {sopGroups.map((group: SOPGroup) => (
+                  <div
+                    key={group.name}
+                    className="border rounded-lg p-4 space-y-3"
                   >
-                    No SOPs found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sopGroups.map((group: SOPGroup) => {
-                  return (
-                    <TableRow key={group.name}>
-                      <TableCell className="font-medium">
-                        {group.name}
-                      </TableCell>
-                      <TableCell>
-                        {getCompletionBadge(group.taskSheet, group.practical)}
-                      </TableCell>
-                      <TableCell>
-                        {getCheckboxes(group.taskSheet, group.practical)}
-                      </TableCell>
-                      <TableCell>
-                        {getLastCompleted(group.taskSheet, group.practical)}
-                      </TableCell>
-                      <TableCell>
-                        {getTrainer(group.taskSheet, group.practical)}
-                      </TableCell>
-                      <TableCell>
-                        {hasImage(group.taskSheet, group.practical) ? (
-                          <FileImage className="h-4 w-4 text-blue-600" />
-                        ) : (
-                          <span className="text-muted-foreground text-sm">
-                            —
-                          </span>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium leading-tight">{group.name}</p>
+                      {getCompletionBadge(group.taskSheet, group.practical)}
+                    </div>
+                    <div className="space-y-2">
+                      {getCheckboxes(group.taskSheet, group.practical)}
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <p>
+                          <span className="font-medium text-foreground">
+                            Last Completed:
+                          </span>{" "}
+                          {getLastCompleted(group.taskSheet, group.practical)}
+                        </p>
+                        {getTrainer(group.taskSheet, group.practical) !==
+                          "—" && (
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Trainer:
+                            </span>{" "}
+                            {getTrainer(group.taskSheet, group.practical)}
+                          </p>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
-                          {/* View Dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={!group.taskSheet && !group.practical}
-                              >
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
-                                <ChevronDown className="h-3 w-3 ml-1" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              {group.taskSheet && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleViewDetails(group.taskSheet!)
-                                  }
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Task Sheet
-                                </DropdownMenuItem>
-                              )}
-                              {group.practical && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleViewDetails(group.practical!)
-                                  }
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Practical
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        {hasImage(group.taskSheet, group.practical) && (
+                          <div className="flex items-center gap-1 text-blue-600">
+                            <FileImage className="h-4 w-4" />
+                            <span>Has attachment</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="pt-1">
+                      {renderActionDropdowns(group)}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-                          {/* Edit Dropdown - Only for admins */}
-                          {isAdmin && (
+              {/* Desktop table view */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>SOP Name</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Progress</TableHead>
+                      <TableHead>Last Completed</TableHead>
+                      <TableHead>Trainer</TableHead>
+                      <TableHead>Image</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sopGroups.map((group: SOPGroup) => (
+                      <TableRow key={group.name}>
+                        <TableCell className="font-medium">
+                          {group.name}
+                        </TableCell>
+                        <TableCell>
+                          {getCompletionBadge(group.taskSheet, group.practical)}
+                        </TableCell>
+                        <TableCell>
+                          {getCheckboxes(group.taskSheet, group.practical)}
+                        </TableCell>
+                        <TableCell>
+                          {getLastCompleted(group.taskSheet, group.practical)}
+                        </TableCell>
+                        <TableCell>
+                          {getTrainer(group.taskSheet, group.practical)}
+                        </TableCell>
+                        <TableCell>
+                          {hasImage(group.taskSheet, group.practical) ? (
+                            <FileImage className="h-4 w-4 text-blue-600" />
+                          ) : (
+                            <span className="text-muted-foreground text-sm">
+                              —
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            {/* View Dropdown */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -370,8 +472,8 @@ export function SOPTrainingTab() {
                                     !group.taskSheet && !group.practical
                                   }
                                 >
-                                  <Edit className="h-4 w-4 mr-1" />
-                                  Edit
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  View
                                   <ChevronDown className="h-3 w-3 ml-1" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -379,82 +481,123 @@ export function SOPTrainingTab() {
                                 {group.taskSheet && (
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleEditRecord(group.taskSheet!)
+                                      handleViewDetails(group.taskSheet!)
                                     }
                                   >
-                                    <Edit className="h-4 w-4 mr-2" />
+                                    <Eye className="h-4 w-4 mr-2" />
                                     Task Sheet
                                   </DropdownMenuItem>
                                 )}
                                 {group.practical && (
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      handleEditRecord(group.practical!)
+                                      handleViewDetails(group.practical!)
                                     }
                                   >
-                                    <Edit className="h-4 w-4 mr-2" />
+                                    <Eye className="h-4 w-4 mr-2" />
                                     Practical
                                   </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          )}
 
-                          {/* Delete Dropdown - Only for admins */}
-                          {isAdmin && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={
-                                    !group.taskSheet && !group.practical
-                                  }
-                                >
-                                  <Trash className="h-4 w-4 mr-1" />
-                                  Delete
-                                  <ChevronDown className="h-3 w-3 ml-1" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                {group.taskSheet && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleDeleteRecord(group.taskSheet!)
+                            {/* Edit Dropdown - Admins only */}
+                            {isAdmin && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={
+                                      !group.taskSheet && !group.practical
                                     }
-                                    className="text-red-600 focus:text-red-600"
                                   >
-                                    <Trash className="h-4 w-4 mr-2" />
-                                    Task Sheet
-                                  </DropdownMenuItem>
-                                )}
-                                {group.practical && (
-                                  <>
-                                    {group.taskSheet && (
-                                      <DropdownMenuSeparator />
-                                    )}
+                                    <Edit className="h-4 w-4 mr-1" />
+                                    Edit
+                                    <ChevronDown className="h-3 w-3 ml-1" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  {group.taskSheet && (
                                     <DropdownMenuItem
                                       onClick={() =>
-                                        handleDeleteRecord(group.practical!)
+                                        handleEditRecord(group.taskSheet!)
+                                      }
+                                    >
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Task Sheet
+                                    </DropdownMenuItem>
+                                  )}
+                                  {group.practical && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleEditRecord(group.practical!)
+                                      }
+                                    >
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Practical
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+
+                            {/* Delete Dropdown - Admins only */}
+                            {isAdmin && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={
+                                      !group.taskSheet && !group.practical
+                                    }
+                                  >
+                                    <Trash className="h-4 w-4 mr-1" />
+                                    Delete
+                                    <ChevronDown className="h-3 w-3 ml-1" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  {group.taskSheet && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleDeleteRecord(group.taskSheet!)
                                       }
                                       className="text-red-600 focus:text-red-600"
                                     >
                                       <Trash className="h-4 w-4 mr-2" />
-                                      Practical
+                                      Task Sheet
                                     </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                                  )}
+                                  {group.practical && (
+                                    <>
+                                      {group.taskSheet && (
+                                        <DropdownMenuSeparator />
+                                      )}
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          handleDeleteRecord(group.practical!)
+                                        }
+                                        className="text-red-600 focus:text-red-600"
+                                      >
+                                        <Trash className="h-4 w-4 mr-2" />
+                                        Practical
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -473,14 +616,12 @@ export function SOPTrainingTab() {
         </SheetContent>
       </Sheet>
 
-      {/* Training Record Details Dialog */}
       <TrainingRecordDetailsDialog
         record={selectedRecord}
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
       />
 
-      {/* Delete Training Record Dialog */}
       <DeleteTrainingRecordDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}

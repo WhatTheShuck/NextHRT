@@ -374,7 +374,7 @@ export function ExpiringTicketRecordsPage() {
                   <ul className="max-h-60 overflow-auto">
                     {/* Show All option */}
                     <li
-                      className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                      className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
                       onClick={() => filterByLocation(null)}
                     >
                       <span>All Locations</span>
@@ -387,7 +387,7 @@ export function ExpiringTicketRecordsPage() {
                     {locations.map((location) => (
                       <li
                         key={location}
-                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
                         onClick={() => filterByLocation(location)}
                       >
                         <span>{location}</span>

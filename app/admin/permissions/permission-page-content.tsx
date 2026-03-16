@@ -48,15 +48,15 @@ export function PermissionPageContent() {
   }, [searchParams]);
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">User Management</h1>
+    <div className="container mx-auto px-4 sm:px-6 py-6 md:py-10">
+      <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">User Management</h1>
 
       <Tabs
         value={activeTab}
         onValueChange={handleTabChange}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
           <TabsTrigger value="roles">User Roles</TabsTrigger>
           <TabsTrigger value="mapping">User-Employee Mapping</TabsTrigger>
           <TabsTrigger value="suggestions">Suggested Links</TabsTrigger>

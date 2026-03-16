@@ -155,8 +155,8 @@ export function CompletedTicketPage() {
   return (
     <>
       {/* Configuration toggles */}
-      <div className="p-4 rounded-lg mb-6">
-        <div className="flex items-center gap-8">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <div className="flex items-center space-x-2">
             <Switch
               id="legacy-ticket"
@@ -187,7 +187,7 @@ export function CompletedTicketPage() {
       </div>
 
       {/* Ticket selection */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="mb-6">
         <TicketCombobox
           tickets={ticketSelection}
           onSelect={handleTicketSelect}
@@ -213,8 +213,8 @@ export function CompletedTicketPage() {
       ) : null}
 
       {selectedTicketId && !loading && !error && (
-        <div className="container py-10 mx-auto">
-          <div className="flex justify-between items-center mb-4">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
             <ExportButtons
               data={filteredTicketRecords}
               columns={columns}
@@ -241,7 +241,7 @@ export function CompletedTicketPage() {
                   <ul className="max-h-60 overflow-auto">
                     {/* Show All option */}
                     <li
-                      className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                      className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
                       onClick={() => filterByLocation(null)}
                     >
                       <span>All Locations</span>
@@ -254,7 +254,7 @@ export function CompletedTicketPage() {
                     {locations.map((location) => (
                       <li
                         key={location}
-                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
                         onClick={() => filterByLocation(location)}
                       >
                         <span>{location}</span>

@@ -11,7 +11,7 @@ export default async function DepartmentDirectoryPage() {
     redirect("/");
   }
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
       <DepartmentDirectory />
     </div>
   );

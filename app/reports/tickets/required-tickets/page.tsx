@@ -36,8 +36,8 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">
+    <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+      <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
         Individual Ticket Needs Analysis Report
       </h1>
 
@@ -61,7 +61,7 @@ export default function Page() {
       {/* Data table */}
       {!loading && !error && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {uniqueEmployees} unique employee(s) across {rowCount}{" "}
               row(s)

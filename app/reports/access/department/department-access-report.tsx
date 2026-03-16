@@ -53,7 +53,7 @@ export function DepartmentAccessReport() {
 
   return (
     <>
-      <div className="max-w-xl mb-6">
+      <div className="mb-6">
         <DepartmentCombobox
           departments={departments}
           onSelect={handleSelect}
@@ -76,8 +76,8 @@ export function DepartmentAccessReport() {
       )}
 
       {selectedDepartmentId && !loading && !error && (
-        <div className="container py-6 mx-auto">
-          <div className="flex justify-between items-center mb-4">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
             <ExportButtons
               data={data as unknown as Row[]}
               columns={columns as unknown as ColumnDef<Row>[]}

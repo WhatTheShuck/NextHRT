@@ -230,11 +230,13 @@ const LocationsDirectory = () => {
   const stateFilterValue =
     (table.getColumn("state")?.getFilterValue() as string) ?? "all";
 
+  const mobileHiddenCols = new Set(["totalEmployees", "activeEmployees"]);
+
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Location Management</CardTitle>
               <CardDescription>
@@ -244,7 +246,7 @@ const LocationsDirectory = () => {
                 {locations.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Button onClick={() => setIsLocationAddDialogOpen(true)}>
+            <Button onClick={() => setIsLocationAddDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Location
             </Button>
@@ -309,7 +311,14 @@ const LocationsDirectory = () => {
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id}>
+                      <TableHead
+                        key={header.id}
+                        className={
+                          mobileHiddenCols.has(header.id)
+                            ? "hidden md:table-cell"
+                            : undefined
+                        }
+                      >
                         {header.isPlaceholder
                           ? null
                           : flexRender(
@@ -337,7 +346,14 @@ const LocationsDirectory = () => {
                   table.getRowModel().rows.map((row) => (
                     <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
+                        <TableCell
+                          key={cell.id}
+                          className={
+                            mobileHiddenCols.has(cell.column.id)
+                              ? "hidden md:table-cell"
+                              : undefined
+                          }
+                        >
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),

@@ -28,7 +28,7 @@ export default function ConditionalBreadcrumbs() {
   }
 
   return (
-    <div className="container mx-auto px-1 pt-4">
+    <div className="container mx-auto px-4 sm:px-6 pt-3">
       <Breadcrumb>
         <BreadcrumbList>
           {breadcrumbs.map((crumb, index) => (

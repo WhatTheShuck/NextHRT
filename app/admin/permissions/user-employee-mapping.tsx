@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useMediaQuery } from "usehooks-ts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,38 +16,86 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Search,
-  LinkIcon,
-  Link2Off,
-  ChevronsUpDown,
-  Check,
-} from "lucide-react";
+  GenericCombobox,
+  ComboboxItem,
+  createComboboxItem,
+} from "@/components/ui/generic-combobox";
+import { Search, LinkIcon, Link2Off } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { EmployeeWithRelations } from "@/lib/types";
 import { User } from "@/generated/prisma_client/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
+interface MappingFormProps {
+  selectedEmployeeId: string | null;
+  onEmployeeSelect: (item: ComboboxItem | null) => void;
+  employeeItems: ComboboxItem[];
+  loading: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  className?: string;
+}
+
+function MappingForm({
+  selectedEmployeeId,
+  onEmployeeSelect,
+  employeeItems,
+  loading,
+  onClose,
+  onSave,
+  className,
+}: MappingFormProps) {
+  const selectedItem =
+    employeeItems.find((item) => item.id.toString() === selectedEmployeeId) ||
+    null;
+
+  return (
+    <div className={cn("space-y-4", className)}>
+      <div className="space-y-2">
+        <Label htmlFor="employee-select">Employee</Label>
+        <GenericCombobox
+          items={employeeItems}
+          selectedItem={selectedItem}
+          onSelect={onEmployeeSelect}
+          placeholder="Select Employee"
+          searchPlaceholder="Search employees..."
+          emptyMessage="No employees found."
+          allowClear={true}
+          clearLabel="No employee (unlink)"
+          width="w-full"
+          showSubtitle={true}
+          disabled={loading}
+        />
+      </div>
+      <div className="flex flex-col space-y-2 w-full md:flex-row-reverse pb-2 md:gap-2 md:space-y-0 md:justify-start">
+        <Button onClick={onSave} disabled={loading}>
+          {loading ? "Saving..." : "Save Mapping"}
+        </Button>
+        <Button variant="outline" onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function UserEmployeeMapping() {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const [users, setUsers] = useState<User[]>([]);
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,23 +107,19 @@ export function UserEmployeeMapping() {
   );
   const [openDialog, setOpenDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
 
-  // Fetch users and employees
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch users with their employee links
         const usersResponse = await api.get<User[]>(
           "/api/users?includeEmployee=true",
         );
         setUsers(usersResponse.data);
         setFilteredUsers(usersResponse.data);
 
-        // Fetch employees
         const employeesResponse = await api.get<EmployeeWithRelations[]>(
           "/api/employees?activeOnly=true",
         );
@@ -100,7 +145,6 @@ export function UserEmployeeMapping() {
     fetchData();
   }, []);
 
-  // Filter users based on search term
   useEffect(() => {
     if (!searchTerm.trim()) {
       setFilteredUsers(users);
@@ -116,14 +160,12 @@ export function UserEmployeeMapping() {
     setFilteredUsers(filtered);
   }, [searchTerm, users]);
 
-  // Handle user selection for mapping
   const handleMapUser = (user: User) => {
     setSelectedUserId(user.id);
     setSelectedEmployeeId(user.employeeId ? String(user.employeeId) : null);
     setOpenDialog(true);
   };
 
-  // Handle unlinking employee from user
   const handleUnlinkEmployee = async (userId: string) => {
     try {
       setLoading(true);
@@ -131,7 +173,6 @@ export function UserEmployeeMapping() {
 
       await api.delete(`/api/users/${userId}/employee`);
 
-      // Update local state
       setUsers((prevUsers) =>
         prevUsers.map((user) =>
           user.id === userId ? { ...user, employeeId: null } : user,
@@ -155,7 +196,6 @@ export function UserEmployeeMapping() {
     }
   };
 
-  // Handle save mapping
   const handleSaveMapping = async () => {
     if (!selectedUserId) return;
 
@@ -167,7 +207,6 @@ export function UserEmployeeMapping() {
         employeeId: selectedEmployeeId ? parseInt(selectedEmployeeId) : null,
       });
 
-      // Update local state
       setUsers((prevUsers) =>
         prevUsers.map((user) =>
           user.id === selectedUserId
@@ -202,7 +241,6 @@ export function UserEmployeeMapping() {
     }
   };
 
-  // Get employee full name for display
   const getEmployeeById = (id: number | null) => {
     if (!id) return null;
     const employee = employees.find((emp) => emp.id === id);
@@ -211,15 +249,17 @@ export function UserEmployeeMapping() {
       : "Unknown Employee";
   };
 
-  // Get selected employee display name
-  const getSelectedEmployeeDisplay = () => {
-    if (!selectedEmployeeId) return null;
-    const employee = employees.find(
-      (emp) => emp.id.toString() === selectedEmployeeId,
-    );
-    return employee
-      ? `${employee.firstName} ${employee.lastName} - ${employee.title}`
-      : null;
+  const employeeItems: ComboboxItem[] = employees.map((employee) =>
+    createComboboxItem(
+      employee.id,
+      `${employee.firstName} ${employee.lastName}`,
+      `${employee.firstName} ${employee.lastName} ${employee.title} ${employee.department.name}`,
+      `${employee.title} - ${employee.department.name}`,
+    ),
+  );
+
+  const handleEmployeeSelect = (item: ComboboxItem | null) => {
+    setSelectedEmployeeId(item ? String(item.id) : null);
   };
 
   if (loading && users.length === 0) {
@@ -241,9 +281,15 @@ export function UserEmployeeMapping() {
             <TableBody>
               {Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-36 rounded-full" /></TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-48" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-36 rounded-full" />
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Skeleton className="h-8 w-16" />
@@ -268,6 +314,15 @@ export function UserEmployeeMapping() {
       </div>
     );
   }
+
+  const mappingFormProps = {
+    selectedEmployeeId,
+    onEmployeeSelect: handleEmployeeSelect,
+    employeeItems,
+    loading,
+    onClose: () => setOpenDialog(false),
+    onSave: handleSaveMapping,
+  };
 
   return (
     <div>
@@ -353,124 +408,33 @@ export function UserEmployeeMapping() {
         </Table>
       </div>
 
-      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Map User to Employee</DialogTitle>
-            <DialogDescription>
-              Link this user account to an employee record.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label htmlFor="employee-select" className="text-sm font-medium">
-                Employee
-              </label>
-              <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between min-w-0"
-                  >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {selectedEmployeeId ? (
-                        <span className="truncate">
-                          {getSelectedEmployeeDisplay()}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground flex items-center gap-2">
-                          <Search className="h-4 w-4 shrink-0" />
-                          Select Employee
-                        </span>
-                      )}
-                    </div>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="p-0"
-                  align="start"
-                  style={{ width: "var(--radix-popover-trigger-width)" }}
-                  onWheel={(e) => e.stopPropagation()}
-                >
-                  <Command>
-                    <CommandInput
-                      placeholder="Search employees..."
-                      className="h-9"
-                    />
-                    <CommandList className="max-h-50 overflow-y-auto">
-                      <CommandEmpty>No employees found.</CommandEmpty>
-                      <CommandGroup>
-                        {/* Option to clear selection */}
-                        <CommandItem
-                          value="clear"
-                          onSelect={() => {
-                            setSelectedEmployeeId(null);
-                            setOpen(false);
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 shrink-0 ${
-                              !selectedEmployeeId ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          <span className="text-muted-foreground truncate min-w-0">
-                            No employee (unlink)
-                          </span>
-                        </CommandItem>
-                        {employees.map((employee) => (
-                          <CommandItem
-                            key={employee.id}
-                            value={`${employee.firstName} ${employee.lastName} ${employee.title} ${employee.department.name}`}
-                            onSelect={() => {
-                              setSelectedEmployeeId(employee.id.toString());
-                              setOpen(false);
-                            }}
-                            className="cursor-pointer min-w-0"
-                          >
-                            <Check
-                              className={`mr-2 h-4 w-4 shrink-0 ${
-                                selectedEmployeeId === employee.id.toString()
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              }`}
-                            />
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className="truncate min-w-0">
-                                {employee.firstName} {employee.lastName}
-                              </span>
-                              <span className="text-sm text-muted-foreground truncate min-w-0">
-                                {employee.title} - {employee.department.name}
-                              </span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+      {isDesktop ? (
+        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Map User to Employee</DialogTitle>
+              <DialogDescription>
+                Link this user account to an employee record.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <MappingForm {...mappingFormProps} />
             </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setOpenDialog(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveMapping} disabled={loading}>
-              {loading ? "Saving..." : "Save Mapping"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <Drawer open={openDialog} onOpenChange={setOpenDialog}>
+          <DrawerContent className="max-h-[90vh]">
+            <DrawerHeader className="text-left">
+              <DrawerTitle>Map User to Employee</DrawerTitle>
+              <DrawerDescription>
+                Link this user account to an employee record.
+              </DrawerDescription>
+            </DrawerHeader>
+            <MappingForm className="px-4" {...mappingFormProps} />
+          </DrawerContent>
+        </Drawer>
+      )}
     </div>
   );
 }

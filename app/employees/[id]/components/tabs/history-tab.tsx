@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -46,7 +46,7 @@ export function HistoryTab() {
 
   useEffect(() => {
     if (employee?.id) {
-      setPage(0); // Reset to first page when toggling
+      setPage(0);
       fetchHistoryRecords();
     }
   }, [employee?.id, includeOrphaned]);
@@ -116,7 +116,6 @@ export function HistoryTab() {
   };
 
   const getRecordDescription = (record: HistoryWithRelations) => {
-    // For records that might not be directly tied to this employee anymore
     if (
       record.tableName === "TicketRecords" ||
       record.tableName === "TrainingRecords"
@@ -124,7 +123,6 @@ export function HistoryTab() {
       const oldData = parseJsonSafely(record.oldValues || "");
       const newData = parseJsonSafely(record.newValues || "");
 
-      // For deleted records, try to get info from oldValues
       if (record.action === "DELETE" && oldData) {
         if (record.tableName === "TicketRecords") {
           const ticketName = oldData.ticket?.ticketName || oldData.ticketName;
@@ -138,7 +136,6 @@ export function HistoryTab() {
         }
       }
 
-      // For created records, try to get info from newValues
       if (record.action === "CREATE" && newData) {
         if (record.tableName === "TicketRecords") {
           const ticketName = newData.ticket?.ticketName || newData.ticketName;
@@ -201,11 +198,35 @@ export function HistoryTab() {
     );
   }
 
+  const paginationControls = (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setPage(page - 1)}
+        disabled={page === 0 || loading}
+      >
+        <ChevronLeft className="h-4 w-4 mr-1" />
+        Previous
+      </Button>
+      <span className="text-sm text-muted-foreground">Page {page + 1}</span>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setPage(page + 1)}
+        disabled={!hasMore || loading}
+      >
+        Next
+        <ChevronRight className="h-4 w-4 ml-1" />
+      </Button>
+    </div>
+  );
+
   return (
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Edit History</CardTitle>
               <CardDescription>
@@ -214,7 +235,7 @@ export function HistoryTab() {
                 {includeOrphaned && " (including deleted records)"}
               </CardDescription>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
               <div className="flex items-center space-x-2">
                 <Switch
                   id="include-orphaned"
@@ -226,89 +247,111 @@ export function HistoryTab() {
                   Include deleted records
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page - 1)}
-                  disabled={page === 0 || loading}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {page + 1}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page + 1)}
-                  disabled={!hasMore || loading}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
+              {paginationControls}
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Section</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Modified By</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {historyRecords.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center text-muted-foreground"
+          {historyRecords.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No history records found
+            </p>
+          ) : (
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden space-y-3">
+                {historyRecords.map((record) => (
+                  <div
+                    key={record.id}
+                    className="border rounded-lg p-4 space-y-3"
                   >
-                    No history records found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                historyRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium">
-                      {getRecordDescription(record)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getActionVariant(record.action)}>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium leading-tight">
+                        {getRecordDescription(record)}
+                      </p>
+                      <Badge
+                        variant={getActionVariant(record.action)}
+                        className="shrink-0"
+                      >
                         {record.action}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {record.user?.name || record.user?.email || "System"}
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(record.timestamp), "PPp")}
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>
+                        <span className="font-medium text-foreground">By:</span>{" "}
+                        {record.user?.name || record.user?.email || "System"}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">
+                          Date:
+                        </span>{" "}
+                        {format(new Date(record.timestamp), "PPp")}
+                      </p>
+                    </div>
+                    <div className="pt-1">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={() => handleViewDetails(record)}
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         View Details
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-center pt-2">{paginationControls}</div>
+              </div>
+
+              {/* Desktop table view */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Section</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Modified By</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historyRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">
+                          {getRecordDescription(record)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getActionVariant(record.action)}>
+                            {record.action}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {record.user?.name || record.user?.email || "System"}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(record.timestamp), "PPp")}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(record)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
-      {/* History Record Details Dialog */}
       <HistoryRecordDetailsDialog
         record={selectedRecord}
         open={isDetailsOpen}

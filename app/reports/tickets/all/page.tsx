@@ -80,12 +80,12 @@ export default function CompletedTicketPage() {
 
   return (
     <>
-      <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-6">All Completed Tickets</h1>
+      <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+        <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">All Completed Tickets</h1>
 
         {/* Configuration toggles */}
-        <div className="p-4 rounded-lg mb-6">
-          <div className="flex items-center gap-8">
+        <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
             <div className="flex items-center space-x-2">
               <Switch
                 id="legacy-ticket"
@@ -129,8 +129,8 @@ export default function CompletedTicketPage() {
         ) : null}
 
         {!loading && !error && (
-          <div className="container py-10 mx-auto">
-            <div className="flex justify-between items-center mb-4">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
               <p className="font-medium">
                 Record Count: {filteredTicketRecords.length}
               </p>
