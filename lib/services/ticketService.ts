@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { enqueue } from "@/lib/jobs/jobQueue";
 
 export interface GetTicketsOptions {
   activeOnly?: boolean;
@@ -175,6 +176,8 @@ export class TicketService {
       },
     });
 
+    await enqueue("REQUIREMENTS_CACHE_REBUILD");
+
     return ticket;
   }
 
@@ -234,6 +237,8 @@ export class TicketService {
       }
     }
 
+    await enqueue("REQUIREMENTS_CACHE_REBUILD");
+
     return updatedTicket;
   }
 
@@ -273,6 +278,8 @@ export class TicketService {
         userId,
       },
     });
+
+    await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
     return {
       message: "Ticket deleted successfully",

@@ -29,6 +29,7 @@ model Employee {
   ticketRecords            TicketRecords[]
   trainingTicketExemptions TrainingTicketExemption[]
   User                     User?
+  requirementsCacheEntries RequirementsCacheEntry[]
 }
 
 enum EmployeeStatus {
@@ -114,6 +115,8 @@ model TrainingRequirement {
   location     Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   @@id([trainingId, departmentId, locationId])
+  @@index([departmentId])
+  @@index([locationId])
 }
 
 enum Category {
@@ -143,6 +146,9 @@ model TicketRecords {
   licenseNumber String? // Optional unique number for the actual license instance
   expiryDate    DateTime?
   images        TicketImage[]
+
+  @@index([employeeId])
+  @@index([ticketId])
 }
 
 model TicketImage {
@@ -166,6 +172,8 @@ model TicketRequirement {
   location     Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   @@id([ticketId, departmentId, locationId])
+  @@index([departmentId])
+  @@index([locationId])
 }
 
 model TrainingTicketExemption {
@@ -287,4 +295,56 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@unique([identifier, value])
+}
+
+enum JobType {
+  EXEMPTION_EXPIRY
+  TICKET_EXPIRY
+  REQUIREMENTS_CACHE_REBUILD
+  REQUIREMENTS_CACHE_INVALIDATE
+  INACTIVE_EMPLOYEE_CHECK
+  ORPHANED_IMAGE_CLEANUP
+  HISTORY_ARCHIVAL
+}
+
+enum JobStatus {
+  Pending
+  Running
+  Completed
+  Failed
+}
+
+enum CacheItemType {
+  Training
+  Ticket
+}
+
+model BackgroundJob {
+  id            Int       @id @default(autoincrement())
+  type          JobType
+  status        JobStatus @default(Pending)
+  payload       String?   // JSON string
+  resultSummary String?   // JSON string
+  errorMessage  String?
+  scheduledAt   DateTime  @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([type])
+}
+
+model RequirementsCacheEntry {
+  id         Int           @id @default(autoincrement())
+  employeeId Int
+  itemType   CacheItemType
+  itemId     Int
+  updatedAt  DateTime      @updatedAt
+
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, itemType, itemId])
+  @@index([employeeId])
+  @@index([itemType, itemId])
 }

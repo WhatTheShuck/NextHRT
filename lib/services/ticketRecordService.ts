@@ -3,6 +3,7 @@ import { UserRole } from "@/generated/prisma_client/client";
 import { fileUploadService } from "./fileUploadService";
 import { auth } from "../auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
+import { enqueue } from "@/lib/jobs/jobQueue";
 
 export interface GetTicketRecordsOptions {
   activeOnly?: boolean;
@@ -322,6 +323,8 @@ export class TicketRecordService {
       },
     });
 
+    await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: data.employeeId });
+
     return ticketRecord;
   }
 
@@ -500,6 +503,8 @@ export class TicketRecordService {
       },
     });
 
+    await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: updatedRecord.employeeId });
+
     return updatedRecord;
   }
 
@@ -546,6 +551,8 @@ export class TicketRecordService {
         userId,
       },
     });
+
+    await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: existingRecord.employeeId });
 
     return {
       message: "Ticket record deleted successfully",

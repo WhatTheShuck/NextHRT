@@ -85,11 +85,11 @@ export default function Page() {
       // If exempted and we're not showing completed records, skip
       if (exemption && !includeCompletedRecords) return;
 
-      // Check if completed: if it's NOT in trainingRequired, it means it's completed
-      const isCompleted = !trainingRequired.some(
-        (tr: any) => tr.trainingId === req.trainingId,
-      );
       const isExempted = !!exemption;
+      // Completed means: no longer required AND not just exempted
+      const isCompleted =
+        !isExempted &&
+        !trainingRequired.some((tr: any) => tr.trainingId === req.trainingId);
 
       items.push({
         id: `training-${req.trainingId}`,
@@ -121,11 +121,11 @@ export default function Page() {
       // If exempted and we're not showing completed records, skip
       if (exemption && !includeCompletedRecords) return;
 
-      // Check if completed: if it's NOT in ticketRequired, it means it's completed
-      const isCompleted = !ticketRequired.some(
-        (tr: any) => tr.ticketId === req.ticketId,
-      );
       const isExempted = !!exemption;
+      // Completed means: no longer required AND not just exempted
+      const isCompleted =
+        !isExempted &&
+        !ticketRequired.some((tr: any) => tr.ticketId === req.ticketId);
 
       items.push({
         id: `ticket-${req.ticketId}`,

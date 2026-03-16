@@ -45,6 +45,18 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     defaultValue: "50",
     description: "Minimum combined score (0–100) for a suggestion to appear",
   },
+  {
+    key: "jobs.historyRetentionYears",
+    envVar: "JOBS_HISTORY_RETENTION_YEARS",
+    defaultValue: "7",
+    description: "History records older than this many years are eligible for pruning",
+  },
+  {
+    key: "jobs.pollIntervalMs",
+    envVar: "JOBS_POLL_INTERVAL_MS",
+    defaultValue: "5000",
+    description: "How often the job runner polls for pending work (milliseconds)",
+  },
 ];
 
 export class AppSettingService {
@@ -72,6 +84,8 @@ export class AppSettingService {
     userId: string,
   ): Promise<void> {
     const existing = await prisma.appSetting.findUnique({ where: { key } });
+
+    if (existing?.value === value) return;
 
     await prisma.appSetting.upsert({
       where: { key },

@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { ExemptionStatus, UserRole } from "@/generated/prisma_client/client";
 import { auth } from "../auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
+import { enqueue } from "@/lib/jobs/jobQueue";
 
 export interface GetExemptionsOptions {
   userRole: UserRole;
@@ -278,6 +279,8 @@ export class ExemptionService {
       },
     });
 
+    await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: data.employeeId });
+
     return exemption;
   }
 
@@ -412,6 +415,8 @@ export class ExemptionService {
       },
     });
 
+    await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: updatedExemption.employeeId });
+
     return updatedExemption;
   }
 
@@ -442,6 +447,8 @@ export class ExemptionService {
         userId,
       },
     });
+
+    await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: existingExemption.employeeId });
 
     return {
       message: "Exemption record deleted successfully",

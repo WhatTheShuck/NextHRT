@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { Category } from "@/generated/prisma_client/client";
+import { enqueue } from "@/lib/jobs/jobQueue";
 
 export interface GetTrainingsOptions {
   activeOnly?: boolean;
@@ -179,6 +180,8 @@ export class TrainingService {
         },
       });
 
+      await enqueue("REQUIREMENTS_CACHE_REBUILD");
+
       return [training1, training2];
     } else {
       const training = await prisma.training.create({
@@ -209,6 +212,8 @@ export class TrainingService {
           userId,
         },
       });
+
+      await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
       return training;
     }
@@ -321,6 +326,8 @@ export class TrainingService {
         },
       });
 
+      await enqueue("REQUIREMENTS_CACHE_REBUILD");
+
       return [updatedTraining, practicalTraining];
     } else if (currentTraining.category === "SOP" && data.category !== "SOP") {
       // SOP → non-SOP: strip suffix, delete sibling, update this record
@@ -411,6 +418,8 @@ export class TrainingService {
         }
       }
 
+      await enqueue("REQUIREMENTS_CACHE_REBUILD");
+
       return updatedTraining;
     } else {
       // Normal update: non-SOP → non-SOP or SOP → SOP (title/active/requirements change)
@@ -449,6 +458,8 @@ export class TrainingService {
           });
         }
       }
+
+      await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
       return updatedTraining;
     }
@@ -523,6 +534,8 @@ export class TrainingService {
 
     await deleteOne(currentTraining);
     if (sibling) await deleteOne(sibling);
+
+    await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
     return sibling ? [currentTraining, sibling] : [currentTraining];
   }

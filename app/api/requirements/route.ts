@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
   if (allIncompleteTraining === "true") {
     try {
       const result =
-        await requirementService.getAllIncompleteTrainingRequirements();
+        await requirementService.getAllIncompleteTrainingRequirements(
+          session.user.id,
+          session.user.role as string,
+        );
       return NextResponse.json(result);
     } catch (error) {
       return NextResponse.json(
@@ -39,7 +42,10 @@ export async function GET(request: NextRequest) {
   if (allIncompleteTickets === "true") {
     try {
       const result =
-        await requirementService.getAllIncompleteTicketRequirements();
+        await requirementService.getAllIncompleteTicketRequirements(
+          session.user.id,
+          session.user.role as string,
+        );
       return NextResponse.json(result);
     } catch (error) {
       return NextResponse.json(
@@ -98,8 +104,11 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const result =
-        await requirementService.getTrainingRequirements(trainingId);
+      const result = await requirementService.getTrainingRequirements(
+        trainingId,
+        session.user.id,
+        session.user.role as string,
+      );
       return NextResponse.json(result);
     } catch (error) {
       if (error instanceof Error) {
@@ -133,14 +142,18 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const result = await requirementService.getTicketRequirements(ticketId);
+      const result = await requirementService.getTicketRequirements(
+        ticketId,
+        session.user.id,
+        session.user.role as string,
+      );
       return NextResponse.json(result);
     } catch (error) {
       if (error instanceof Error) {
         switch (error.message) {
           case "TICKET_NOT_FOUND":
             return NextResponse.json(
-              { error: "Training not found" },
+              { error: "Ticket not found" },
               { status: 404 },
             );
           case "NO_REQUIREMENTS_FOUND":

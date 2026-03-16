@@ -1,6 +1,61 @@
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { getChildDepartmentIds } from "@/lib/apiRBAC";
+import { UserRole } from "@/generated/prisma_client/client";
 
 export class RequirementService {
+  /**
+   * Returns null if the user can view all employees, or an array of accessible
+   * employee IDs scoped to their role (dept manager → their depts; everyone else → self only).
+   */
+  private async getAccessibleEmployeeIds(
+    userId: string,
+    userRole: string,
+  ): Promise<number[] | null> {
+    const canViewAll = await auth.api.userHasPermission({
+      body: {
+        role: userRole as UserRole,
+        permissions: { employee: ["viewAll"] },
+      },
+    });
+    if (canViewAll.success) return null;
+
+    const canViewDepartment = await auth.api.userHasPermission({
+      body: {
+        role: userRole as UserRole,
+        permissions: { employee: ["viewDepartment"] },
+      },
+    });
+    if (canViewDepartment.success) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { managedDepartments: true },
+      });
+      if (!user) return [];
+      const deptIds = new Set<number>();
+      for (const dept of user.managedDepartments) {
+        deptIds.add(dept.id);
+        if (dept.level === 0) {
+          const childIds = await getChildDepartmentIds(dept.id);
+          childIds.forEach((id) => deptIds.add(id));
+        }
+      }
+      const employees = await prisma.employee.findMany({
+        where: { departmentId: { in: Array.from(deptIds) } },
+        select: { id: true },
+      });
+      return employees.map((e) => e.id);
+    }
+
+    // FireWarden, User — self only
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { employeeId: true },
+    });
+    if (!user?.employeeId) return [];
+    return [user.employeeId];
+  }
+
   async getEmployeeRequirements(employeeId: number) {
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -46,7 +101,7 @@ export class RequirementService {
         },
       }),
       prisma.trainingTicketExemption.findMany({
-        where: { employeeId },
+        where: { employeeId, status: "Active" },
         include: {
           training: true,
           ticket: true,
@@ -60,16 +115,31 @@ export class RequirementService {
       }),
     ]);
 
-    const trainingRequired = allTrainingRequirements.filter((req) => {
-      return !trainingRecords.some(
-        (record) => record.trainingId === req.trainingId,
-      );
-    });
-    const ticketRequired = allTicketRequirements.filter((req) => {
-      return !ticketRecords.some(
-        (record) => record.ticketId === req.ticketId,
-      );
-    });
+    const completedTrainingIds = new Set(
+      trainingRecords.map((r) => r.trainingId),
+    );
+    const completedTicketIds = new Set(ticketRecords.map((r) => r.ticketId));
+    const exemptedTrainingIds = new Set(
+      exemptions
+        .filter((e) => e.type === "Training" && e.trainingId != null)
+        .map((e) => e.trainingId!),
+    );
+    const exemptedTicketIds = new Set(
+      exemptions
+        .filter((e) => e.type === "Ticket" && e.ticketId != null)
+        .map((e) => e.ticketId!),
+    );
+
+    const trainingRequired = allTrainingRequirements.filter(
+      (req) =>
+        !completedTrainingIds.has(req.trainingId) &&
+        !exemptedTrainingIds.has(req.trainingId),
+    );
+    const ticketRequired = allTicketRequirements.filter(
+      (req) =>
+        !completedTicketIds.has(req.ticketId) &&
+        !exemptedTicketIds.has(req.ticketId),
+    );
 
     return {
       allTrainingRequirements,
@@ -80,7 +150,11 @@ export class RequirementService {
     };
   }
 
-  async getTrainingRequirements(trainingId: number) {
+  async getTrainingRequirements(
+    trainingId: number,
+    userId: string,
+    userRole: string,
+  ) {
     const training = await prisma.training.findUnique({
       where: { id: trainingId },
     });
@@ -101,9 +175,12 @@ export class RequirementService {
       throw new Error("NO_REQUIREMENTS_FOUND");
     }
 
+    const accessibleIds = await this.getAccessibleEmployeeIds(userId, userRole);
+
     const allEmployees = await prisma.employee.findMany({
       where: {
         isActive: true,
+        ...(accessibleIds !== null && { id: { in: accessibleIds } }),
       },
       include: {
         department: true,
@@ -131,6 +208,7 @@ export class RequirementService {
     const exemptions = await prisma.trainingTicketExemption.findMany({
       where: {
         trainingId,
+        status: "Active",
         employeeId: { in: requiredEmployees.map((emp) => emp.id) },
       },
       include: {
@@ -173,7 +251,11 @@ export class RequirementService {
     };
   }
 
-  async getTicketRequirements(ticketId: number) {
+  async getTicketRequirements(
+    ticketId: number,
+    userId: string,
+    userRole: string,
+  ) {
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
     });
@@ -194,9 +276,12 @@ export class RequirementService {
       throw new Error("NO_REQUIREMENTS_FOUND");
     }
 
+    const accessibleIds = await this.getAccessibleEmployeeIds(userId, userRole);
+
     const allEmployees = await prisma.employee.findMany({
       where: {
         isActive: true,
+        ...(accessibleIds !== null && { id: { in: accessibleIds } }),
       },
       include: {
         department: true,
@@ -224,6 +309,7 @@ export class RequirementService {
     const exemptions = await prisma.trainingTicketExemption.findMany({
       where: {
         ticketId,
+        status: "Active",
         employeeId: { in: requiredEmployees.map((emp) => emp.id) },
       },
       include: {
@@ -360,24 +446,8 @@ export class RequirementService {
     };
   }
 
-  async getAllIncompleteTrainingRequirements() {
-    const trainingWithRequirements = await prisma.trainingRequirement.findMany({
-      select: {
-        trainingId: true,
-      },
-      distinct: ["trainingId"],
-    });
-
-    const trainingIds = trainingWithRequirements.map((req) => req.trainingId);
-
-    if (trainingIds.length === 0) {
-      return { employees: [], totalRows: 0, uniqueEmployees: 0 };
-    }
-
+  async getAllIncompleteTrainingRequirements(userId: string, userRole: string) {
     const allRequirements = await prisma.trainingRequirement.findMany({
-      where: {
-        trainingId: { in: trainingIds },
-      },
       include: {
         training: true,
         department: true,
@@ -385,28 +455,33 @@ export class RequirementService {
       },
     });
 
-    const allEmployees = await prisma.employee.findMany({
-      where: {
-        isActive: true,
-      },
-      include: {
-        department: true,
-        location: true,
-      },
-    });
+    if (allRequirements.length === 0) {
+      return { employees: [], totalRows: 0, uniqueEmployees: 0 };
+    }
 
-    const [allTrainingRecords, allExemptions] = await Promise.all([
-      prisma.trainingRecords.findMany({
-        where: {
-          trainingId: { in: trainingIds },
-        },
-      }),
-      prisma.trainingTicketExemption.findMany({
-        where: {
-          trainingId: { in: trainingIds },
-        },
-      }),
-    ]);
+    const trainingIds = [...new Set(allRequirements.map((r) => r.trainingId))];
+    const accessibleIds = await this.getAccessibleEmployeeIds(userId, userRole);
+
+    const [allEmployees, allTrainingRecords, allExemptions] = await Promise.all(
+      [
+        prisma.employee.findMany({
+          where: {
+            isActive: true,
+            ...(accessibleIds !== null && { id: { in: accessibleIds } }),
+          },
+          include: {
+            department: true,
+            location: true,
+          },
+        }),
+        prisma.trainingRecords.findMany({
+          where: { trainingId: { in: trainingIds } },
+        }),
+        prisma.trainingTicketExemption.findMany({
+          where: { trainingId: { in: trainingIds }, status: "Active" },
+        }),
+      ],
+    );
 
     const completedMap = new Map<number, Set<number>>();
     allTrainingRecords.forEach((record) => {
@@ -426,7 +501,19 @@ export class RequirementService {
       }
     });
 
-    const rows: any[] = [];
+    // Build a Map<trainingId, requirement> for O(1) lookup when building rows
+    const requirementByTrainingId = new Map(
+      allRequirements.map((req) => [req.trainingId, req]),
+    );
+
+    const rows: {
+      employeeId: number;
+      firstName: string;
+      lastName: string;
+      department: (typeof allEmployees)[0]["department"];
+      location: (typeof allEmployees)[0]["location"];
+      trainingName: string | undefined;
+    }[] = [];
 
     allEmployees.forEach((employee) => {
       const requiredTrainingIds = new Set<number>();
@@ -453,9 +540,7 @@ export class RequirementService {
       );
 
       incompleteTraining.forEach((trainingId) => {
-        const requirement = allRequirements.find(
-          (req) => req.trainingId === trainingId,
-        );
+        const requirement = requirementByTrainingId.get(trainingId);
         rows.push({
           employeeId: employee.id,
           firstName: employee.firstName,
@@ -474,24 +559,8 @@ export class RequirementService {
     };
   }
 
-  async getAllIncompleteTicketRequirements() {
-    const ticketsWithRequirements = await prisma.ticketRequirement.findMany({
-      select: {
-        ticketId: true,
-      },
-      distinct: ["ticketId"],
-    });
-
-    const ticketIds = ticketsWithRequirements.map((req) => req.ticketId);
-
-    if (ticketIds.length === 0) {
-      return { employees: [], totalRows: 0, uniqueEmployees: 0 };
-    }
-
+  async getAllIncompleteTicketRequirements(userId: string, userRole: string) {
     const allRequirements = await prisma.ticketRequirement.findMany({
-      where: {
-        ticketId: { in: ticketIds },
-      },
       include: {
         ticket: true,
         department: true,
@@ -499,26 +568,29 @@ export class RequirementService {
       },
     });
 
-    const allEmployees = await prisma.employee.findMany({
-      where: {
-        isActive: true,
-      },
-      include: {
-        department: true,
-        location: true,
-      },
-    });
+    if (allRequirements.length === 0) {
+      return { employees: [], totalRows: 0, uniqueEmployees: 0 };
+    }
 
-    const [allTicketRecords, allExemptions] = await Promise.all([
-      prisma.ticketRecords.findMany({
+    const ticketIds = [...new Set(allRequirements.map((r) => r.ticketId))];
+    const accessibleIds = await this.getAccessibleEmployeeIds(userId, userRole);
+
+    const [allEmployees, allTicketRecords, allExemptions] = await Promise.all([
+      prisma.employee.findMany({
         where: {
-          ticketId: { in: ticketIds },
+          isActive: true,
+          ...(accessibleIds !== null && { id: { in: accessibleIds } }),
+        },
+        include: {
+          department: true,
+          location: true,
         },
       }),
+      prisma.ticketRecords.findMany({
+        where: { ticketId: { in: ticketIds } },
+      }),
       prisma.trainingTicketExemption.findMany({
-        where: {
-          ticketId: { in: ticketIds },
-        },
+        where: { ticketId: { in: ticketIds }, status: "Active" },
       }),
     ]);
 
@@ -540,7 +612,19 @@ export class RequirementService {
       }
     });
 
-    const rows: any[] = [];
+    // Build a Map<ticketId, requirement> for O(1) lookup when building rows
+    const requirementByTicketId = new Map(
+      allRequirements.map((req) => [req.ticketId, req]),
+    );
+
+    const rows: {
+      employeeId: number;
+      firstName: string;
+      lastName: string;
+      department: (typeof allEmployees)[0]["department"];
+      location: (typeof allEmployees)[0]["location"];
+      ticketName: string | undefined;
+    }[] = [];
 
     allEmployees.forEach((employee) => {
       const requiredTicketIds = new Set<number>();
@@ -567,9 +651,7 @@ export class RequirementService {
       );
 
       incompleteTickets.forEach((ticketId) => {
-        const requirement = allRequirements.find(
-          (req) => req.ticketId === ticketId,
-        );
+        const requirement = requirementByTicketId.get(ticketId);
         rows.push({
           employeeId: employee.id,
           firstName: employee.firstName,

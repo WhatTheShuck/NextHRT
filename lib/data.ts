@@ -16,6 +16,7 @@ import {
   UserCheck,
   SlidersHorizontal,
   Eye,
+  Cpu,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -90,6 +91,13 @@ export const landingPageNavigationItems: NavigationItem[] = [
     icon: Eye,
     href: "/access-check",
     minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    title: "Background Jobs",
+    description: "Monitor and manage background job processing",
+    icon: Cpu,
+    href: "/admin/jobs",
+    minimumAllowedPermission: "user:impersonate",
   },
 ];
 
