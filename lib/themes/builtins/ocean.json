@@ -1,0 +1,15 @@
+{
+  "name": "Ocean",
+  "cssVars": {
+    "--primary": "188 72% 37%",
+    "--primary-foreground": "0 0% 100%",
+    "--ring": "188 72% 37%",
+    "--accent": "188 50% 75%",
+    "--accent-foreground": "188 72% 20%"
+  },
+  "darkCssVars": {
+    "--primary": "188 60% 50%",
+    "--primary-foreground": "210 50% 10%",
+    "--ring": "188 60% 50%"
+  }
+}

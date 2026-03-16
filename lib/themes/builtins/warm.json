@@ -1,0 +1,15 @@
+{
+  "name": "Warm",
+  "cssVars": {
+    "--primary": "25 55% 40%",
+    "--primary-foreground": "43 59% 96%",
+    "--ring": "25 55% 40%",
+    "--accent": "25 55% 70%",
+    "--accent-foreground": "25 55% 20%"
+  },
+  "darkCssVars": {
+    "--primary": "25 55% 55%",
+    "--primary-foreground": "25 20% 12%",
+    "--ring": "25 55% 55%"
+  }
+}

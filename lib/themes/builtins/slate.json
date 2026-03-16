@@ -1,0 +1,15 @@
+{
+  "name": "Slate",
+  "cssVars": {
+    "--primary": "215 25% 27%",
+    "--primary-foreground": "0 0% 98%",
+    "--ring": "215 25% 27%",
+    "--accent": "215 20% 65%",
+    "--accent-foreground": "215 25% 15%"
+  },
+  "darkCssVars": {
+    "--primary": "215 20% 65%",
+    "--primary-foreground": "215 25% 15%",
+    "--ring": "215 20% 65%"
+  }
+}

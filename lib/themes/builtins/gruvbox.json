@@ -1,0 +1,15 @@
+{
+  "name": "Gruvbox",
+  "cssVars": {
+    "--primary": "35 76% 48%",
+    "--primary-foreground": "43 59% 94%",
+    "--ring": "35 76% 48%",
+    "--accent": "35 76% 60%",
+    "--accent-foreground": "43 59% 94%"
+  },
+  "darkCssVars": {
+    "--primary": "40 80% 62%",
+    "--primary-foreground": "210 15% 12%",
+    "--ring": "40 80% 62%"
+  }
+}

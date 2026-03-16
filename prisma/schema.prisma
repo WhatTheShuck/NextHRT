@@ -235,6 +235,9 @@ model User {
   sessions                     Session[]
   historyLogs                  History[]
   appSettingUpdates            AppSetting[]
+  themeId                      String?
+  theme                        Theme?        @relation("UserActiveTheme", fields: [themeId], references: [id], onDelete: SetNull)
+  themes                       Theme[]       @relation("UserThemes")
   createdAt                    DateTime      @default(now())
   updatedAt                    DateTime      @updatedAt
 }
@@ -246,6 +249,25 @@ model AppSetting {
   updatedAt     DateTime @updatedAt
   updatedBy     String?
   updatedByUser User?    @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+}
+
+enum ThemeType {
+  BUILTIN
+  COMPANY
+  USER
+}
+
+model Theme {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  type         ThemeType
+  cssVars      Json
+  darkCssVars  Json?
+  userId       String?
+  user         User?     @relation("UserThemes", fields: [userId], references: [id], onDelete: SetNull)
+  activeForUsers User[]  @relation("UserActiveTheme")
+  createdAt    DateTime  @default(now())
 }
 
 enum UserRole {

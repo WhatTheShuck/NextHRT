@@ -1,0 +1,15 @@
+{
+  "name": "Nord",
+  "cssVars": {
+    "--primary": "213 32% 52%",
+    "--primary-foreground": "0 0% 100%",
+    "--ring": "213 32% 52%",
+    "--accent": "213 32% 70%",
+    "--accent-foreground": "220 16% 22%"
+  },
+  "darkCssVars": {
+    "--primary": "213 32% 62%",
+    "--primary-foreground": "220 16% 22%",
+    "--ring": "213 32% 62%"
+  }
+}

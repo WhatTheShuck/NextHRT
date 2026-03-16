@@ -1,0 +1,15 @@
+{
+  "name": "Rosé Pine",
+  "cssVars": {
+    "--primary": "343 35% 47%",
+    "--primary-foreground": "0 0% 100%",
+    "--ring": "343 35% 47%",
+    "--accent": "343 35% 80%",
+    "--accent-foreground": "343 35% 30%"
+  },
+  "darkCssVars": {
+    "--primary": "343 35% 57%",
+    "--primary-foreground": "247 26% 12%",
+    "--ring": "343 35% 57%"
+  }
+}

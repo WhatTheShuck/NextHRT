@@ -1,0 +1,15 @@
+{
+  "name": "High Contrast",
+  "cssVars": {
+    "--primary": "0 0% 0%",
+    "--primary-foreground": "0 0% 100%",
+    "--ring": "0 0% 0%",
+    "--accent": "0 0% 20%",
+    "--accent-foreground": "0 0% 100%"
+  },
+  "darkCssVars": {
+    "--primary": "0 0% 100%",
+    "--primary-foreground": "0 0% 0%",
+    "--ring": "0 0% 100%"
+  }
+}

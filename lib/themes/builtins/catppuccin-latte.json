@@ -1,0 +1,11 @@
+{
+  "name": "Catppuccin Latte",
+  "cssVars": {
+    "--primary": "220 91% 54%",
+    "--primary-foreground": "0 0% 100%",
+    "--ring": "220 91% 54%",
+    "--accent": "220 14% 90%",
+    "--accent-foreground": "220 91% 54%"
+  },
+  "darkCssVars": {}
+}

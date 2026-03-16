@@ -1,0 +1,15 @@
+{
+  "name": "Catppuccin Mocha",
+  "cssVars": {
+    "--primary": "267 84% 81%",
+    "--primary-foreground": "240 21% 15%",
+    "--ring": "267 84% 81%",
+    "--accent": "267 84% 75%",
+    "--accent-foreground": "240 21% 15%"
+  },
+  "darkCssVars": {
+    "--primary": "267 84% 81%",
+    "--primary-foreground": "240 21% 15%",
+    "--ring": "267 84% 81%"
+  }
+}
