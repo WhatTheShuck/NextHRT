@@ -3,11 +3,22 @@ import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserProfileDetails from "./profile-details";
+import { AppearanceSettings } from "./appearance-settings";
 import { headers } from "next/headers";
+import { prisma } from "@/lib/prisma";
+import { appSettingService } from "@/lib/services/appSettingService";
 
 async function Profile() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session === null) return redirect("/auth");
+
+  const [dbUser, settings] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { themeId: true } }),
+    appSettingService.getSettings(),
+  ]);
+
+  const locked = settings["theme.lock"] === "true";
+  const currentThemeId = dbUser?.themeId ?? null;
 
   return (
     <div className="flex items-center justify-center min-h-[90vh] p-4">
@@ -38,6 +49,13 @@ async function Profile() {
         </Card>
 
         <UserProfileDetails userId={session.user.id} />
+
+        <Card className="shadow-lg">
+          <CardContent className="p-5 md:p-8">
+            <h2 className="text-lg font-semibold mb-6">Appearance</h2>
+            <AppearanceSettings currentThemeId={currentThemeId} locked={locked} />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

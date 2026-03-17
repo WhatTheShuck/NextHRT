@@ -2,25 +2,8 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { NavigationCard } from "@/components/navigation-card";
 import { fieldEditorNavigationItems } from "@/lib/data";
-import api from "@/lib/axios";
 import { headers } from "next/headers";
-
-async function getStats() {
-  // need to implement the service, rather than api call
-  // try {
-  // const response = await api.get("/api/stats");
-  // return response.data;
-  // } catch (error) {
-  // console.error("Error fetching stats:", error);
-  return {
-    totalEmployees: 0,
-    totalDepartments: 0,
-    totalLocations: 0,
-    totalTraining: 0,
-    totalTickets: 0,
-  };
-  // }
-}
+import { statsService } from "@/lib/services/statsService";
 
 export default async function MetaPropertiesPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -30,7 +13,35 @@ export default async function MetaPropertiesPage() {
     redirect("/");
   }
 
-  const stats = await getStats();
+  const stats = await statsService.getStats();
+
+  const statCards = [
+    {
+      label: "Employees",
+      active: stats.activeEmployees,
+      total: stats.totalEmployees,
+    },
+    {
+      label: "Departments",
+      active: stats.activeDepartments,
+      total: stats.totalDepartments,
+    },
+    {
+      label: "Locations",
+      active: stats.activeLocations,
+      total: stats.totalLocations,
+    },
+    {
+      label: "Training Programmes",
+      active: stats.activeTraining,
+      total: stats.totalTraining,
+    },
+    {
+      label: "Ticket Categories",
+      active: stats.activeTickets,
+      total: stats.totalTickets,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -56,31 +67,31 @@ export default async function MetaPropertiesPage() {
         {/* Quick Stats Section */}
         <div className="space-y-4 md:space-y-6">
           <h2 className="text-xl md:text-2xl font-semibold">Quick Stats</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-card p-6 rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Total Departments
-              </h3>
-              <p className="text-2xl font-bold">{stats.totalDepartments}</p>
-            </div>
-            <div className="bg-card p-6 rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Active Locations
-              </h3>
-              <p className="text-2xl font-bold">{stats.totalLocations}</p>
-            </div>
-            <div className="bg-card p-6 rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Training Programmes
-              </h3>
-              <p className="text-2xl font-bold">{stats.totalTraining}</p>
-            </div>
-            <div className="bg-card p-6 rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Ticket Categories
-              </h3>
-              <p className="text-2xl font-bold">{stats.totalTickets}</p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {statCards.map(({ label, active, total }) => {
+              const inactive = total - active;
+              const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
+              return (
+                <div key={label} className="bg-card p-5 rounded-lg border space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
+                  <p className="text-3xl font-bold">{total}</p>
+                  <div className="w-full bg-muted rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-1.5 rounded-full"
+                      style={{ width: `${activePct}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span className="text-green-600 dark:text-green-400 font-medium">
+                      {active} active
+                    </span>
+                    {inactive > 0 && (
+                      <span>{inactive} inactive</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

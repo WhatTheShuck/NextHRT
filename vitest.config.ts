@@ -6,6 +6,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     clearMocks: true,
+    execArgv: ["--localstorage-file=/tmp/vitest-localstorage.db"],
   },
   resolve: {
     alias: {

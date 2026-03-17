@@ -47,3 +47,6 @@ generated/
 
 prisma/dev.db
 .worktrees/
+.superpowers/
+
+docs/superpowers/
