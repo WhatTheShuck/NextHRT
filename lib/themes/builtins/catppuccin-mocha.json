@@ -1,15 +1,47 @@
 {
   "name": "Catppuccin Mocha",
   "cssVars": {
+    "--background": "240 21% 15%",
+    "--foreground": "226 64% 88%",
+    "--card": "237 16% 23%",
+    "--card-foreground": "226 64% 88%",
+    "--popover": "240 21% 15%",
+    "--popover-foreground": "226 64% 88%",
     "--primary": "267 84% 81%",
     "--primary-foreground": "240 21% 15%",
+    "--secondary": "234 13% 31%",
+    "--secondary-foreground": "226 64% 88%",
+    "--muted": "234 13% 31%",
+    "--muted-foreground": "233 12% 56%",
+    "--accent": "234 13% 31%",
+    "--accent-foreground": "226 64% 88%",
+    "--destructive": "343 81% 75%",
+    "--destructive-foreground": "240 21% 15%",
+    "--border": "234 13% 31%",
+    "--input": "234 13% 31%",
     "--ring": "267 84% 81%",
-    "--accent": "267 84% 75%",
-    "--accent-foreground": "240 21% 15%"
+    "--radius": "0.5rem"
   },
   "darkCssVars": {
+    "--background": "240 21% 15%",
+    "--foreground": "226 64% 88%",
+    "--card": "237 16% 23%",
+    "--card-foreground": "226 64% 88%",
+    "--popover": "240 21% 15%",
+    "--popover-foreground": "226 64% 88%",
     "--primary": "267 84% 81%",
     "--primary-foreground": "240 21% 15%",
-    "--ring": "267 84% 81%"
+    "--secondary": "234 13% 31%",
+    "--secondary-foreground": "226 64% 88%",
+    "--muted": "234 13% 31%",
+    "--muted-foreground": "233 12% 56%",
+    "--accent": "234 13% 31%",
+    "--accent-foreground": "226 64% 88%",
+    "--destructive": "343 81% 75%",
+    "--destructive-foreground": "240 21% 15%",
+    "--border": "234 13% 31%",
+    "--input": "234 13% 31%",
+    "--ring": "267 84% 81%",
+    "--radius": "0.5rem"
   }
 }

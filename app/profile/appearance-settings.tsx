@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemePreview } from "@/components/theme-preview";
 import { ThemePasteDialog } from "@/components/theme-paste-dialog";
 import { Trash2 } from "lucide-react";
+import { applyTheme, clearTheme } from "@/lib/themes/clientTheme";
 
 interface Theme {
   id: string;
@@ -23,6 +25,7 @@ interface AppearanceSettingsProps {
 }
 
 export function AppearanceSettings({ currentThemeId: initialThemeId, locked }: AppearanceSettingsProps) {
+  const router = useRouter();
   const [themes, setThemes] = useState<Theme[]>([]);
   const [activeThemeId, setActiveThemeId] = useState<string | null>(initialThemeId);
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -45,7 +48,17 @@ export function AppearanceSettings({ currentThemeId: initialThemeId, locked }: A
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ themeId: id }),
       });
-      if (res.ok) setActiveThemeId(id);
+      if (res.ok) {
+        setActiveThemeId(id);
+        if (id === null) {
+          clearTheme();
+          // Re-run the server layout to inject the org default theme CSS
+          router.refresh();
+        } else {
+          const theme = themes.find((t) => t.id === id);
+          if (theme) applyTheme(theme.id, theme.cssVars, theme.darkCssVars);
+        }
+      }
     } finally {
       setSaving(false);
     }

@@ -20,10 +20,20 @@ interface Theme {
 
 export function ThemeSettings() {
   const [themes, setThemes] = useState<Theme[]>([]);
-  const [defaultSlug, setDefaultSlug] = useState("default");
-  const [locked, setLocked] = useState(false);
+
+  // Saved values — reflect what's in the DB
+  const [savedSlug, setSavedSlug] = useState("default");
+  const [savedLocked, setSavedLocked] = useState(false);
+
+  // Pending values — what the admin has selected but not yet saved
+  const [pendingSlug, setPendingSlug] = useState("default");
+  const [pendingLocked, setPendingLocked] = useState(false);
+
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
+
+  const isDirty = pendingSlug !== savedSlug || pendingLocked !== savedLocked;
 
   const loadData = useCallback(async () => {
     const [themesRes, settingsRes] = await Promise.all([
@@ -33,40 +43,43 @@ export function ThemeSettings() {
     if (themesRes.ok) setThemes(await themesRes.json() as Theme[]);
     if (settingsRes.ok) {
       const s = await settingsRes.json() as Record<string, string>;
-      setDefaultSlug(s["theme.default"] ?? "default");
-      setLocked(s["theme.lock"] === "true");
+      const slug = s["theme.default"] ?? "default";
+      const locked = s["theme.lock"] === "true";
+      setSavedSlug(slug);
+      setSavedLocked(locked);
+      setPendingSlug(slug);
+      setPendingLocked(locked);
     }
   }, []);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
-  async function setDefault(slug: string) {
+  async function handleSave() {
     setSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ updates: [{ key: "theme.default", value: slug }] }),
-    });
-    setDefaultSlug(slug);
-    setSaving(false);
-  }
-
-  async function toggleLock(checked: boolean) {
-    setSaving(true);
+    setSaved(false);
     await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        updates: [{ key: "theme.lock", value: checked ? "true" : "false" }],
+        updates: [
+          { key: "theme.default", value: pendingSlug },
+          { key: "theme.lock", value: pendingLocked ? "true" : "false" },
+        ],
       }),
     });
-    setLocked(checked);
+    setSavedSlug(pendingSlug);
+    setSavedLocked(pendingLocked);
     setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   async function deleteTheme(id: string) {
     await fetch(`/api/themes/${id}`, { method: "DELETE" });
     setThemes((prev) => prev.filter((t) => t.id !== id));
+    // If the deleted theme was the pending default, fall back
+    const deleted = themes.find((t) => t.id === id);
+    if (deleted?.slug === pendingSlug) setPendingSlug("default");
   }
 
   const builtins = themes.filter((t) => t.type === "BUILTIN");
@@ -77,9 +90,8 @@ export function ThemeSettings() {
       <div className="flex items-center gap-3">
         <Switch
           id="theme-lock"
-          checked={locked}
-          onCheckedChange={toggleLock}
-          disabled={saving}
+          checked={pendingLocked}
+          onCheckedChange={setPendingLocked}
         />
         <Label htmlFor="theme-lock">
           Lock theme — prevent users from choosing their own
@@ -104,8 +116,8 @@ export function ThemeSettings() {
                 <ThemePreview
                   cssVars={theme.cssVars}
                   name={theme.name}
-                  selected={defaultSlug === theme.slug}
-                  onClick={() => setDefault(theme.slug)}
+                  selected={pendingSlug === theme.slug}
+                  onClick={() => setPendingSlug(theme.slug)}
                 />
                 <button
                   type="button"
@@ -115,7 +127,7 @@ export function ThemeSettings() {
                 >
                   <Trash2 size={12} />
                 </button>
-                {defaultSlug === theme.slug && (
+                {pendingSlug === theme.slug && (
                   <Badge className="absolute bottom-7 left-1 text-[9px] px-1 py-0">
                     Org default
                   </Badge>
@@ -134,10 +146,10 @@ export function ThemeSettings() {
               <ThemePreview
                 cssVars={theme.cssVars}
                 name={theme.name}
-                selected={defaultSlug === theme.slug}
-                onClick={() => setDefault(theme.slug)}
+                selected={pendingSlug === theme.slug}
+                onClick={() => setPendingSlug(theme.slug)}
               />
-              {defaultSlug === theme.slug && (
+              {pendingSlug === theme.slug && (
                 <Badge className="absolute bottom-7 left-1 text-[9px] px-1 py-0">
                   Org default
                 </Badge>
@@ -145,6 +157,18 @@ export function ThemeSettings() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button onClick={handleSave} disabled={saving || !isDirty}>
+          {saving ? "Saving..." : "Save settings"}
+        </Button>
+        {isDirty && !saving && (
+          <span className="text-sm text-muted-foreground">Unsaved changes</span>
+        )}
+        {saved && !isDirty && (
+          <span className="text-sm text-green-600 dark:text-green-400">Saved</span>
+        )}
       </div>
 
       <ThemePasteDialog

@@ -14,15 +14,31 @@ const ALLOWED_VARS = new Set([
   "--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5",
 ]);
 
-// Valid CSS values: HSL triplet (no hsl() wrapper), or a length for --radius
-const HSL_PATTERN = /^\d{1,3}\s+\d{1,3}%\s+\d{1,3}%$/;
+// Valid CSS values: bare HSL triplet (decimals allowed), or a length for --radius
+const HSL_PATTERN = /^\d+(\.\d+)?\s+\d+(\.\d+)?%\s+\d+(\.\d+)?%$/;
 const RADIUS_PATTERN = /^\d+(\.\d+)?(rem|px|em)$/;
 const VAR_NAME_PATTERN = /^--[a-z][a-z0-9-]*$/;
 
-function isValidValue(name: string, value: string): boolean {
+/**
+ * Normalize a color value to bare "H S% L%" form.
+ * Handles both bare triplets and hsl(H S% L%) / hsl(H S% L% / alpha) wrappers
+ * that tweakcn and shadcn emit.
+ */
+function normalizeColor(value: string): string | null {
   const v = value.trim();
-  if (name === "--radius") return RADIUS_PATTERN.test(v);
-  return HSL_PATTERN.test(v);
+  // Strip hsl() wrapper (with optional / alpha component)
+  const hslMatch = v.match(
+    /^hsl\(\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%(?:\s*\/\s*[\d.]+%?)?\s*\)$/
+  );
+  if (hslMatch) return `${hslMatch[1]} ${hslMatch[2]}% ${hslMatch[3]}%`;
+  // Already bare triplet
+  if (HSL_PATTERN.test(v)) return v;
+  return null;
+}
+
+function isValidValue(name: string, value: string): boolean {
+  if (name === "--radius") return RADIUS_PATTERN.test(value.trim());
+  return normalizeColor(value) !== null;
 }
 
 function sanitiseVars(raw: Record<string, string>): Record<string, string> {
@@ -34,8 +50,14 @@ function sanitiseVars(raw: Record<string, string>): Record<string, string> {
     const val = String(rawVal).trim();
     if (!VAR_NAME_PATTERN.test(key)) continue;
     if (!ALLOWED_VARS.has(key)) continue;
-    if (!isValidValue(key, val)) continue;
-    result[key] = val;
+    if (key === "--radius") {
+      if (RADIUS_PATTERN.test(val)) { result[key] = val; count++; }
+      continue;
+    }
+    // Normalize to bare "H S% L%" — strips hsl() wrapper if present
+    const normalized = normalizeColor(val);
+    if (!normalized) continue;
+    result[key] = normalized;
     count++;
   }
   return result;

@@ -1,11 +1,47 @@
 {
   "name": "Catppuccin Latte",
   "cssVars": {
-    "--primary": "220 91% 54%",
-    "--primary-foreground": "0 0% 100%",
-    "--ring": "220 91% 54%",
-    "--accent": "220 14% 90%",
-    "--accent-foreground": "220 91% 54%"
+    "--background": "220 23% 95%",
+    "--foreground": "234 16% 35%",
+    "--card": "220 22% 92%",
+    "--card-foreground": "234 16% 35%",
+    "--popover": "220 23% 95%",
+    "--popover-foreground": "234 16% 35%",
+    "--primary": "266 85% 58%",
+    "--primary-foreground": "220 23% 95%",
+    "--secondary": "220 22% 82%",
+    "--secondary-foreground": "234 16% 35%",
+    "--muted": "220 22% 82%",
+    "--muted-foreground": "233 10% 47%",
+    "--accent": "220 22% 82%",
+    "--accent-foreground": "234 16% 35%",
+    "--destructive": "347 87% 44%",
+    "--destructive-foreground": "220 23% 95%",
+    "--border": "220 16% 78%",
+    "--input": "220 16% 78%",
+    "--ring": "266 85% 58%",
+    "--radius": "0.5rem"
   },
-  "darkCssVars": {}
+  "darkCssVars": {
+    "--background": "240 21% 15%",
+    "--foreground": "226 64% 88%",
+    "--card": "237 16% 23%",
+    "--card-foreground": "226 64% 88%",
+    "--popover": "240 21% 15%",
+    "--popover-foreground": "226 64% 88%",
+    "--primary": "267 84% 81%",
+    "--primary-foreground": "240 21% 15%",
+    "--secondary": "234 13% 31%",
+    "--secondary-foreground": "226 64% 88%",
+    "--muted": "234 13% 31%",
+    "--muted-foreground": "233 12% 56%",
+    "--accent": "234 13% 31%",
+    "--accent-foreground": "226 64% 88%",
+    "--destructive": "343 81% 75%",
+    "--destructive-foreground": "240 21% 15%",
+    "--border": "234 13% 31%",
+    "--input": "234 13% 31%",
+    "--ring": "267 84% 81%",
+    "--radius": "0.5rem"
+  }
 }

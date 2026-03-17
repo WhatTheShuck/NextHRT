@@ -25,7 +25,8 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     key: "matching.nameExact.enabled",
     envVar: "USER_MATCH_NAME_EXACT_ENABLED",
     defaultValue: "true",
-    description: "Enable exact name matching between user.name and employee full name",
+    description:
+      "Enable exact name matching between user.name and employee full name",
   },
   {
     key: "matching.nameFuzzy.enabled",
@@ -37,7 +38,8 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     key: "matching.nameFuzzy.threshold",
     envVar: "USER_MATCH_NAME_FUZZY_THRESHOLD",
     defaultValue: "0.7",
-    description: "Minimum Levenshtein similarity (0–1) to consider a fuzzy match",
+    description:
+      "Minimum Levenshtein similarity (0–1) to consider a fuzzy match",
   },
   {
     key: "matching.suggestionThreshold",
@@ -49,13 +51,27 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     key: "jobs.historyRetentionYears",
     envVar: "JOBS_HISTORY_RETENTION_YEARS",
     defaultValue: "7",
-    description: "History records older than this many years are eligible for pruning",
+    description:
+      "History records older than this many years are eligible for pruning",
   },
   {
     key: "jobs.pollIntervalMs",
     envVar: "JOBS_POLL_INTERVAL_MS",
     defaultValue: "5000",
-    description: "How often the job runner polls for pending work (milliseconds)",
+    description:
+      "How often the job runner polls for pending work (milliseconds)",
+  },
+  {
+    key: "theme.default",
+    envVar: "DEFAULT_THEME",
+    defaultValue: "default",
+    description: "Slug of the organisation-wide default theme",
+  },
+  {
+    key: "theme.lock",
+    envVar: "LOCK_THEME",
+    defaultValue: "false",
+    description: "When true, prevents users from overriding the org theme",
   },
 ];
 
