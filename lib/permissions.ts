@@ -54,7 +54,7 @@ export const departmentManagerRole = ac.newRole({
   trainingRecord: ["view"],
   ticketRecord: ["view"],
   exemption: ["view"],
-  reports: ["viewEmployee", "viewTicket", "viewTraining"],
+  reports: ["view", "viewEmployee", "viewTicket", "viewTraining"],
 });
 
 export const fireWardenRole = ac.newRole({

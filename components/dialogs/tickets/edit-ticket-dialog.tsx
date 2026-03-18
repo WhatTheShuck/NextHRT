@@ -32,7 +32,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Ticket } from "@/generated/prisma_client/client";
 import { Switch } from "@/components/ui/switch";
 import {
   RequirementPair,
@@ -43,13 +42,13 @@ import { TicketWithRelations } from "@/lib/types";
 interface EditTicketDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  ticket: Ticket | null;
-  onTicketUpdated?: (ticket: Ticket) => void;
+  ticket: TicketWithRelations | null;
+  onTicketUpdated?: (ticket: TicketWithRelations) => void;
 }
 
 interface TicketFormProps {
   ticket: TicketWithRelations | null;
-  onTicketUpdated?: (ticket: Ticket) => void;
+  onTicketUpdated?: (ticket: TicketWithRelations) => void;
   onClose: () => void;
   className?: string;
 }
@@ -127,17 +126,13 @@ function TicketForm({
         ticketCode: ticketCode.trim(),
         renewal: noExpiry ? null : parseInt(renewal) || 0,
         isActive,
-      };
-
-      // Add requirements if they exist
-      if (requirements.length > 0) {
-        payload.requirements = requirements.map((req) => ({
+        requirements: requirements.map((req) => ({
           departmentId: req.departmentId,
           locationId: req.locationId,
-        }));
-      }
+        })),
+      };
 
-      const response = await api.put<Ticket>(
+      const response = await api.put<TicketWithRelations>(
         `/api/tickets/${ticket.id}`,
         payload,
       );

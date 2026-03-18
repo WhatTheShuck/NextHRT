@@ -122,10 +122,14 @@ export class EmployeeService {
       const childDeptIds = childDeptIdsArrays.flat();
       departmentIds.push(...childDeptIds);
 
+      const departmentFilter: Prisma.EmployeeWhereInput = user.employeeId
+        ? { OR: [{ departmentId: { in: departmentIds } }, { id: user.employeeId }] }
+        : { departmentId: { in: departmentIds } };
+
       return await prisma.employee.findMany({
         where: {
           ...whereClause,
-          departmentId: { in: departmentIds },
+          ...departmentFilter,
         },
         include: {
           department: true,

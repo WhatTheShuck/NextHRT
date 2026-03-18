@@ -49,6 +49,9 @@ export async function hasAccessToEmployee(
 
     if (!user) return false;
 
+    // Always allow access to the user's own linked employee record
+    if (user.employeeId === employeeId) return true;
+
     // Get all accessible department IDs
     const accessibleDepartmentIds: number[] = [];
     for (const dept of user.managedDepartments) {

@@ -83,6 +83,14 @@ export async function PATCH(
       json,
       session.user.id,
     );
+
+    if (json.role !== undefined) {
+      await auth.api.revokeUserSessions({
+        body: { userId: targetUserId },
+        headers: request.headers,
+      });
+    }
+
     return NextResponse.json(updatedUser);
   } catch (error) {
     if (error instanceof Error) {

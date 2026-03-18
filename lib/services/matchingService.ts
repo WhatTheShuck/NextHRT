@@ -206,7 +206,7 @@ export class MatchingService {
 
     // Fetch unlinked users (no employeeId, not banned)
     const users = await prisma.user.findMany({
-      where: { employeeId: null, banned: { not: true } },
+      where: { employeeId: null, OR: [{ banned: null }, { banned: false }] },
       select: { id: true, name: true, email: true },
     });
 
@@ -327,7 +327,7 @@ export class MatchingService {
 
     // Fetch unlinked users (no employee, not banned)
     const users = await prisma.user.findMany({
-      where: { employeeId: null, banned: { not: true } },
+      where: { employeeId: null, OR: [{ banned: null }, { banned: false }] },
       select: { id: true, name: true, email: true, role: true },
     });
 
