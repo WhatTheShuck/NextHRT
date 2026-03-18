@@ -4,7 +4,8 @@ import { columns } from "./columns";
 import { ExportButtons } from "@/components/ExportButtons";
 import React, { useEffect, useMemo, useState } from "react";
 import api from "@/lib/axios";
-import { Employee } from "@/generated/prisma_client";
+import { Employee } from "@/generated/prisma_client/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Page() {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
@@ -12,6 +13,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [uniqueEmployees, setUniqueEmployees] = useState<number>(0);
   const [rowCount, setRowCount] = useState<number>(0);
+  const [sortedData, setSortedData] = useState<Employee[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -33,13 +36,19 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">
+    <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+      <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
         Individual Ticket Needs Analysis Report
       </h1>
 
       {/* Loading state */}
-      {loading && <div className="text-center py-8">Loading...</div>}
+      {loading && (
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
+      )}
 
       {/* Error state */}
       {error && (
@@ -52,7 +61,7 @@ export default function Page() {
       {/* Data table */}
       {!loading && !error && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {uniqueEmployees} unique employee(s) across {rowCount}{" "}
               row(s)
@@ -62,9 +71,18 @@ export default function Page() {
               columns={columns}
               filename={`ticket-requirements-complete)}`}
               title={`Ticket Requirements Report`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
           </div>
-          <DataTable columns={columns} data={allEmployees} />
+          <DataTable
+            columns={columns}
+            data={allEmployees}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </div>

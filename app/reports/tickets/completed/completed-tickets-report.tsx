@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Archive, Check, Users } from "lucide-react";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import { TicketRecordsWithRelations, TicketWithRelations } from "@/lib/types";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
@@ -24,6 +24,7 @@ import api from "@/lib/axios";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { TicketCombobox } from "@/components/combobox/ticket-combobox";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function CompletedTicketPage() {
   const [ticketSelection, setTicketSelection] = useState<Ticket[]>([]);
@@ -41,6 +42,10 @@ export function CompletedTicketPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<string[]>([]);
+  const [sortedData, setSortedData] = useState<TicketRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
@@ -150,8 +155,8 @@ export function CompletedTicketPage() {
   return (
     <>
       {/* Configuration toggles */}
-      <div className="p-4 rounded-lg mb-6">
-        <div className="flex items-center gap-8">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <div className="flex items-center space-x-2">
             <Switch
               id="legacy-ticket"
@@ -182,7 +187,7 @@ export function CompletedTicketPage() {
       </div>
 
       {/* Ticket selection */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="mb-6">
         <TicketCombobox
           tickets={ticketSelection}
           onSelect={handleTicketSelect}
@@ -197,20 +202,26 @@ export function CompletedTicketPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-4">Loading Ticket Records...</div>
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
       ) : null}
       {error ? (
         <div className="text-center py-4 text-red-500">Error: {error}</div>
       ) : null}
 
       {selectedTicketId && !loading && !error && (
-        <div className="container py-10 mx-auto">
-          <div className="flex justify-between items-center mb-4">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
             <ExportButtons
               data={filteredTicketRecords}
               columns={columns}
               filename={`${selectedTicketTitle}-completions`}
               title={`${selectedTicketTitle} - Completion Records`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
             <p className="font-medium">
               {" "}
@@ -230,7 +241,7 @@ export function CompletedTicketPage() {
                   <ul className="max-h-60 overflow-auto">
                     {/* Show All option */}
                     <li
-                      className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                      className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
                       onClick={() => filterByLocation(null)}
                     >
                       <span>All Locations</span>
@@ -243,7 +254,7 @@ export function CompletedTicketPage() {
                     {locations.map((location) => (
                       <li
                         key={location}
-                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
                         onClick={() => filterByLocation(location)}
                       >
                         <span>{location}</span>
@@ -257,7 +268,14 @@ export function CompletedTicketPage() {
               </PopoverContent>
             </Popover>
           </div>
-          <DataTable columns={columns} data={filteredTicketRecords} />
+          <DataTable
+            columns={columns}
+            data={filteredTicketRecords}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </>

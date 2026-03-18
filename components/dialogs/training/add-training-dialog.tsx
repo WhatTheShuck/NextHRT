@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Training, Category } from "@/generated/prisma_client";
+import { Training, Category } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import {
@@ -42,22 +42,25 @@ import {
 interface NewTrainingDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onTrainingCreated: (training: Training) => void;
+  onTrainingCreated: (training: Training | Training[]) => void;
+  defaultCategory?: Category;
 }
 
 interface TrainingFormProps {
-  onTrainingCreated: (training: Training) => void;
+  onTrainingCreated: (training: Training | Training[]) => void;
   onClose: () => void;
   className?: string;
+  defaultCategory?: Category;
 }
 
 function TrainingForm({
   onTrainingCreated,
   onClose,
   className,
+  defaultCategory,
 }: TrainingFormProps) {
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<Category>("Internal");
+  const [category, setCategory] = useState<Category>(defaultCategory ?? "Internal");
   const [requirements, setRequirements] = useState<RequirementPair[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
@@ -248,6 +251,7 @@ export function NewTrainingDialog({
   isOpen,
   onOpenChange,
   onTrainingCreated,
+  defaultCategory,
 }: NewTrainingDialogProps) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
@@ -268,6 +272,7 @@ export function NewTrainingDialog({
             <TrainingForm
               onTrainingCreated={onTrainingCreated}
               onClose={handleClose}
+              defaultCategory={defaultCategory}
             />
           </div>
         </DialogContent>
@@ -289,6 +294,7 @@ export function NewTrainingDialog({
           <TrainingForm
             onTrainingCreated={onTrainingCreated}
             onClose={handleClose}
+            defaultCategory={defaultCategory}
           />
         </div>
       </DrawerContent>

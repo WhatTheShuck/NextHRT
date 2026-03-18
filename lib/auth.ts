@@ -1,34 +1,79 @@
-import NextAuth from "next-auth";
-import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import prisma from "./prisma";
-
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: "database",
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaClient } from "@/generated/prisma_client/client";
+import { nextCookies } from "better-auth/next-js";
+import { admin } from "better-auth/plugins";
+import {
+  ac,
+  adminRole,
+  departmentManagerRole,
+  fireWardenRole,
+  userRole,
+} from "@/lib/permissions";
+const dbUrl = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
+const prisma = new PrismaClient({
+  adapter: new PrismaBetterSqlite3({ url: dbUrl.replace(/^file:/, "") }),
+});
+export const auth = betterAuth({
+  socialProviders: {
+    microsoft: {
+      clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID as string,
+      clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET as string,
+      // Optional
+      tenantId: process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID as string,
+      authority: "https://login.microsoftonline.com", // Authentication authority URL
+    },
   },
-  providers: [
-    MicrosoftEntraID({
-      clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
-      clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
-      issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER,
-      // profile(profile) {
-      // return { role: profile.role ?? "user" };
-      // },
+  database: prismaAdapter(prisma, {
+    provider: "sqlite",
+  }),
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 5, // 5 minutes
+    },
+  },
+  plugins: [
+    nextCookies(),
+    admin({
+      ac,
+      roles: {
+        Admin: adminRole,
+        DepartmentManager: departmentManagerRole,
+        FireWarden: fireWardenRole,
+        User: userRole,
+      },
+      defaultRole: "User",
     }),
   ],
-  callbacks: {
-    authorized: async ({ auth }) => {
-      return !!auth;
-    },
-    session({ session, user }) {
-      session.user.role = user.role;
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/auth",
-  },
-  secret: process.env.AUTH_SECRET,
 });
+// export const { handlers, auth, signIn, signOut } = NextAuth({
+//   adapter: PrismaAdapter(prisma),
+//   session: {
+//     strategy: "database",
+//   },
+//   providers: [
+//     MicrosoftEntraID({
+//       clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
+//       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
+//       issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER,
+//       // profile(profile) {
+//       // return { role: profile.role ?? "user" };
+//       // },
+//     }),
+//   ],
+//   callbacks: {
+//     authorized: async ({ auth }) => {
+//       return !!auth;
+//     },
+//     session({ session, user }) {
+//       session.user.role = user.role;
+//       return session;
+//     },
+//   },
+//   pages: {
+//     signIn: "/auth",
+//   },
+//   secret: process.env.AUTH_SECRET,
+// });

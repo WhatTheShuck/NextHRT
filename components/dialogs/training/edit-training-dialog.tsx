@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Training, Category } from "@/generated/prisma_client";
+import { Training, Category } from "@/generated/prisma_client/client";
 import { Switch } from "@/components/ui/switch";
 import {
   RequirementPair,
@@ -44,12 +44,12 @@ interface EditTrainingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   training: Training | null;
-  onTrainingUpdated?: (training: Training) => void;
+  onTrainingUpdated?: (training: Training | Training[]) => void;
 }
 
 interface TrainingFormProps {
   training: TrainingWithRelations | null;
-  onTrainingUpdated?: (training: Training) => void;
+  onTrainingUpdated?: (training: Training | Training[]) => void;
   onClose: () => void;
   className?: string;
 }
@@ -68,6 +68,7 @@ function TrainingForm({
   const [error, setError] = useState("");
   const [hasUnsavedRequirements, setHasUnsavedRequirements] = useState(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [showSopDowngradeDialog, setShowSopDowngradeDialog] = useState(false);
 
   // Reset form when training changes
   useEffect(() => {
@@ -130,10 +131,7 @@ function TrainingForm({
         }));
       }
 
-      const response = await api.put<Training>(
-        `/api/training/${training.id}`,
-        payload,
-      );
+      const response = await api.put(`/api/training/${training.id}`, payload);
 
       onTrainingUpdated?.(response.data);
       onClose();
@@ -152,6 +150,12 @@ function TrainingForm({
   const handleUpdate = async () => {
     if (!title.trim()) {
       setError("Training title is required");
+      return;
+    }
+
+    // SOP → non-SOP requires confirmation before proceeding
+    if (training?.category === "SOP" && category !== "SOP") {
+      setShowSopDowngradeDialog(true);
       return;
     }
 
@@ -190,7 +194,20 @@ function TrainingForm({
           <Label>Category</Label>
           <RadioGroup
             value={category}
-            onValueChange={(val) => setCategory(val as Category)}
+            onValueChange={(val) => {
+              const newCat = val as Category;
+              // Strip SOP suffix from title when switching away from SOP
+              if (category === "SOP" && newCat !== "SOP") {
+                setTitle((prev) => {
+                  if (prev.endsWith(" - Task Sheet"))
+                    return prev.slice(0, -" - Task Sheet".length);
+                  if (prev.endsWith(" - Practical"))
+                    return prev.slice(0, -" - Practical".length);
+                  return prev;
+                });
+              }
+              setCategory(newCat);
+            }}
             disabled={isUpdating}
           >
             <div className="flex items-center space-x-2">
@@ -269,6 +286,47 @@ function TrainingForm({
             <AlertDialogCancel>Go Back & Add It</AlertDialogCancel>
             <AlertDialogAction onClick={proceedWithSubmission}>
               Proceed Without Adding
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showSopDowngradeDialog}
+        onOpenChange={setShowSopDowngradeDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove SOP Pairing</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              This training is part of an SOP pair (Task Sheet + Practical).
+              Changing its category will permanently delete the paired{" "}
+              <strong>
+                {training?.title?.endsWith(" - Task Sheet")
+                  ? "Practical"
+                  : "Task Sheet"}
+              </strong>{" "}
+              training, along with its requirements and exemptions.
+              <br />
+              <br />
+              This cannot be undone. The paired training must have no existing
+              training records for this to proceed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setShowSopDowngradeDialog(false);
+                if (hasUnsavedRequirements) {
+                  setShowUnsavedDialog(true);
+                } else {
+                  await submitUpdate();
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Paired Training & Save
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

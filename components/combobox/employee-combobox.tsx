@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Employee } from "@/generated/prisma_client";
+import { Employee } from "@/generated/prisma_client/client";
 
 interface EmployeeComboboxProps {
   employees: Employee[];

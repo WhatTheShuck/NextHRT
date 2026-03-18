@@ -1,6 +1,6 @@
 "use client";
 import { useTransition } from "react";
-import { signOut } from "next-auth/react";
+import { signOut } from "@/lib/auth-client"; // Changed import
 import { LogOut } from "lucide-react";
 
 export function SignOut() {
@@ -9,7 +9,13 @@ export function SignOut() {
   return (
     <button
       className="flex w-full items-center text-sm"
-      onClick={() => startTransition(() => signOut())}
+      onClick={() =>
+        startTransition(() => {
+          void signOut().then(() => {
+            window.location.href = "/auth";
+          });
+        })
+      }
       disabled={isPending}
     >
       <LogOut className="mr-2 h-4 w-4" />

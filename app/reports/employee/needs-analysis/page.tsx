@@ -10,6 +10,7 @@ import { AxiosError } from "axios";
 import { EmployeeCombobox } from "@/components/combobox/employee-combobox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Unified requirement item interface for display
 export interface RequirementItem extends Record<string, unknown> {
@@ -36,6 +37,8 @@ export default function Page() {
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
   const [includeCompletedRecords, setIncludeCompletedRecords] = useState(false);
+  const [sortedData, setSortedData] = useState<RequirementItem[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
 
   // Compute filtered employees based on toggle
   const filteredEmployees = useMemo(() => {
@@ -82,11 +85,11 @@ export default function Page() {
       // If exempted and we're not showing completed records, skip
       if (exemption && !includeCompletedRecords) return;
 
-      // Check if completed: if it's NOT in trainingRequired, it means it's completed
-      const isCompleted = !trainingRequired.some(
-        (tr: any) => tr.trainingId === req.trainingId,
-      );
       const isExempted = !!exemption;
+      // Completed means: no longer required AND not just exempted
+      const isCompleted =
+        !isExempted &&
+        !trainingRequired.some((tr: any) => tr.trainingId === req.trainingId);
 
       items.push({
         id: `training-${req.trainingId}`,
@@ -118,11 +121,11 @@ export default function Page() {
       // If exempted and we're not showing completed records, skip
       if (exemption && !includeCompletedRecords) return;
 
-      // Check if completed: if it's NOT in ticketRequired, it means it's completed
-      const isCompleted = !ticketRequired.some(
-        (tr: any) => tr.ticketId === req.ticketId,
-      );
       const isExempted = !!exemption;
+      // Completed means: no longer required AND not just exempted
+      const isCompleted =
+        !isExempted &&
+        !ticketRequired.some((tr: any) => tr.ticketId === req.ticketId);
 
       items.push({
         id: `ticket-${req.ticketId}`,
@@ -211,14 +214,14 @@ export default function Page() {
 
   return (
     <>
-      <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-6">
+      <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+        <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
           Individual Employee Needs Analysis
         </h1>
 
         {/* Configuration toggles */}
         <div className="p-4 rounded-lg mb-6">
-          <div className="flex items-center gap-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
             <div className="flex items-center space-x-2">
               <Switch
                 id="inactive-employees"
@@ -258,7 +261,13 @@ export default function Page() {
           />
         </div>
 
-        {loading && <div className="text-center py-4">Loading...</div>}
+        {loading && (
+          <div className="space-y-2 py-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-md" />
+            ))}
+          </div>
+        )}
 
         {error && (
           <div className="text-center py-4 text-red-500">Error: {error}</div>
@@ -266,7 +275,7 @@ export default function Page() {
 
         {selectedEmployeeId && !loading && !error && (
           <div className="container py-4 mx-auto">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
               <div className="text-sm text-muted-foreground">
                 Showing {filteredRequirements.length} requirement(s)
               </div>
@@ -275,9 +284,18 @@ export default function Page() {
                 columns={columns}
                 filename="employee-requirements"
                 title="Employee Requirements Report"
+                sortedData={sortedData}
+                isSorted={isSorted}
               />
             </div>
-            <DataTable columns={columns} data={filteredRequirements} />
+            <DataTable
+              columns={columns}
+              data={filteredRequirements}
+              onSortedDataChange={(data, sorted) => {
+                setSortedData(data);
+                setIsSorted(sorted);
+              }}
+            />
           </div>
         )}
       </div>

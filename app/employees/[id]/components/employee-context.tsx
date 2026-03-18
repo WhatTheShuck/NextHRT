@@ -11,9 +11,10 @@ import api from "@/lib/axios";
 import {
   EmployeeWithRelations,
   TrainingRecordsWithRelations,
+  TicketRecordsWithRelations,
 } from "@/lib/types";
 import { AxiosError } from "axios";
-import { TrainingTicketExemption } from "@/generated/prisma_client";
+import { TrainingTicketExemption } from "@/generated/prisma_client/client";
 
 type EmployeeContextType = {
   employee: EmployeeWithRelations | null;
@@ -23,6 +24,12 @@ type EmployeeContextType = {
   employeeId: number;
   isLoading: boolean;
   error: string | null;
+  addTrainingRecord: (record: TrainingRecordsWithRelations) => void;
+  updateTrainingRecord: (record: TrainingRecordsWithRelations) => void;
+  deleteTrainingRecord: (recordId: number) => void;
+  addTicketRecord: (record: TicketRecordsWithRelations) => void;
+  updateTicketRecord: (record: TicketRecordsWithRelations) => void;
+  deleteTicketRecord: (recordId: number) => void;
 };
 
 const EmployeeContext = createContext<EmployeeContextType | null>(null);
@@ -83,6 +90,83 @@ export function EmployeeProvider({
     [],
   );
 
+  const addTrainingRecord = useCallback(
+    (record: TrainingRecordsWithRelations) => {
+      setEmployee((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          trainingRecords: [...(current.trainingRecords || []), record],
+        };
+      });
+    },
+    [],
+  );
+
+  const updateTrainingRecord = useCallback(
+    (record: TrainingRecordsWithRelations) => {
+      setEmployee((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          trainingRecords: (current.trainingRecords || []).map((r) =>
+            r.id === record.id ? record : r,
+          ),
+        };
+      });
+    },
+    [],
+  );
+
+  const deleteTrainingRecord = useCallback((recordId: number) => {
+    setEmployee((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        trainingRecords: (current.trainingRecords || []).filter(
+          (r) => r.id !== recordId,
+        ),
+      };
+    });
+  }, []);
+
+  const addTicketRecord = useCallback((record: TicketRecordsWithRelations) => {
+    setEmployee((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        ticketRecords: [...(current.ticketRecords || []), record],
+      };
+    });
+  }, []);
+
+  const updateTicketRecord = useCallback(
+    (record: TicketRecordsWithRelations) => {
+      setEmployee((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          ticketRecords: (current.ticketRecords || []).map((r) =>
+            r.id === record.id ? record : r,
+          ),
+        };
+      });
+    },
+    [],
+  );
+
+  const deleteTicketRecord = useCallback((recordId: number) => {
+    setEmployee((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        ticketRecords: (current.ticketRecords || []).filter(
+          (r) => r.id !== recordId,
+        ),
+      };
+    });
+  }, []);
+
   // Fetch data on mount and when employeeId changes
   useEffect(() => {
     fetchEmployeeData();
@@ -98,6 +182,12 @@ export function EmployeeProvider({
         employeeId,
         isLoading,
         error,
+        addTrainingRecord,
+        updateTrainingRecord,
+        deleteTrainingRecord,
+        addTicketRecord,
+        updateTicketRecord,
+        deleteTicketRecord,
       }}
     >
       {children}

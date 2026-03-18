@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { useMediaQuery } from "usehooks-ts";
 import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +11,17 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Location } from "@/generated/prisma_client";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { Location } from "@/generated/prisma_client/client";
 import { Switch } from "@/components/ui/switch";
 
 interface EditLocationDialogProps {
@@ -23,22 +31,31 @@ interface EditLocationDialogProps {
   onLocationUpdated?: (location: Location) => void;
 }
 
-export function EditLocationDialog({
+interface LocationEditFormProps {
+  open: boolean;
+  location: Location | null;
+  onLocationUpdated?: (location: Location) => void;
+  onClose: () => void;
+  className?: string;
+}
+
+function LocationEditForm({
   open,
-  onOpenChange,
   location,
   onLocationUpdated,
-}: EditLocationDialogProps) {
+  onClose,
+  className,
+}: LocationEditFormProps) {
   const [locationName, setLocationName] = useState("");
   const [locationState, setLocationState] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isActive, setIsActive] = useState<boolean>(true);
-  // Reset form when dialog opens/closes or location changes
+
   useEffect(() => {
     if (open && location) {
       setLocationName(location.name || "");
       setLocationState(location.state || "");
-      setIsActive(location.isActive ?? true); // Fixed: use nullish coalescing and consistent property name
+      setIsActive(location.isActive ?? true);
     } else if (!open) {
       setLocationName("");
       setLocationState("");
@@ -55,7 +72,6 @@ export function EditLocationDialog({
       alert("Please enter a location state");
       return;
     }
-
     if (!location) {
       alert("No location selected");
       return;
@@ -63,17 +79,14 @@ export function EditLocationDialog({
 
     setIsUpdating(true);
     try {
-      const response = await api.put<Location>(
-        `/api/locations/${location.id}`,
-        {
-          name: locationName.trim(),
-          state: locationState.trim(),
-          isActive,
-        },
-      );
+      const response = await api.put<Location>(`/api/locations/${location.id}`, {
+        name: locationName.trim(),
+        state: locationState.trim(),
+        isActive,
+      });
 
       onLocationUpdated?.(response.data);
-      onOpenChange(false);
+      onClose();
     } catch (err: any) {
       console.error("Error updating location:", err);
       alert(err.response?.data?.error || "Failed to update location");
@@ -82,70 +95,119 @@ export function EditLocationDialog({
     }
   };
 
-  const handleClose = () => {
-    onOpenChange(false);
-  };
+  return (
+    <div className={cn("space-y-4", className)}>
+      <div className="space-y-2">
+        <Label htmlFor="locationName">Location Name</Label>
+        <Input
+          id="locationName"
+          value={locationName}
+          onChange={(e) => setLocationName(e.target.value)}
+          placeholder="e.g., Sydney"
+          disabled={isUpdating}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="locationState">State</Label>
+        <Input
+          id="locationState"
+          value={locationState}
+          onChange={(e) => setLocationState(e.target.value)}
+          placeholder="e.g., NSW"
+          disabled={isUpdating}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleUpdate();
+            }
+          }}
+        />
+      </div>
+      <div className="flex items-center justify-between space-x-2 py-2">
+        <div className="space-y-1">
+          <Label htmlFor="isActive" className="text-sm font-medium">
+            Location Active
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Enable or disable this location
+          </p>
+        </div>
+        <Switch
+          id="isActive"
+          checked={isActive}
+          onCheckedChange={setIsActive}
+          disabled={isUpdating}
+        />
+      </div>
+      <div className="flex flex-col space-y-2 w-full md:flex-row-reverse pb-2 md:gap-2 md:space-y-0 md:justify-start">
+        <Button type="button" onClick={handleUpdate} disabled={isUpdating}>
+          {isUpdating ? "Updating..." : "Update Location"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          disabled={isUpdating}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function EditLocationDialog({
+  open,
+  onOpenChange,
+  location,
+  onLocationUpdated,
+}: EditLocationDialogProps) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
+  const handleClose = () => onOpenChange(false);
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Location</DialogTitle>
+            <DialogDescription>
+              Update the location name. This change will affect all employees
+              assigned to this location.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <LocationEditForm
+              open={open}
+              location={location}
+              onLocationUpdated={onLocationUpdated}
+              onClose={handleClose}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Location</DialogTitle>
-          <DialogDescription>
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[90vh]">
+        <DrawerHeader className="text-left">
+          <DrawerTitle>Edit Location</DrawerTitle>
+          <DrawerDescription>
             Update the location name. This change will affect all employees
             assigned to this location.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="locationName">Location Name</Label>
-            <Input
-              id="locationName"
-              value={locationName}
-              onChange={(e) => setLocationName(e.target.value)}
-              placeholder="e.g., Sydney"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="locationState">State</Label>
-            <Input
-              id="locationState"
-              value={locationState}
-              onChange={(e) => setLocationState(e.target.value)}
-              placeholder="e.g., NSW"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleUpdate();
-                }
-              }}
-            />
-          </div>
-          <div className="flex items-center justify-between space-x-2 py-2">
-            <div className="space-y-1">
-              <Label htmlFor="isActive" className="text-sm font-medium">
-                Location Active
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Enable or disable this location
-              </p>
-            </div>
-            <Switch
-              id="isActive"
-              checked={isActive}
-              onCheckedChange={setIsActive}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleUpdate} disabled={isUpdating}>
-            {isUpdating ? "Updating..." : "Update Location"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DrawerDescription>
+        </DrawerHeader>
+        <LocationEditForm
+          className="px-4"
+          open={open}
+          location={location}
+          onLocationUpdated={onLocationUpdated}
+          onClose={handleClose}
+        />
+      </DrawerContent>
+    </Drawer>
   );
 }

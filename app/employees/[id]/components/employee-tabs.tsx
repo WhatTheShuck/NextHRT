@@ -11,8 +11,11 @@ import {
   BookOpen,
   IdCard,
   ShieldOff,
+  Link,
 } from "lucide-react";
 import { useEmployee } from "./employee-context";
+import { useSession } from "@/lib/auth-client";
+import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewTab } from "./tabs/overview-tab";
 import { InternalTrainingTab } from "./tabs/training-internal-tab";
 import { ExternalTrainingTab } from "./tabs/training-external-tab";
@@ -20,6 +23,7 @@ import { SOPTrainingTab } from "./tabs/training-sop-tab";
 import { TicketTab } from "./tabs/tickets-tab";
 import { HistoryTab } from "./tabs/history-tab";
 import { ExemptionTab } from "./tabs/exemptions-tab";
+import { UserLinkTab } from "./tabs/user-link-tab";
 
 const VALID_TABS = [
   "overview",
@@ -29,11 +33,14 @@ const VALID_TABS = [
   "tickets",
   "history",
   "external",
+  "user-link",
 ] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
 export function EmployeeTabs() {
-  const { employee } = useEmployee();
+  const { employee, isLoading } = useEmployee();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "Admin";
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -62,6 +69,36 @@ export function EmployeeTabs() {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-full rounded-md" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="border rounded-lg p-6 space-y-4">
+            <Skeleton className="h-5 w-40" />
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-28 ml-auto" />
+              </div>
+            ))}
+          </div>
+          <div className="border rounded-lg p-6 space-y-4">
+            <Skeleton className="h-5 w-24" />
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-28 ml-auto" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!employee) return null;
 
@@ -115,6 +152,15 @@ export function EmployeeTabs() {
           <Clock className="h-4 w-4 mr-2" />
           History
         </TabsTrigger>
+        {isAdmin && (
+          <TabsTrigger
+            value="user-link"
+            className="w-full sm:w-auto justify-start"
+          >
+            <Link className="h-4 w-4 mr-2" />
+            User Link
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="overview">
@@ -138,6 +184,9 @@ export function EmployeeTabs() {
       </TabsContent>
       <TabsContent value="history">
         <HistoryTab />
+      </TabsContent>
+      <TabsContent value="user-link">
+        <UserLinkTab />
       </TabsContent>
     </Tabs>
   );

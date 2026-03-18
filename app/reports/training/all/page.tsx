@@ -11,6 +11,7 @@ import { ExportButtons } from "@/components/ExportButtons";
 import api from "@/lib/axios";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CompletedTrainingPage() {
   const [filteredTrainingRecords, setFilteredTrainingRecords] = useState<
@@ -25,6 +26,10 @@ export default function CompletedTrainingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [includeLegacyTraining, setIncludeLegacyTraining] = useState(false);
+  const [sortedData, setSortedData] = useState<TrainingRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   // Fetch training based on legacy and expired toggles
   const fetchTraining = async (includeLegacy: boolean = false) => {
@@ -59,12 +64,12 @@ export default function CompletedTrainingPage() {
 
   return (
     <>
-      <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-6">All Completed Training</h1>
+      <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+        <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">All Completed Training</h1>
 
         {/* Configuration toggles */}
-        <div className="p-4 rounded-lg mb-6">
-          <div className="flex items-center gap-8">
+        <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
             <div className="flex items-center space-x-2">
               <Switch
                 id="legacy-training"
@@ -83,15 +88,19 @@ export default function CompletedTrainingPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-4">Loading Training Records...</div>
+          <div className="space-y-2 py-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-md" />
+            ))}
+          </div>
         ) : null}
         {error ? (
           <div className="text-center py-4 text-red-500">Error: {error}</div>
         ) : null}
 
         {!loading && !error && (
-          <div className="container py-10 mx-auto">
-            <div className="flex justify-between items-center mb-4">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
               <p className="font-medium">
                 Record Count: {filteredTrainingRecords.length}
               </p>
@@ -100,9 +109,18 @@ export default function CompletedTrainingPage() {
                 columns={columns}
                 filename={`${selectedTrainingTitle || "all-training"}-completions`}
                 title={`${selectedTrainingTitle || "All Training"} - Completion Records`}
+                sortedData={sortedData}
+                isSorted={isSorted}
               />
             </div>
-            <DataTable columns={columns} data={filteredTrainingRecords} />
+            <DataTable
+              columns={columns}
+              data={filteredTrainingRecords}
+              onSortedDataChange={(data, sorted) => {
+                setSortedData(data);
+                setIsSorted(sorted);
+              }}
+            />
           </div>
         )}
       </div>

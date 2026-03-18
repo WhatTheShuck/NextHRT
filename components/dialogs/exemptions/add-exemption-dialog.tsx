@@ -26,7 +26,7 @@ import {
   Ticket,
   Training,
   TrainingTicketExemption,
-} from "@/generated/prisma_client";
+} from "@/generated/prisma_client/client";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DateSelector } from "@/components/date-selector";
 import { TicketCombobox } from "@/components/combobox/ticket-combobox";
@@ -170,7 +170,11 @@ function TrainingTicketExemptionForm({
             showAddButton={true}
             label="Training Name"
             onNewTraining={(training) => {
-              trainings.push(training);
+              if (Array.isArray(training)) {
+                trainings.push(...training);
+              } else {
+                trainings.push(training);
+              }
             }}
           />
         </div>

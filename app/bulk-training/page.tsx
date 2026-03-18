@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Employee, Training } from "@/generated/prisma_client";
+import { Employee, Training } from "@/generated/prisma_client/client";
 import { EmployeeSelector } from "./components/employee-selector";
 import { AlertBox } from "@/components/ui/alert-box";
 import api from "@/lib/axios";
@@ -49,9 +49,14 @@ export default function BulkTrainingPage() {
   }, []);
 
   // Add a new training to the list
-  const addTraining = (newTraining: Training) => {
-    setTrainings([...trainings, newTraining]);
-    setTrainingId(newTraining.id.toString());
+  const addTraining = (newTraining: Training | Training[]) => {
+    if (Array.isArray(newTraining)) {
+      setTrainings([...trainings, ...newTraining]);
+      if (newTraining.length > 0) setTrainingId(newTraining[0].id.toString());
+    } else {
+      setTrainings([...trainings, newTraining]);
+      setTrainingId(newTraining.id.toString());
+    }
   };
 
   // Handle bulk training submission

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import { DateSelector } from "@/components/date-selector";
 import { ExpiryRecalcDialog } from "@/components/dialogs/ticket-records/ticket-record-expiry-recalc-dialog";
 import api from "@/lib/axios";
@@ -25,7 +25,7 @@ import { TicketCombobox } from "../combobox/ticket-combobox";
 
 interface TicketEditFormProps {
   ticketRecord: TicketRecordsWithRelations;
-  onSuccess?: () => void;
+  onSuccess?: (record: TicketRecordsWithRelations) => void;
 }
 
 export function TicketEditForm({
@@ -249,13 +249,17 @@ export function TicketEditForm({
         formData.append("images", file);
       });
 
-      await api.put(`/api/ticket-records/${ticketRecord.id}`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+      const response = await api.put<TicketRecordsWithRelations>(
+        `/api/ticket-records/${ticketRecord.id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         },
-      });
+      );
 
-      onSuccess?.();
+      onSuccess?.(response.data);
     } catch (err) {
       console.error("API error:", err);
     } finally {
@@ -388,7 +392,7 @@ export function TicketEditForm({
                                 "_blank",
                               )
                             }
-                            className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full"
+                            className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full cursor-pointer"
                           >
                             {isPDF(image.originalName) ? (
                               // PDF preview

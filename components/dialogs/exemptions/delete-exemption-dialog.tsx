@@ -24,7 +24,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { AlertTriangle } from "lucide-react";
-import { TrainingTicketExemption } from "@/generated/prisma_client";
+import { TrainingTicketExemption } from "@/generated/prisma_client/client";
 import { TrainingTicketExemptionWithRelations } from "@/lib/types";
 
 interface DeleteTrainingTicketExemptionDialogProps {

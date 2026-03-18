@@ -9,8 +9,9 @@ import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrainingCombobox } from "@/components/combobox/training-combobox";
-import { Training } from "@/generated/prisma_client";
+import { Training } from "@/generated/prisma_client/client";
 
 export default function Page() {
   const [allEmployees, setAllEmployees] = useState<
@@ -24,6 +25,10 @@ export default function Page() {
     null,
   );
   const [selectedTrainingName, setSelectedTrainingName] = useState<string>("");
+  const [sortedData, setSortedData] = useState<EmployeeWithRequirementStatus[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   useEffect(() => {
     const fetchTraining = async () => {
@@ -84,14 +89,14 @@ export default function Page() {
   }, [allEmployees, includeCompletedRecords]);
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">
+    <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+      <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
         Individual Training Needs Analysis Report
       </h1>
 
       {/* Configuration toggles */}
-      <div className="p-4 rounded-lg mb-6">
-        <div className="flex items-center gap-8">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <div className="flex items-center space-x-2">
             <Switch
               id="completed-records"
@@ -108,7 +113,7 @@ export default function Page() {
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-4 mb-6">
+      <div className="mb-6">
         <TrainingCombobox
           trainings={trainings}
           selectedTrainingId={selectedTrainingId}
@@ -117,7 +122,13 @@ export default function Page() {
       </div>
 
       {/* Loading state */}
-      {loading && <div className="text-center py-8">Loading...</div>}
+      {loading && (
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
+      )}
 
       {/* Error state */}
       {error && (
@@ -130,7 +141,7 @@ export default function Page() {
       {/* Data table */}
       {selectedTrainingId && !loading && !error && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {displayedEmployees.length} employee(s)
             </div>
@@ -139,9 +150,18 @@ export default function Page() {
               columns={columns}
               filename={`training-requirements-${selectedTrainingName.toLowerCase().replace(/\s+/g, "-")}`}
               title={`Training Requirements Report - ${selectedTrainingName}`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
           </div>
-          <DataTable columns={columns} data={displayedEmployees} />
+          <DataTable
+            columns={columns}
+            data={displayedEmployees}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </div>

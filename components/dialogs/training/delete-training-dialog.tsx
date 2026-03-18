@@ -6,6 +6,7 @@ import { useMediaQuery } from "usehooks-ts";
 import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -21,20 +22,28 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { AlertTriangle } from "lucide-react";
-import { Training } from "@/generated/prisma_client";
+import { Training } from "@/generated/prisma_client/client";
 
 interface DeleteTrainingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   training: Training | null;
-  onTrainingDeleted?: (training: Training) => void;
+  onTrainingDeleted?: (deleted: Training[]) => void;
 }
 
 interface DeleteFormProps {
   training: Training | null;
-  onTrainingDeleted?: (training: Training) => void;
+  onTrainingDeleted?: (deleted: Training[]) => void;
   onClose: () => void;
   className?: string;
+}
+
+function getSiblingTitle(title: string): string | null {
+  if (title.endsWith(" - Task Sheet"))
+    return title.slice(0, -" - Task Sheet".length) + " - Practical";
+  if (title.endsWith(" - Practical"))
+    return title.slice(0, -" - Practical".length) + " - Task Sheet";
+  return null;
 }
 
 function DeleteForm({
@@ -43,6 +52,9 @@ function DeleteForm({
   onClose,
   className,
 }: DeleteFormProps) {
+  const isSop = training?.category === "SOP";
+  const siblingTitle = training ? getSiblingTitle(training.title) : null;
+  const [deletePair, setDeletePair] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
 
@@ -56,9 +68,11 @@ function DeleteForm({
     setError("");
 
     try {
-      await api.delete(`/api/training/${training.id}`);
-
-      onTrainingDeleted?.(training);
+      const params = isSop && deletePair ? "?deletePair=true" : "";
+      const response = await api.delete<Training[]>(
+        `/api/training/${training.id}${params}`,
+      );
+      onTrainingDeleted?.(response.data);
       onClose();
     } catch (err: any) {
       console.error("Error deleting training:", err);
@@ -87,13 +101,13 @@ function DeleteForm({
 
       <div className="rounded-md bg-destructive/10 p-4 border border-destructive/20">
         <div className="flex items-start gap-2">
-          <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+          <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
           <div className="space-y-1">
             <p className="text-sm font-medium text-destructive">Warning</p>
             <p className="text-sm text-muted-foreground">
-              Deleting this training course will remove it from your system
-              permanently. Ensure no training records are currently associated
-              with this course.
+              {isSop
+                ? "Deleting an SOP training permanently removes it from the system. Courses with existing training records cannot be deleted."
+                : "Deleting this training course will remove it from your system permanently. Ensure no training records are currently associated with this course."}
             </p>
           </div>
         </div>
@@ -101,13 +115,44 @@ function DeleteForm({
 
       {training && (
         <div className="space-y-2">
-          <Label>Training course to be deleted:</Label>
-          <div className="p-2 bg-muted rounded-md">
-            <p className="font-medium">{training.title}</p>
-            <p className="text-sm text-muted-foreground">
-              Category: {training.category}
-            </p>
+          <Label>
+            {isSop && deletePair
+              ? "Training courses to be deleted:"
+              : "Training course to be deleted:"}
+          </Label>
+          <div className="space-y-1">
+            <div className="p-2 bg-muted rounded-md">
+              <p className="font-medium">{training.title}</p>
+              <p className="text-sm text-muted-foreground">
+                Category: {training.category}
+              </p>
+            </div>
+            {isSop && siblingTitle && deletePair && (
+              <div className="p-2 bg-muted rounded-md">
+                <p className="font-medium">{siblingTitle}</p>
+                <p className="text-sm text-muted-foreground">
+                  Category: SOP
+                </p>
+              </div>
+            )}
           </div>
+        </div>
+      )}
+
+      {isSop && siblingTitle && (
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="delete-pair"
+            checked={deletePair}
+            onCheckedChange={(checked) => setDeletePair(checked === true)}
+          />
+          <label
+            htmlFor="delete-pair"
+            className="text-sm leading-none cursor-pointer"
+          >
+            Also delete paired training:{" "}
+            <span className="font-medium">{siblingTitle}</span>
+          </label>
         </div>
       )}
 
@@ -118,7 +163,11 @@ function DeleteForm({
           onClick={handleDelete}
           disabled={isDeleting}
         >
-          {isDeleting ? "Deleting..." : "Delete Training Course"}
+          {isDeleting
+            ? "Deleting..."
+            : isSop && deletePair && siblingTitle
+              ? "Delete Both Training Courses"
+              : "Delete Training Course"}
         </Button>
         <Button
           type="button"
@@ -143,6 +192,11 @@ export function DeleteTrainingDialog({
 
   const handleClose = () => onOpenChange(false);
 
+  const isSop = training?.category === "SOP";
+  const description = isSop
+    ? `This action cannot be undone. "${training?.title}" is part of an SOP pair — you can choose to delete both below.`
+    : `This action cannot be undone. Are you sure you want to permanently delete the training course "${training?.title}"?`;
+
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -155,8 +209,7 @@ export function DeleteTrainingDialog({
               </DialogTitle>
             </div>
             <DialogDescription className="pt-2">
-              This action cannot be undone. Are you sure you want to permanently
-              delete the training course &quot;{training?.title}&quot;?
+              {description}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -181,10 +234,7 @@ export function DeleteTrainingDialog({
               Delete Training Course
             </DrawerTitle>
           </div>
-          <DrawerDescription className="pt-2">
-            This action cannot be undone. Are you sure you want to permanently
-            delete the training course &quot;{training?.title}&quot;?
-          </DrawerDescription>
+          <DrawerDescription className="pt-2">{description}</DrawerDescription>
         </DrawerHeader>
         <DeleteForm
           className="px-4"

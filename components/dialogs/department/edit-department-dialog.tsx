@@ -24,7 +24,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Department } from "@/generated/prisma_client";
+import { Department } from "@/generated/prisma_client/client";
 import { Switch } from "@/components/ui/switch";
 import {
   GenericCombobox,

@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Eye, FileImage, Edit, Trash } from "lucide-react";
 import {
@@ -32,12 +33,12 @@ import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-recor
 import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
 import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 
 export function InternalTrainingTab() {
-  const { employee } = useEmployee();
-  const session = useSession();
-  const isAdmin = session?.data?.user.role === "Admin";
+  const { employee, addTrainingRecord, updateTrainingRecord, deleteTrainingRecord } = useEmployee();
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
   const trainingRecords = useEmployeeTrainingRecords().filter(
     (record) => record.training?.category === "Internal",
   );
@@ -52,15 +53,15 @@ export function InternalTrainingTab() {
     useState<TrainingRecordsWithRelations | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const handleAddSheetClose = () => {
+  const handleAddSuccess = (record: TrainingRecordsWithRelations) => {
     setIsAddSheetOpen(false);
-    window.location.reload();
+    addTrainingRecord(record);
   };
 
-  const handleEditSheetClose = () => {
+  const handleEditSuccess = (record: TrainingRecordsWithRelations) => {
     setIsEditSheetOpen(false);
     setEditingRecord(null);
-    window.location.reload();
+    updateTrainingRecord(record);
   };
 
   const handleViewDetails = (record: TrainingRecordsWithRelations) => {
@@ -79,11 +80,12 @@ export function InternalTrainingTab() {
       setIsEditSheetOpen(true);
     }
   };
+
   return (
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Training Records</CardTitle>
               <CardDescription>
@@ -94,7 +96,7 @@ export function InternalTrainingTab() {
             {isAdmin && (
               <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button>
+                  <Button className="w-full sm:w-auto">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Training
                   </Button>
@@ -104,7 +106,7 @@ export function InternalTrainingTab() {
                     <SheetTitle>Add Training</SheetTitle>
                   </SheetHeader>
                   <TrainingAddForm
-                    onSuccess={handleAddSheetClose}
+                    onSuccess={handleAddSuccess}
                     categoryHint="Internal"
                   />
                 </SheetContent>
@@ -113,63 +115,67 @@ export function InternalTrainingTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Training</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Completed</TableHead>
-                <TableHead>Trainer</TableHead>
-                <TableHead>Image</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trainingRecords.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center text-muted-foreground"
+          {trainingRecords.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No internal training records found
+            </p>
+          ) : (
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden space-y-3">
+                {trainingRecords.map((record: TrainingRecordsWithRelations) => (
+                  <div
+                    key={record.id}
+                    className="border rounded-lg p-4 space-y-3"
                   >
-                    No internal training records found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                trainingRecords.map((record: TrainingRecordsWithRelations) => {
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium leading-tight">
                         {record.training?.title}
-                      </TableCell>
-                      <TableCell>{record.training?.category}</TableCell>
-                      <TableCell>
+                      </p>
+                      <Badge variant="outline" className="shrink-0">
+                        {record.training?.category}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>
+                        <span className="font-medium text-foreground">
+                          Completed:
+                        </span>{" "}
                         {format(new Date(record.dateCompleted), "PP")}
-                      </TableCell>
-                      <TableCell>{record.trainer}</TableCell>
-                      <TableCell>
-                        {record.imagePath ? (
-                          <FileImage className="h-4 w-4 text-blue-600" />
-                        ) : (
-                          <span className="text-muted-foreground text-sm">
-                            —
+                      </p>
+                      {record.trainer && (
+                        <p>
+                          <span className="font-medium text-foreground">
+                            Trainer:
+                          </span>{" "}
+                          {record.trainer}
+                        </p>
+                      )}
+                      {record.images && record.images.length > 0 && (
+                        <div className="flex items-center gap-1 text-blue-600">
+                          <FileImage className="h-4 w-4" />
+                          <span>
+                            {record.images.length} image
+                            {record.images.length !== 1 ? "s" : ""}
                           </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 flex-wrap pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(record)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      {isAdmin && (
+                        <>
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(record)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleEditRecord(record)}
-                            disabled={!isAdmin}
                           >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
@@ -178,19 +184,89 @@ export function InternalTrainingTab() {
                             variant="destructive"
                             size="sm"
                             onClick={() => handleDeleteRecord(record)}
-                            disabled={!isAdmin}
                           >
                             <Trash className="h-4 w-4 mr-1" />
                             Delete
                           </Button>
-                        </div>
-                      </TableCell>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table view */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Training</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Completed</TableHead>
+                      <TableHead>Trainer</TableHead>
+                      <TableHead>Image</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {trainingRecords.map(
+                      (record: TrainingRecordsWithRelations) => (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-medium">
+                            {record.training?.title}
+                          </TableCell>
+                          <TableCell>{record.training?.category}</TableCell>
+                          <TableCell>
+                            {format(new Date(record.dateCompleted), "PP")}
+                          </TableCell>
+                          <TableCell>{record.trainer}</TableCell>
+                          <TableCell>
+                            {record.images && record.images.length > 0 ? (
+                              <FileImage className="h-4 w-4 text-blue-600" />
+                            ) : (
+                              <span className="text-muted-foreground text-sm">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewDetails(record)}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditRecord(record)}
+                                disabled={!isAdmin}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteRecord(record)}
+                                disabled={!isAdmin}
+                              >
+                                <Trash className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ),
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -203,29 +279,27 @@ export function InternalTrainingTab() {
           {editingRecord && (
             <TrainingEditForm
               trainingRecord={editingRecord}
-              onSuccess={handleEditSheetClose}
+              onSuccess={handleEditSuccess}
             />
           )}
         </SheetContent>
       </Sheet>
 
-      {/* Training Record Details Dialog */}
       <TrainingRecordDetailsDialog
         record={selectedRecord}
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
       />
 
-      {/* Delete Training Record Dialog */}
       <DeleteTrainingRecordDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         trainingRecord={deletingRecord}
         employee={employee}
         onTrainingRecordDeleted={() => {
+          if (deletingRecord) deleteTrainingRecord(deletingRecord.id);
           setDeletingRecord(null);
           setIsDeleteDialogOpen(false);
-          window.location.reload();
         }}
       />
     </>

@@ -27,7 +27,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Department, User, UserRole } from "@/generated/prisma_client";
+import { Department, User, UserRole } from "@/generated/prisma_client/client";
 
 interface EditUserRoleDialogProps {
   open: boolean;

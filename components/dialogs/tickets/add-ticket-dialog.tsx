@@ -31,7 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import {

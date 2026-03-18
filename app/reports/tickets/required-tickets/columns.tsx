@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown, CheckCircle, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Employee } from "@/generated/prisma_client";
+import { Employee } from "@/generated/prisma_client/client";
 
 export const columns: ColumnDef<Employee>[] = [
   {

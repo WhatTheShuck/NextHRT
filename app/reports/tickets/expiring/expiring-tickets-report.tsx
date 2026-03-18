@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Archive, Check, Users, Clock, AlertCircle } from "lucide-react";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import { TicketRecordsWithRelations, TicketWithRelations } from "@/lib/types";
 import { DataTable } from "@/components/table-component";
 import { columns } from "./columns";
@@ -24,6 +24,7 @@ import api from "@/lib/axios";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { TicketCombobox } from "@/components/combobox/ticket-combobox";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function ExpiringTicketRecordsPage() {
   const [ticketSelection, setTicketSelection] = useState<Ticket[]>([]);
@@ -41,6 +42,10 @@ export function ExpiringTicketRecordsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<string[]>([]);
+  const [sortedData, setSortedData] = useState<TicketRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
@@ -331,7 +336,11 @@ export function ExpiringTicketRecordsPage() {
       </div>
 
       {loading ? (
-        <div className="text-centre py-4">Loading Ticket Records...</div>
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
       ) : null}
       {error ? (
         <div className="text-centre py-4 text-red-500">Error: {error}</div>
@@ -345,6 +354,8 @@ export function ExpiringTicketRecordsPage() {
               columns={columns}
               filename={`${selectedTicketTitle}-expiring-${selectedExpirationDays}days${includeRecentlyExpired ? `-expired-${recentlyExpiredDays}days` : ""}`}
               title={`${selectedTicketTitle} - Expiring Records (${selectedExpirationDays} days)${includeRecentlyExpired ? ` & Recently Expired (${recentlyExpiredDays} days)` : ""}`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
             <p className="font-medium">
               Record Count: {filteredTicketRecords.length}
@@ -363,7 +374,7 @@ export function ExpiringTicketRecordsPage() {
                   <ul className="max-h-60 overflow-auto">
                     {/* Show All option */}
                     <li
-                      className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                      className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
                       onClick={() => filterByLocation(null)}
                     >
                       <span>All Locations</span>
@@ -376,7 +387,7 @@ export function ExpiringTicketRecordsPage() {
                     {locations.map((location) => (
                       <li
                         key={location}
-                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                        className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-accent rounded"
                         onClick={() => filterByLocation(location)}
                       >
                         <span>{location}</span>
@@ -390,7 +401,14 @@ export function ExpiringTicketRecordsPage() {
               </PopoverContent>
             </Popover>
           </div>
-          <DataTable columns={columns} data={filteredTicketRecords} />
+          <DataTable
+            columns={columns}
+            data={filteredTicketRecords}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </>

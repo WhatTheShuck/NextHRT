@@ -1,16 +1,11 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import ReportsContent from "./reportsContent";
-import { hasRoleAccess } from "@/lib/apiRBAC";
+import { headers } from "next/headers";
 
 export default async function LandingPage() {
-  const session = await auth();
-  if (!session) redirect("/auth");
-  const userRole = session?.user?.role || "User";
-  if (!hasRoleAccess(userRole, "EmployeeViewer")) {
-    redirect("/");
-    // should probably return a 403 or something before the redirect?
-  }
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session === null) return redirect("/auth");
 
   return (
     <div className="min-h-screen bg-background p-8">

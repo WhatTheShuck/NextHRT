@@ -24,7 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import { NewTicketDialog } from "@/components/dialogs/tickets/add-ticket-dialog";
 
 interface TicketComboboxProps {

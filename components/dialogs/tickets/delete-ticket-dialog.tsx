@@ -21,7 +21,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { AlertTriangle } from "lucide-react";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 
 interface DeleteTicketDialogProps {
   open: boolean;

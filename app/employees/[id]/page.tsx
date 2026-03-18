@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 interface EmployeeDetailPageProps {
   params: Promise<{ id: string }>;
 }
@@ -10,7 +11,9 @@ interface EmployeeDetailPageProps {
 export default async function EmployeeDetailPage({
   params,
 }: EmployeeDetailPageProps) {
-  const session = await auth();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   if (!session) redirect("/auth");
   const resolvedParams = await params;
   const employeeId = parseInt(resolvedParams.id);

@@ -1,22 +1,87 @@
 "use client";
-import React from "react";
 import { NavigationCard } from "@/components/navigation-card";
 import { landingPageNavigationItems } from "@/lib/data";
-import { useSession } from "next-auth/react";
-import { hasRoleAccess } from "@/lib/apiRBAC";
+import { authClient } from "@/lib/auth-client";
+import { useEffect, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function LandingPageContent() {
-  const session = useSession();
-  const userRole = session?.data?.user?.role || "User";
-  const visibleItems = landingPageNavigationItems.filter((item) =>
-    hasRoleAccess(userRole, item.minimumAllowedRole),
-  );
+  const { data: session } = authClient.useSession();
+  const userRole = session?.user.role || "User";
+  const [visibleItems, setVisibleItems] = useState<
+    typeof landingPageNavigationItems
+  >([]);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+
+  useEffect(() => {
+    async function checkPermissions() {
+      if (!session?.user?.id) {
+        setVisibleItems([]);
+        setIsCheckingPermissions(false);
+        return;
+      }
+
+      setIsCheckingPermissions(true);
+
+      // Group items by their permission requirement to check each unique permission only once
+      const permissionGroups = new Map<
+        string,
+        typeof landingPageNavigationItems
+      >();
+
+      landingPageNavigationItems.forEach((item) => {
+        const permission = item.minimumAllowedPermission;
+        if (!permissionGroups.has(permission)) {
+          permissionGroups.set(permission, []);
+        }
+        permissionGroups.get(permission)!.push(item);
+      });
+
+      // Check each unique permission only once
+      const uniquePermissions = Array.from(permissionGroups.keys());
+
+      const permissionResults = await Promise.all(
+        uniquePermissions.map(async (permission) => {
+          const [resource, action] = permission.split(":");
+
+          try {
+            const result = await authClient.admin.hasPermission({
+              userId: session.user.id,
+              permissions: { [resource]: [action] },
+            });
+
+            const hasAccess = result?.data?.success === true;
+
+            return { permission, hasAccess };
+          } catch (error) {
+            console.error(`Error checking permission ${permission}:`, error);
+            return { permission, hasAccess: false };
+          }
+        }),
+      );
+
+      // Build the list of visible items based on permission results
+      const itemsWithPermission: typeof landingPageNavigationItems = [];
+
+      permissionResults.forEach(({ permission, hasAccess }) => {
+        if (hasAccess) {
+          const items = permissionGroups.get(permission) || [];
+          itemsWithPermission.push(...items);
+        }
+      });
+
+      setVisibleItems(itemsWithPermission);
+      setIsCheckingPermissions(false);
+    }
+
+    checkPermissions();
+  }, [session?.user?.id]);
 
   const nonAdminItems = visibleItems.filter(
-    (item) => item.minimumAllowedRole !== "Admin",
+    (item) => item.minimumAllowedPermission !== "user:impersonate",
   );
   const adminItems = visibleItems.filter(
-    (item) => item.minimumAllowedRole === "Admin",
+    (item) => item.minimumAllowedPermission === "user:impersonate",
   );
 
   const getWelcomeMessage = () => {
@@ -34,21 +99,38 @@ export function LandingPageContent() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold">Welcome to Dashboard</h1>
-            <p className="text-muted-foreground mt-2">{getWelcomeMessage()}</p>
+  if (isCheckingPermissions) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-8">
+        <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-5 w-96" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-36" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full rounded-lg" />
+              ))}
+            </div>
           </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* User Level Items - show for everyone who has User access */}
+  return (
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+        <div>
+          <h1 className="text-2xl md:text-4xl font-bold">Welcome to Dashboard</h1>
+          <p className="text-muted-foreground mt-2">{getWelcomeMessage()}</p>
+        </div>
+
         {nonAdminItems.length > 0 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold">My Actions</h2>
+            <h2 className="text-xl md:text-2xl font-semibold">My Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {nonAdminItems.map((item) => (
                 <NavigationCard key={item.href} {...item} />
@@ -57,10 +139,9 @@ export function LandingPageContent() {
           </div>
         )}
 
-        {/* Admin Specific Items - show only for Admins */}
         {adminItems.length > 0 && userRole === "Admin" && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold">Administrative Tools</h2>
+            <h2 className="text-xl md:text-2xl font-semibold">Administrative Tools</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {adminItems.map((item) => (
                 <NavigationCard key={item.href} {...item} />
@@ -69,9 +150,8 @@ export function LandingPageContent() {
           </div>
         )}
 
-        {/* No access message */}
         {visibleItems.length === 0 && (
-          <div className="text-center py-12">
+          <div className="text-centre py-12">
             <p className="text-muted-foreground">
               No available actions for your current role. Please contact an
               administrator.

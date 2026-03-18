@@ -10,8 +10,6 @@ interface Props {
 }
 
 export function EmployeeProfile({ employeeId }: Props) {
-  // const session = useSession();
-
   return (
     <EmployeeProvider employeeId={employeeId}>
       <div className="min-h-screen bg-background">

@@ -21,7 +21,7 @@ import {
   Department,
   EmployeeStatus,
   Location,
-} from "@/generated/prisma_client";
+} from "@/generated/prisma_client/client";
 import { Textarea } from "@/components/ui/textarea";
 import { DateSelector } from "@/components/date-selector";
 
@@ -303,6 +303,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       <AddDepartmentDialog
         open={isDepartmentDialogOpen}
         onOpenChange={setIsDepartmentDialogOpen}
+        departments={departments}
         onDepartmentAdded={(dept) => {
           setDepartments([...departments, dept]);
           setDepartmentId(dept.id.toString());

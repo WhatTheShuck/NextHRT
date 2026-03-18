@@ -24,7 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Training } from "@/generated/prisma_client";
+import { Training, Category } from "@/generated/prisma_client/client";
 import { NewTrainingDialog } from "@/components/dialogs/training/add-training-dialog";
 
 interface TrainingComboboxProps {
@@ -35,8 +35,9 @@ interface TrainingComboboxProps {
   placeholder?: string;
   // Legacy features - optional props
   showAddButton?: boolean;
-  onNewTraining?: (training: Training) => void;
+  onNewTraining?: (training: Training | Training[]) => void;
   label?: string;
+  categoryHint?: Category;
 }
 
 export function TrainingCombobox({
@@ -48,6 +49,7 @@ export function TrainingCombobox({
   showAddButton = false,
   onNewTraining,
   label = "Training Course",
+  categoryHint,
 }: TrainingComboboxProps) {
   const [open, setOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -167,6 +169,7 @@ export function TrainingCombobox({
           isOpen={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           onTrainingCreated={onNewTraining}
+          defaultCategory={categoryHint}
         />
       )}
     </div>

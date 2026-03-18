@@ -18,7 +18,7 @@ import {
   Department,
   EmployeeStatus,
   Location,
-} from "@/generated/prisma_client";
+} from "@/generated/prisma_client/client";
 import { Plus } from "lucide-react";
 import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
 import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
@@ -28,7 +28,7 @@ import { DuplicateEmployeeDialog } from "@/components/dialogs/duplicate-employee
 import { DateSelector } from "@/components/date-selector";
 
 interface EmployeeAddFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (employee?: EmployeeWithRelations) => void;
 }
 interface DuplicateResponse {
   error: string;
@@ -105,7 +105,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
 
     setIsSubmitting(true);
     try {
-      await api.post("/api/employees", {
+      const response = await api.post<EmployeeWithRelations>("/api/employees", {
         firstName,
         lastName,
         title,
@@ -118,7 +118,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
         startDate: startDate?.toISOString() || null,
       });
 
-      onSuccess?.();
+      onSuccess?.(response.data);
     } catch (err) {
       if (err instanceof AxiosError && err.response?.status === 409) {
         // Handle duplicate employee case
@@ -298,6 +298,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
       <AddDepartmentDialog
         open={isDepartmentDialogOpen}
         onOpenChange={setIsDepartmentDialogOpen}
+        departments={departments}
         onDepartmentAdded={(dept) => {
           setDepartments([...departments, dept]);
           setDepartmentId(dept.id.toString());

@@ -164,10 +164,10 @@ export default function UserProfileDetails({
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
-                    Business Area
+                    Department
                   </label>
                   <p className="text-base font-medium">
-                    {userData.employee.businessArea}
+                    {userData.employee.department?.name || "Not specified"}
                   </p>
                 </div>
                 <div>
@@ -175,7 +175,7 @@ export default function UserProfileDetails({
                     Job Title
                   </label>
                   <p className="text-base">
-                    {userData.employee.job || "Not specified"}
+                    {userData.employee.title || "Not specified"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

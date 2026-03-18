@@ -9,10 +9,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, MapPin } from "lucide-react";
 import { EmployeeWithRelations } from "@/lib/types";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Page() {
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
@@ -23,6 +24,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<string[]>([]);
+  const [sortedData, setSortedData] = useState<EmployeeWithRelations[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -36,15 +39,13 @@ export default function Page() {
         );
         setEmployees(activeEmployees);
         setFilteredEmployees(activeEmployees);
-        // Extract unique locations
         const uniqueLocations = Array.from(
           new Set(
             activeEmployees.map(
               (emp: EmployeeWithRelations) => emp.location.name,
             ),
           ),
-        ).filter(Boolean) as string[]; // Filter out null/undefined values
-
+        ).filter(Boolean) as string[];
         setLocations(uniqueLocations);
       } catch (err) {
         setError(err instanceof AxiosError ? err.message : "An error occurred");
@@ -56,15 +57,11 @@ export default function Page() {
     fetchEmployees();
   }, []);
 
-  // Filter employees by location
   const filterByLocation = (location: string | null) => {
     setSelectedLocation(location);
-
     if (location === null) {
-      // Reset filter
       setFilteredEmployees(employees);
     } else {
-      // Apply filter
       setFilteredEmployees(
         employees.filter((emp) => emp.location.name === location),
       );
@@ -72,65 +69,109 @@ export default function Page() {
   };
 
   if (loading) {
-    return <div className="text-center py-4">Loading employees...</div>;
+    return (
+      <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+        <Skeleton className="h-8 w-56 mb-6" />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <Skeleton className="h-9 w-44" />
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-9 w-36" />
+        </div>
+        <div className="border rounded-md">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex gap-6 p-3 border-b last:border-0 items-center"
+            >
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 flex-1" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-center py-4 text-red-500">Error: {error}</div>;
+    return (
+      <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+          <p className="font-semibold">Error</p>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
   }
+
   return (
-    <div className="container py-10 mx-auto">
-      <div className="flex justify-between items-center mb-4">
+    <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+      <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
+        Active Employee List
+      </h1>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <ExportButtons
           data={filteredEmployees}
           columns={columns}
           filename="active-employees"
           title="Active Employees Report"
+          sortedData={sortedData}
+          isSorted={isSorted}
         />
-        <p className="font-medium">
-          {" "}
-          Employee Count: {filteredEmployees.length}{" "}
-        </p>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline">
-              {selectedLocation
-                ? `Location: ${selectedLocation}`
-                : "Filter Location"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56">
-            <div className="grid gap-2">
-              <div className="font-medium">Filter by location</div>
-              <ul className="max-h-60 overflow-auto">
-                {/* Show All option */}
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm font-medium text-muted-foreground">
+            {filteredEmployees.length} employee
+            {filteredEmployees.length !== 1 ? "s" : ""}
+          </p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <MapPin className="h-4 w-4 mr-2" />
+                {selectedLocation ? selectedLocation : "All Locations"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2">
+              <p className="text-sm font-medium px-2 py-1 text-muted-foreground">
+                Filter by location
+              </p>
+              <ul>
                 <li
-                  className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                  className="flex items-center justify-between py-1.5 px-2 cursor-pointer hover:bg-accent rounded-md text-sm"
                   onClick={() => filterByLocation(null)}
                 >
                   <span>All Locations</span>
-                  {selectedLocation === null && <Check className="h-4 w-4" />}
+                  {selectedLocation === null && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
                 </li>
-
-                {/* Location items */}
                 {locations.map((location) => (
                   <li
                     key={location}
-                    className="flex items-center justify-between py-1 px-2 cursor-pointer hover:bg-slate-100 rounded"
+                    className="flex items-center justify-between py-1.5 px-2 cursor-pointer hover:bg-accent rounded-md text-sm"
                     onClick={() => filterByLocation(location)}
                   >
                     <span>{location}</span>
                     {selectedLocation === location && (
-                      <Check className="h-4 w-4" />
+                      <Check className="h-4 w-4 text-primary" />
                     )}
                   </li>
                 ))}
               </ul>
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
-      <DataTable columns={columns} data={filteredEmployees} />
+
+      <DataTable
+        columns={columns}
+        data={filteredEmployees}
+        onSortedDataChange={(data, sorted) => {
+          setSortedData(data as EmployeeWithRelations[]);
+          setIsSorted(sorted);
+        }}
+      />
     </div>
   );
 }

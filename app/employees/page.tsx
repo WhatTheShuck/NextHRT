@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import EmployeeDirectory from "./employee-directory";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: "Employee Directory",
@@ -10,10 +11,12 @@ export const metadata: Metadata = {
 };
 
 export default async function EmployeesPage() {
-  const session = await auth();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   if (!session) redirect("/auth");
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 sm:px-6 py-8">
       <EmployeeDirectory />
     </div>
   );

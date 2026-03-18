@@ -29,22 +29,23 @@ import {
 import { Plus, Search } from "lucide-react";
 import { EmployeeAddForm } from "@/components/forms/employee-add-form";
 import { EmployeeWithRelations } from "@/lib/types";
-import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AxiosError } from "axios";
+import { authClient } from "@/lib/auth-client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const EmployeeDirectory = () => {
   const router = useRouter();
-  const session = useSession();
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
-  const isAdmin = session?.data?.user?.role === "Admin";
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === "Admin";
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -98,9 +99,11 @@ const EmployeeDirectory = () => {
     router.push(`/employees/${employeeId}`);
   };
 
-  const handleSheetClose = () => {
+  const handleAddSuccess = (employee?: EmployeeWithRelations) => {
     setIsSheetOpen(false);
-    window.location.reload();
+    if (employee) {
+      setEmployees((prev) => [...prev, employee]);
+    }
   };
 
   if (error) {
@@ -119,24 +122,26 @@ const EmployeeDirectory = () => {
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Employee Directory</CardTitle>
             <CardDescription>
               Select an employee to view their records
             </CardDescription>
           </div>
-          <div className="flex justify-between items-center space-x-2">
-            <Switch
-              id="activeEmployees"
-              checked={showActiveOnly}
-              onCheckedChange={setShowActiveOnly}
-            />
-            <Label htmlFor="activeEmployees">Active Only</Label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="activeEmployees"
+                checked={showActiveOnly}
+                onCheckedChange={setShowActiveOnly}
+              />
+              <Label htmlFor="activeEmployees">Active Only</Label>
+            </div>
             {isAdmin && (
               <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button>
+                  <Button className="w-full sm:w-auto">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Employee
                   </Button>
@@ -145,7 +150,7 @@ const EmployeeDirectory = () => {
                   <SheetHeader>
                     <SheetTitle>Add New Employee</SheetTitle>
                   </SheetHeader>
-                  <EmployeeAddForm onSuccess={handleSheetClose} />
+                  <EmployeeAddForm onSuccess={handleAddSuccess} />
                 </SheetContent>
               </Sheet>
             )}
@@ -176,11 +181,15 @@ const EmployeeDirectory = () => {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    Loading employees...
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  </TableRow>
+                ))
               ) : filteredEmployees.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">

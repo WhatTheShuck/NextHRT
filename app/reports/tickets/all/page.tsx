@@ -15,6 +15,7 @@ import { ExportButtons } from "@/components/ExportButtons";
 import api from "@/lib/axios";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CompletedTicketPage() {
   const [filteredTicketRecords, setFilteredTicketRecords] = useState<
@@ -30,6 +31,10 @@ export default function CompletedTicketPage() {
   const [error, setError] = useState<string | null>(null);
   const [includeLegacyTicket, setIncludeLegacyTicket] = useState(false);
   const [includeExpiredTickets, setIncludeExpiredTickets] = useState(false);
+  const [sortedData, setSortedData] = useState<TicketRecordsWithRelations[]>(
+    [],
+  );
+  const [isSorted, setIsSorted] = useState(false);
 
   // Fetch tickets based on legacy and expired toggles
   const fetchTickets = async (
@@ -75,12 +80,12 @@ export default function CompletedTicketPage() {
 
   return (
     <>
-      <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-6">All Completed Tickets</h1>
+      <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+        <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">All Completed Tickets</h1>
 
         {/* Configuration toggles */}
-        <div className="p-4 rounded-lg mb-6">
-          <div className="flex items-center gap-8">
+        <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
             <div className="flex items-center space-x-2">
               <Switch
                 id="legacy-ticket"
@@ -113,15 +118,19 @@ export default function CompletedTicketPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-4">Loading Ticket Records...</div>
+          <div className="space-y-2 py-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-md" />
+            ))}
+          </div>
         ) : null}
         {error ? (
           <div className="text-center py-4 text-red-500">Error: {error}</div>
         ) : null}
 
         {!loading && !error && (
-          <div className="container py-10 mx-auto">
-            <div className="flex justify-between items-center mb-4">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
               <p className="font-medium">
                 Record Count: {filteredTicketRecords.length}
               </p>
@@ -130,9 +139,18 @@ export default function CompletedTicketPage() {
                 columns={columns}
                 filename={`${selectedTicketTitle || "all-tickets"}-completions`}
                 title={`${selectedTicketTitle || "All Tickets"} - Completion Records`}
+                sortedData={sortedData}
+                isSorted={isSorted}
               />
             </div>
-            <DataTable columns={columns} data={filteredTicketRecords} />
+            <DataTable
+              columns={columns}
+              data={filteredTicketRecords}
+              onSortedDataChange={(data, sorted) => {
+                setSortedData(data);
+                setIsSorted(sorted);
+              }}
+            />
           </div>
         )}
       </div>

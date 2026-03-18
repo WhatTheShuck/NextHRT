@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
-import { Ticket } from "@/generated/prisma_client";
+import { Ticket } from "@/generated/prisma_client/client";
 import { DateSelector } from "@/components/date-selector";
 import api from "@/lib/axios";
 import {
@@ -24,9 +24,10 @@ import {
 } from "@/lib/file-config";
 import { calculateExpiryDate, formatRenewalPeriod } from "@/lib/expiry-utils";
 import { TicketCombobox } from "../combobox/ticket-combobox";
+import { TicketRecordsWithRelations } from "@/lib/types";
 
 interface TicketAddFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (record: TicketRecordsWithRelations) => void;
 }
 
 export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
@@ -182,11 +183,15 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
         formData.append(`images`, file);
       });
 
-      await api.post("/api/ticket-records", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+      const response = await api.post<TicketRecordsWithRelations>(
+        "/api/ticket-records",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         },
-      });
+      );
 
       // Reset form on success
       setTicketId("");
@@ -204,7 +209,7 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
         fileInput.value = "";
       }
 
-      onSuccess?.();
+      onSuccess?.(response.data);
     } catch (err: any) {
       console.error("API error:", err);
 

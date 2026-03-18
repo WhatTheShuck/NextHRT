@@ -2,13 +2,12 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../generated/prisma_client"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model Employee {
@@ -30,6 +29,7 @@ model Employee {
   ticketRecords            TicketRecords[]
   trainingTicketExemptions TrainingTicketExemption[]
   User                     User?
+  requirementsCacheEntries RequirementsCacheEntry[]
 }
 
 enum EmployeeStatus {
@@ -82,17 +82,28 @@ model Training {
 }
 
 model TrainingRecords {
-  id            Int      @id @default(autoincrement())
-  personTrained Employee @relation(fields: [employeeId], references: [id])
+  id            Int             @id @default(autoincrement())
+  personTrained Employee        @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateCompleted DateTime
-  training      Training @relation(fields: [trainingId], references: [id])
+  training      Training        @relation(fields: [trainingId], references: [id])
   trainingId    Int
   trainer       String
-  imagePath     String?
-  imageType     String?
+  images        TrainingImage[]
 
   @@unique([employeeId, trainingId, dateCompleted])
+}
+
+model TrainingImage {
+  id              Int             @id @default(autoincrement())
+  trainingRecord  TrainingRecords @relation(fields: [trainingRecordId], references: [id], onDelete: Cascade)
+  trainingRecordId Int
+  imagePath       String
+  imageType       String
+  originalName    String
+  uploadedAt      DateTime        @default(now())
+
+  @@index([trainingRecordId])
 }
 
 model TrainingRequirement {
@@ -104,6 +115,8 @@ model TrainingRequirement {
   location     Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   @@id([trainingId, departmentId, locationId])
+  @@index([departmentId])
+  @@index([locationId])
 }
 
 enum Category {
@@ -133,6 +146,9 @@ model TicketRecords {
   licenseNumber String? // Optional unique number for the actual license instance
   expiryDate    DateTime?
   images        TicketImage[]
+
+  @@index([employeeId])
+  @@index([ticketId])
 }
 
 model TicketImage {
@@ -156,6 +172,8 @@ model TicketRequirement {
   location     Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   @@id([ticketId, departmentId, locationId])
+  @@index([departmentId])
+  @@index([locationId])
 }
 
 model TrainingTicketExemption {
@@ -200,68 +218,155 @@ model History {
 }
 
 model User {
-  id                           String       @id @default(cuid())
+  id                           String        @id @default(cuid())
   name                         String?
-  email                        String?      @unique
-  emailVerified                DateTime?
+  email                        String?       @unique
+  emailVerified                Boolean?
   image                        String?
-  role                         UserRole?    @default(User)
-  managedDepartments           Department[] @relation("DepartmentManager")
-  canManageChildrenDepartments Boolean      @default(false) // Can manage child departments
-  employee                     Employee?    @relation(fields: [employeeId], references: [id])
-  employeeId                   Int?         @unique // Link to employee if user represents an employee
+  role                         UserRole?     @default(User)
+  banned                       Boolean?      // better-auth admin plugin
+  banReason                    String?       // better-auth admin plugin
+  banExpires                   DateTime?     // better-auth admin plugin
+  managedDepartments           Department[]  @relation("DepartmentManager")
+  canManageChildrenDepartments Boolean       @default(false) // Can manage child departments
+  employee                     Employee?     @relation(fields: [employeeId], references: [id])
+  employeeId                   Int?          @unique // Link to employee if user represents an employee
   accounts                     Account[]
   sessions                     Session[]
   historyLogs                  History[]
-  createdAt                    DateTime     @default(now())
-  updatedAt                    DateTime     @updatedAt
+  appSettingUpdates            AppSetting[]
+  themeId                      String?
+  theme                        Theme?        @relation("UserActiveTheme", fields: [themeId], references: [id], onDelete: SetNull)
+  themes                       Theme[]       @relation("UserThemes")
+  createdAt                    DateTime      @default(now())
+  updatedAt                    DateTime      @updatedAt
+}
+
+model AppSetting {
+  key           String   @id
+  value         String
+  description   String?
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?
+  updatedByUser User?    @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+}
+
+enum ThemeType {
+  BUILTIN
+  COMPANY
+  USER
+}
+
+model Theme {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  type         ThemeType
+  cssVars      Json
+  darkCssVars  Json?
+  userId       String?
+  user         User?     @relation("UserThemes", fields: [userId], references: [id], onDelete: SetNull)
+  activeForUsers User[]  @relation("UserActiveTheme")
+  createdAt    DateTime  @default(now())
 }
 
 enum UserRole {
   User
   DepartmentManager
-  EmployeeViewer
   FireWarden
   Admin
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
+  id                   String    @id @default(cuid())
+  userId               String
+  providerId           String    @map("provider") // Map your existing `provider` field to Better Auth's `providerId`
+  accountId            String    @map("providerAccountId")
+  refreshToken         String?   @map("refresh_token")
+  accessToken          String?   @map("access_token")
+  accessTokenExpiresAt DateTime? @map("expires_at")
+  scope                String?
+  idToken              String?   @map("id_token")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([provider, providerAccountId])
+  @@unique([providerId, accountId])
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(cuid())
+  expiresAt DateTime @map("expires") // Map your existing `expires` field to Better Auth's `expiresAt`
+  token     String   @unique @map("sessionToken") // Map your existing `sessionToken` field to Better Auth's `token`
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  userAgent String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model VerificationToken {
+model Verification {
+  id         String   @id @default(cuid())
   identifier String
-  token      String
-  expires    DateTime
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@unique([identifier, token])
+  @@unique([identifier, value])
+}
+
+enum JobType {
+  EXEMPTION_EXPIRY
+  TICKET_EXPIRY
+  REQUIREMENTS_CACHE_REBUILD
+  REQUIREMENTS_CACHE_INVALIDATE
+  INACTIVE_EMPLOYEE_CHECK
+  ORPHANED_IMAGE_CLEANUP
+  HISTORY_ARCHIVAL
+}
+
+enum JobStatus {
+  Pending
+  Running
+  Completed
+  Failed
+}
+
+enum CacheItemType {
+  Training
+  Ticket
+}
+
+model BackgroundJob {
+  id            Int       @id @default(autoincrement())
+  type          JobType
+  status        JobStatus @default(Pending)
+  payload       String?   // JSON string
+  resultSummary String?   // JSON string
+  errorMessage  String?
+  scheduledAt   DateTime  @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([type])
+}
+
+model RequirementsCacheEntry {
+  id         Int           @id @default(autoincrement())
+  employeeId Int
+  itemType   CacheItemType
+  itemId     Int
+  updatedAt  DateTime      @updatedAt
+
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, itemType, itemId])
+  @@index([employeeId])
+  @@index([itemType, itemId])
 }

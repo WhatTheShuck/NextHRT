@@ -9,6 +9,7 @@ import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DateSelector } from "@/components/date-selector";
 
 export default function Page() {
@@ -17,6 +18,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
+  const [sortedData, setSortedData] = useState<EmployeeWithRelations[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
 
   // Set default dates to current year (Jan 1 to Dec 31)
   const [startedFrom, setStartedFrom] = useState<Date>(() => {
@@ -66,11 +69,11 @@ export default function Page() {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">New Hires Report</h1>
+    <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
+      <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">New Hires Report</h1>
 
       {/* Configuration section */}
-      <div className="bg-muted/50 p-4 rounded-lg mb-6 space-y-4">
+      <div className="p-4 rounded-lg mb-6 space-y-4 border">
         {/* Date range selectors */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
@@ -109,7 +112,13 @@ export default function Page() {
       </div>
 
       {/* Loading state */}
-      {loading && <div className="text-centre py-8">Loading...</div>}
+      {loading && (
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
+      )}
 
       {/* Error state */}
       {error && (
@@ -119,7 +128,7 @@ export default function Page() {
       {/* Data table */}
       {!loading && !error && (
         <div className="space-y-4">
-          <div className="flex justify-between items-centre">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {filteredEmployees.length} employee(s)
             </div>
@@ -128,9 +137,18 @@ export default function Page() {
               columns={columns}
               filename="new-hires-report"
               title={`New Hires Report (${startedFrom.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" })} - ${startedTo.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" })})`}
+              sortedData={sortedData}
+              isSorted={isSorted}
             />
           </div>
-          <DataTable columns={columns} data={filteredEmployees} />
+          <DataTable
+            columns={columns}
+            data={filteredEmployees}
+            onSortedDataChange={(data, sorted) => {
+              setSortedData(data as EmployeeWithRelations[]);
+              setIsSorted(sorted);
+            }}
+          />
         </div>
       )}
     </div>
