@@ -67,10 +67,10 @@ export async function ProfileButton() {
             className="flex w-full items-center cursor-pointer"
           >
             <User className="mr-2 h-4 w-4" />
-            Profile
+            Profile And Settings
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
+        {/*<DropdownMenuItem asChild>
           <Link
             href="/settings"
             className="flex w-full items-center cursor-pointer"
@@ -78,7 +78,7 @@ export async function ProfileButton() {
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Link>
-        </DropdownMenuItem>
+        </DropdownMenuItem>*/}
         <DropdownMenuSeparator />
         <DropdownMenuItem>
           <SignOut />

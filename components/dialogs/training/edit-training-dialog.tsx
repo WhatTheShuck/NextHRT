@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Training, Category } from "@/generated/prisma_client/client";
+import { Category } from "@/generated/prisma_client/client";
 import { Switch } from "@/components/ui/switch";
 import {
   RequirementPair,
@@ -43,13 +43,13 @@ import { TrainingWithRelations } from "@/lib/types";
 interface EditTrainingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  training: Training | null;
-  onTrainingUpdated?: (training: Training | Training[]) => void;
+  training: TrainingWithRelations | null;
+  onTrainingUpdated?: (training: TrainingWithRelations | TrainingWithRelations[]) => void;
 }
 
 interface TrainingFormProps {
   training: TrainingWithRelations | null;
-  onTrainingUpdated?: (training: Training | Training[]) => void;
+  onTrainingUpdated?: (training: TrainingWithRelations | TrainingWithRelations[]) => void;
   onClose: () => void;
   className?: string;
 }
@@ -121,17 +121,13 @@ function TrainingForm({
         title: title.trim(),
         category,
         isActive,
-      };
-
-      // Add requirements if they exist
-      if (requirements.length > 0) {
-        payload.requirements = requirements.map((req) => ({
+        requirements: requirements.map((req) => ({
           departmentId: req.departmentId,
           locationId: req.locationId,
-        }));
-      }
+        })),
+      };
 
-      const response = await api.put(`/api/training/${training.id}`, payload);
+      const response = await api.put<TrainingWithRelations | TrainingWithRelations[]>(`/api/training/${training.id}`, payload);
 
       onTrainingUpdated?.(response.data);
       onClose();

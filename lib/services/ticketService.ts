@@ -1,6 +1,23 @@
 import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
 
+const ticketWithRelationsInclude = {
+  requirements: {
+    include: {
+      department: true,
+      location: true,
+    },
+  },
+  ticketExemptions: {
+    include: {
+      employee: true,
+    },
+  },
+  _count: {
+    select: { ticketRecords: true },
+  },
+} as const;
+
 export interface GetTicketsOptions {
   activeOnly?: boolean;
   includeRequirements?: boolean;
@@ -239,7 +256,10 @@ export class TicketService {
 
     await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
-    return updatedTicket;
+    return await prisma.ticket.findUnique({
+      where: { id },
+      include: ticketWithRelationsInclude,
+    });
   }
 
   async deleteTicket(id: number, userId: string) {

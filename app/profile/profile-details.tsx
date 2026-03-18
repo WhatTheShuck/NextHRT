@@ -164,14 +164,6 @@ export default function UserProfileDetails({
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
-                    Department
-                  </label>
-                  <p className="text-base font-medium">
-                    {userData.employee.department?.name || "Not specified"}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
                     Job Title
                   </label>
                   <p className="text-base">

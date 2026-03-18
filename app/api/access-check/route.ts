@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { accessCheckService } from "@/lib/services/accessCheckService";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -14,7 +15,11 @@ export async function GET(request: NextRequest) {
 
   // Non-admins: can only query their own linked employee
   if (session.user.role !== "Admin") {
-    const linkedEmployeeId = (session.user as { employeeId?: number | null }).employeeId ?? null;
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { employeeId: true },
+    });
+    const linkedEmployeeId = dbUser?.employeeId ?? null;
 
     if (employeeIdParam !== null) {
       // Non-admin explicitly requested an employeeId — only allowed if it's their own

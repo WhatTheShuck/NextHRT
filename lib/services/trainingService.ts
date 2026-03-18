@@ -2,6 +2,23 @@ import prisma from "@/lib/prisma";
 import { Category } from "@/generated/prisma_client/client";
 import { enqueue } from "@/lib/jobs/jobQueue";
 
+const trainingWithRelationsInclude = {
+  requirements: {
+    include: {
+      department: true,
+      location: true,
+    },
+  },
+  trainingExemptions: {
+    include: {
+      employee: true,
+    },
+  },
+  _count: {
+    select: { trainingRecords: true },
+  },
+} as const;
+
 export interface GetTrainingsOptions {
   activeOnly?: boolean;
   category?: string | null;
@@ -249,6 +266,7 @@ export class TrainingService {
           title: data.title + " - Task Sheet",
           isActive: data.isActive,
         },
+        include: trainingWithRelationsInclude,
       });
 
       const practicalTraining = await prisma.training.create({
@@ -257,6 +275,7 @@ export class TrainingService {
           title: data.title + " - Practical",
           isActive: data.isActive,
         },
+        include: trainingWithRelationsInclude,
       });
 
       if (data.requirements) {
@@ -383,7 +402,7 @@ export class TrainingService {
         }
       }
 
-      const updatedTraining = await prisma.training.update({
+      let updatedTraining = await prisma.training.update({
         where: { id },
         data: {
           category: data.category,
@@ -420,7 +439,10 @@ export class TrainingService {
 
       await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
-      return updatedTraining;
+      return await prisma.training.findUnique({
+        where: { id },
+        include: trainingWithRelationsInclude,
+      });
     } else {
       // Normal update: non-SOP → non-SOP or SOP → SOP (title/active/requirements change)
       const updatedTraining = await prisma.training.update({
@@ -461,7 +483,10 @@ export class TrainingService {
 
       await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
-      return updatedTraining;
+      return await prisma.training.findUnique({
+        where: { id },
+        include: trainingWithRelationsInclude,
+      });
     }
   }
 
