@@ -49,9 +49,14 @@ export default function BulkTrainingPage() {
   }, []);
 
   // Add a new training to the list
-  const addTraining = (newTraining: Training) => {
-    setTrainings([...trainings, newTraining]);
-    setTrainingId(newTraining.id.toString());
+  const addTraining = (newTraining: Training | Training[]) => {
+    if (Array.isArray(newTraining)) {
+      setTrainings([...trainings, ...newTraining]);
+      if (newTraining.length > 0) setTrainingId(newTraining[0].id.toString());
+    } else {
+      setTrainings([...trainings, newTraining]);
+      setTrainingId(newTraining.id.toString());
+    }
   };
 
   // Handle bulk training submission

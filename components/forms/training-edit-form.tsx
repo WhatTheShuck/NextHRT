@@ -67,9 +67,14 @@ export function TrainingEditForm({
     fetchData();
   }, []);
 
-  const addTraining = (newTraining: Training) => {
-    setTrainings([...trainings, newTraining]);
-    setTrainingId(newTraining.id.toString());
+  const addTraining = (newTraining: Training | Training[]) => {
+    if (Array.isArray(newTraining)) {
+      setTrainings([...trainings, ...newTraining]);
+      if (newTraining.length > 0) setTrainingId(newTraining[0].id.toString());
+    } else {
+      setTrainings([...trainings, newTraining]);
+      setTrainingId(newTraining.id.toString());
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

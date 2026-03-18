@@ -170,7 +170,11 @@ function TrainingTicketExemptionForm({
             showAddButton={true}
             label="Training Name"
             onNewTraining={(training) => {
-              trainings.push(training);
+              if (Array.isArray(training)) {
+                trainings.push(...training);
+              } else {
+                trainings.push(training);
+              }
             }}
           />
         </div>

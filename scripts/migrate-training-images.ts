@@ -11,15 +11,8 @@
  * Then apply the schema change:
  *   pnpm prisma db push --accept-data-loss
  */
-
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { PrismaClient } from "../generated/prisma_client/client";
 import path from "path";
-
-const dbUrl = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
-const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: dbUrl.replace(/^file:/, "") }),
-});
+import prisma from "../lib/prisma";
 
 interface TrainingRecordRow {
   id: number;
