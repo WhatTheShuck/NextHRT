@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { LoginPageContent } from "./auth-content";
@@ -9,7 +10,11 @@ const LoginPage = async () => {
   });
   if (session) redirect("/");
 
-  return <LoginPageContent />;
+  return (
+    <Suspense>
+      <LoginPageContent />
+    </Suspense>
+  );
 };
 
 export default LoginPage;

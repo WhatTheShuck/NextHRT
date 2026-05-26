@@ -4,6 +4,7 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma_client/client";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins";
+import { apiKey } from "@better-auth/api-key";
 import {
   ac,
   adminRole,
@@ -28,6 +29,21 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "sqlite",
   }),
+  // Allow post-login redirect to other *.ksb.com.au apps (SSO gateway pattern)
+  trustedOrigins: [
+    "https://hrt.ksb.com.au",
+    "https://helm.ksb.com.au",
+    "https://tools.ksb.com.au",
+    "https://checkout.ksb.com.au",
+  ],
+  advanced: {
+    // Share the session cookie across all *.ksb.com.au subdomains so Caddy's
+    // forward_auth can read it when validating requests to downstream apps.
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: "ksb.com.au",
+    },
+  },
   session: {
     cookieCache: {
       enabled: true,
@@ -35,7 +51,6 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    nextCookies(),
     admin({
       ac,
       roles: {
@@ -46,6 +61,9 @@ export const auth = betterAuth({
       },
       defaultRole: "User",
     }),
+    apiKey({ enableSessionForAPIKeys: true }),
+
+    nextCookies(),
   ],
 });
 // export const { handlers, auth, signIn, signOut } = NextAuth({

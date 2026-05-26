@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import { hasAccessToEmployee } from "@/lib/apiRBAC";
 import { historyService } from "@/lib/services/historyService";
 
@@ -8,9 +9,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  const session = await getAuth(request);
 
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });

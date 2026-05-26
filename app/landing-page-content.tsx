@@ -4,6 +4,7 @@ import { landingPageNavigationItems } from "@/lib/data";
 import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import api from "@/lib/axios";
 
 export function LandingPageContent() {
   const { data: session } = authClient.useSession();
@@ -12,6 +13,7 @@ export function LandingPageContent() {
     typeof landingPageNavigationItems
   >([]);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
 
   useEffect(() => {
     async function checkPermissions() {
@@ -72,6 +74,12 @@ export function LandingPageContent() {
 
       setVisibleItems(itemsWithPermission);
       setIsCheckingPermissions(false);
+
+      // Fetch pending approval count for the badge (best-effort, no error shown)
+      api
+        .get<{ count: number }>("/api/approvals/pending/count")
+        .then((res) => setPendingApprovalCount(res.data.count))
+        .catch(() => {});
     }
 
     checkPermissions();
@@ -101,8 +109,8 @@ export function LandingPageContent() {
 
   if (isCheckingPermissions) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
-        <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+      <div className="max-w-screen-2xl mx-auto min-h-screen bg-background p-4 md:p-8">
+        <div className="max-w-screen-2xl mx-auto space-y-6 md:space-y-8">
           <div className="space-y-2">
             <Skeleton className="h-10 w-72" />
             <Skeleton className="h-5 w-96" />
@@ -121,10 +129,10 @@ export function LandingPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+    <div className="max-w-screen-2xl mx-auto min-h-screen bg-background p-4 ">
+      <div className="space-y-6 md:space-y-8">
         <div>
-          <h1 className="text-2xl md:text-4xl font-bold">Welcome to Dashboard</h1>
+          <h1 className="text-2xl md:text-4xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-2">{getWelcomeMessage()}</p>
         </div>
 
@@ -133,7 +141,15 @@ export function LandingPageContent() {
             <h2 className="text-xl md:text-2xl font-semibold">My Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {nonAdminItems.map((item) => (
-                <NavigationCard key={item.href} {...item} />
+                <NavigationCard
+                  key={item.href}
+                  {...item}
+                  badge={
+                    item.href === "/approvals"
+                      ? pendingApprovalCount
+                      : undefined
+                  }
+                />
               ))}
             </div>
           </div>
@@ -141,7 +157,9 @@ export function LandingPageContent() {
 
         {adminItems.length > 0 && userRole === "Admin" && (
           <div className="space-y-6">
-            <h2 className="text-xl md:text-2xl font-semibold">Administrative Tools</h2>
+            <h2 className="text-xl md:text-2xl font-semibold">
+              Administrative Tools
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {adminItems.map((item) => (
                 <NavigationCard key={item.href} {...item} />

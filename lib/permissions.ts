@@ -20,6 +20,15 @@ export const statement = {
   ticketRecord: ["create", "edit", "delete", "view"],
   exemption: ["create", "edit", "delete", "view"],
   reports: ["viewEmployee", "evac", "viewTicket", "view", "viewTraining"],
+  trainingRequest: [
+    "submit",
+    "viewOwn",
+    "viewDepartment",
+    "approve",
+    "approveAsHR",
+    "viewAll",
+    "adminApprove",
+  ],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -43,6 +52,15 @@ export const adminRole = ac.newRole({
   ticketRecord: ["create", "edit", "delete", "view"],
   exemption: ["create", "edit", "delete", "view"],
   reports: ["view", "viewTicket", "viewTraining", "viewEmployee", "evac"],
+  trainingRequest: [
+    "submit",
+    "viewOwn",
+    "viewDepartment",
+    "approve",
+    "approveAsHR",
+    "viewAll",
+    "adminApprove",
+  ],
 });
 
 export const departmentManagerRole = ac.newRole({
@@ -55,6 +73,7 @@ export const departmentManagerRole = ac.newRole({
   ticketRecord: ["view"],
   exemption: ["view"],
   reports: ["view", "viewEmployee", "viewTicket", "viewTraining"],
+  trainingRequest: ["submit", "viewOwn", "viewDepartment", "approve"],
 });
 
 export const fireWardenRole = ac.newRole({
@@ -68,4 +87,5 @@ export const userRole = ac.newRole({
   employee: ["viewSelf"], // Can only view their own employee record
   department: ["view"],
   location: ["view"],
+  trainingRequest: ["submit", "viewOwn"],
 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import { UserRole } from "@/generated/prisma_client/client";
 import { userService } from "@/lib/services/userService";
 
@@ -8,9 +9,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  const session = await getAuth(request);
 
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
@@ -72,9 +71,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  const session = await getAuth(request);
 
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });

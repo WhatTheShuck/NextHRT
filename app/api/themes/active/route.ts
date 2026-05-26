@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 import { appSettingService } from "@/lib/services/appSettingService";
 
 export async function PUT(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   const settings = await appSettingService.getSettings();

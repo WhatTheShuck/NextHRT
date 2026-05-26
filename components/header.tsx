@@ -7,7 +7,7 @@ import { ProfileButton } from "./ProfileButton";
 const Header = async () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
+      <div className="max-w-screen-2xl mx-auto px-4 flex h-16 items-center justify-between">
         {/* Logo and Brand */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image

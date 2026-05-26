@@ -8,6 +8,7 @@ import { requirementsCacheInvalidateHandler } from "@/lib/jobs/handlers/requirem
 import { inactiveEmployeeCheckHandler } from "@/lib/jobs/handlers/inactiveEmployeeCheck";
 import { orphanedImageCleanupHandler } from "@/lib/jobs/handlers/orphanedImageCleanup";
 import { historyArchivalHandler } from "@/lib/jobs/handlers/historyArchival";
+import { reevaluatePendingApprovalsHandler } from "@/lib/jobs/handlers/reevaluatePendingApprovals";
 
 export async function start(): Promise<void> {
   registerHandler("EXEMPTION_EXPIRY", exemptionExpiryHandler);
@@ -17,6 +18,7 @@ export async function start(): Promise<void> {
   registerHandler("INACTIVE_EMPLOYEE_CHECK", inactiveEmployeeCheckHandler);
   registerHandler("ORPHANED_IMAGE_CLEANUP", orphanedImageCleanupHandler);
   registerHandler("HISTORY_ARCHIVAL", historyArchivalHandler);
+  registerHandler("REEVALUATE_PENDING_APPROVALS", reevaluatePendingApprovalsHandler);
 
   // Warm the requirements cache on boot
   await enqueue("REQUIREMENTS_CACHE_REBUILD");

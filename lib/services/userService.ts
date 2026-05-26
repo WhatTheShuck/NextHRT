@@ -1,14 +1,36 @@
 import prisma from "@/lib/prisma";
+import { UserRole } from "@/generated/prisma_client/client";
 
 export interface GetUsersOptions {
   includeEmployee?: boolean;
+  userRole?: UserRole;
 }
 
 export class UserService {
   async getUsers(options: GetUsersOptions) {
-    const { includeEmployee } = options;
+    const { includeEmployee, userRole } = options;
+    const isAdmin = userRole === "Admin";
 
-    const users = await prisma.user.findMany({
+    if (!isAdmin) {
+      // Non-admins receive a limited shape sufficient for approver selection
+      return prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          employeeId: true,
+          employee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+        orderBy: { name: "asc" },
+      });
+    }
+
+    return prisma.user.findMany({
       include: {
         employee: includeEmployee
           ? {
@@ -20,12 +42,8 @@ export class UserService {
           : false,
         managedDepartments: true,
       },
-      orderBy: {
-        name: "asc",
-      },
+      orderBy: { name: "asc" },
     });
-
-    return users;
   }
 
   async getUserById(id: string) {

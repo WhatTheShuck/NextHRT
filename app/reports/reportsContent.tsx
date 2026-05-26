@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { NavigationCard } from "@/components/navigation-card";
@@ -31,11 +31,7 @@ const REPORT_CATEGORIES = [
 
 type ReportCategory = "employee" | "training" | "tickets" | "access";
 
-export function ReportsContent({
-  category,
-}: {
-  category?: ReportCategory;
-}) {
+export function ReportsContent({ category }: { category?: ReportCategory }) {
   const items = category
     ? reportsNavigationItems.filter((item) =>
         item.href.startsWith(`/reports/${category}`),

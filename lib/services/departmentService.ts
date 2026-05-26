@@ -241,6 +241,40 @@ export class DepartmentService {
 
     return { message: "Department deleted successfully" };
   }
+
+  async getDepartmentManagers(departmentId: number) {
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+    });
+
+    if (!department) {
+      throw new Error("DEPARTMENT_NOT_FOUND");
+    }
+
+    const managers = await prisma.user.findMany({
+      where: {
+        managedDepartments: {
+          some: { id: departmentId },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        employeeId: true,
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return managers;
+  }
 }
 
 export const departmentService = new DepartmentService();
