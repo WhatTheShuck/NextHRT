@@ -245,6 +245,7 @@ model User {
   submittedApprovals           ApprovalRequest[]      @relation("SubmittedApprovals")
   approvalActions              ApprovalAction[]       @relation("ApprovalActions")
   courseRequests               TrainingCourseRequest[] @relation("CourseRequests")
+  apiKeys                      Apikey[]
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
 }
@@ -480,4 +481,35 @@ model RequirementsCacheEntry {
   @@unique([employeeId, itemType, itemId])
   @@index([employeeId])
   @@index([itemType, itemId])
+}
+
+model Apikey {
+  id                  String    @id @default(cuid())
+  configId            String    @default("default")
+  name                String?
+  start               String?
+  referenceId         String
+  prefix              String?
+  key                 String    @unique
+  refillInterval      Int?
+  refillAmount        Int?
+  lastRefillAt        DateTime?
+  enabled             Boolean   @default(true)
+  rateLimitEnabled    Boolean   @default(true)
+  rateLimitTimeWindow Int?      @default(86400000)
+  rateLimitMax        Int?      @default(10)
+  requestCount        Int       @default(0)
+  remaining           Int?
+  lastRequest         DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  permissions         String?
+  metadata            String?
+  user                User      @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+
+  @@index([configId])
+  @@index([referenceId])
+  @@index([key])
+  @@map("apikey")
 }

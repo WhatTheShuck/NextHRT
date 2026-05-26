@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import { themeService } from "@/lib/services/themeService";
 import { parseThemeInput } from "@/lib/themes/themeParser";
 
@@ -7,7 +8,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   const { id } = await params;
@@ -56,7 +57,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   const { id } = await params;

@@ -99,3 +99,63 @@ Uploaded images and PDFs are stored in an `uploads/` directory at the project ro
 pnpm prisma db push --force-reset
 pnpm prisma db seed
 ```
+
+## SSO gateway (Caddy forward_auth)
+
+HRT acts as a shared SSO gateway for other internal apps on the same Caddy server. All of those apps can rely on HRT's session cookie (which is set on the `.ksb.com.au` parent domain) and have Caddy inject authenticated user details as request headers — no auth code needed in the downstream apps.
+
+### How it works
+
+1. Browser hits `helm.ksb.com.au/something`, carrying the HRT session cookie.
+2. Caddy calls `hrt.ksb.com.au/api/auth/validate` with the original cookies forwarded.
+3. If the session is valid, HRT returns 200 and Caddy copies `X-User-*` headers into the proxied request to the downstream app.
+4. If there is no valid session, HRT returns 401 with a `Location` header pointing to `hrt.ksb.com.au/auth?redirect=https://helm.ksb.com.au/something`. Caddy passes the 401 through; a `handle_errors` block redirects the browser to the login page.
+5. After Microsoft SSO, better-auth redirects the browser to the original app URL stored in `?redirect=`.
+
+### Caddy configuration
+
+```caddy
+# Reusable snippet — define once, import in each app block.
+(hrt_auth) {
+    forward_auth hrt.ksb.com.au {
+        uri /api/auth/validate
+        copy_headers X-User-Id X-User-Name X-User-Email X-User-Role
+    }
+}
+
+helm.ksb.com.au {
+    import hrt_auth
+
+    # On auth failure Caddy passes through the 401 + Location header.
+    # This handle_errors block turns it into a browser redirect.
+    handle_errors 401 {
+        redir {header.Location} 302
+    }
+
+    reverse_proxy localhost:5173
+}
+
+tools.ksb.com.au {
+    import hrt_auth
+
+    handle_errors 401 {
+        redir {header.Location} 302
+    }
+
+    reverse_proxy localhost:5174
+}
+```
+
+> **Note:** Caddy's `forward_auth` reads `X-Forwarded-Host` and `X-Forwarded-Uri` automatically. HRT's validate endpoint uses those headers to build the `?redirect=` URL, so no extra configuration is needed for the post-login redirect to work.
+
+### Adding a new app to the gateway
+
+1. Add its origin to `trustedOrigins` in `lib/auth.ts`.
+2. Add a Caddy block for the new domain following the pattern above.
+3. The downstream Vite app reads `X-User-Id`, `X-User-Name`, `X-User-Email`, and `X-User-Role` from incoming request headers — no auth library required.
+
+### Security notes
+
+- The `?redirect=` parameter (both in the query string and derived from forwarded headers) is validated server-side: only `https://*.ksb.com.au` URLs are accepted.
+- Downstream apps must trust the `X-User-*` headers only when they arrive via Caddy on the internal network. Strip these headers from any requests that don't come through Caddy.
+- Downstream apps should not be directly accessible from the internet — they should only be reachable through Caddy.

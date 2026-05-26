@@ -75,8 +75,8 @@ export function FormPageContent() {
 
   if (isCheckingPermissions) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
-        <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-screen-2xl mx-auto space-y-6 md:space-y-8">
           <div className="space-y-2">
             <Skeleton className="h-10 w-72" />
             <Skeleton className="h-5 w-96" />

@@ -20,6 +20,8 @@ import {
   ListCheck,
   CheckSquare,
   ScrollText,
+  Network,
+  KeyRound,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -114,6 +116,20 @@ export const landingPageNavigationItems: NavigationItem[] = [
     description: "View system log messages",
     icon: ScrollText,
     href: "/admin/logs",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Org Chart",
+    description: "Visualise department hierarchy and employee-user linkage",
+    icon: Network,
+    href: "/admin/org-chart",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "API Keys",
+    description: "Create and manage bearer tokens for external service access",
+    icon: KeyRound,
+    href: "/admin/api-keys",
     minimumAllowedPermission: "user:impersonate",
   },
 ];

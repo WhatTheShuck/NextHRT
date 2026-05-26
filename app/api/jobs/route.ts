@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
 import { JobType, JobStatus } from "@/generated/prisma_client/client";
 
 export async function GET(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
 
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
 
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });

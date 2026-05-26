@@ -44,8 +44,8 @@ export default async function MetaPropertiesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-screen-2xl mx-auto space-y-6 md:space-y-8">
         {/* Header */}
         <div>
           <h1 className="text-2xl md:text-4xl font-bold">Meta Properties</h1>

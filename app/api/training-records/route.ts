@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import { UserRole } from "@/generated/prisma_client/client";
 import { trainingRecordService } from "@/lib/services/trainingRecordService";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
 // GET all training records
 export async function GET(request: NextRequest) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  const session = await getAuth(request);
 
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
@@ -53,9 +52,7 @@ export async function GET(request: NextRequest) {
 
 // POST new training record
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  const session = await getAuth(request);
 
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });

@@ -70,8 +70,8 @@ export function MyRequestsContent() {
   });
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-screen-2xl mx-auto space-y-8">
         <div>
           <h1 className="text-4xl font-bold">My Requests</h1>
           <p className="text-muted-foreground mt-2">Training requests submitted by or for you</p>

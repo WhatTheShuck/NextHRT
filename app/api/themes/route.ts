@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import { themeService } from "@/lib/services/themeService";
 import { parseThemeInput } from "@/lib/themes/themeParser";
 
 export async function GET(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   const themes = await themeService.listThemes();
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   try {

@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardHeader,
@@ -8,16 +9,32 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2 } from "lucide-react";
 import { signIn } from "@/lib/auth-client"; // Changed from next-auth/react
 import { companyDetails } from "@/lib/data";
 
+function isAllowedRedirect(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    return (
+      protocol === "https:" &&
+      (hostname === "ksb.com.au" || hostname.endsWith(".ksb.com.au"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function LoginPageContent() {
-  // Handle Microsoft sign-in
+  const searchParams = useSearchParams();
+
   const handleMicrosoftSignIn = async () => {
+    const redirect = searchParams.get("redirect");
+    const callbackURL =
+      redirect && isAllowedRedirect(redirect) ? redirect : "/";
+
     await signIn.social({
       provider: "microsoft",
-      callbackURL: "/", // Redirects to home after sign in
+      callbackURL,
     });
   };
 

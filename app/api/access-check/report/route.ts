@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import { accessCheckService } from "@/lib/services/accessCheckService";
 
 export async function GET(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
 
   if (!session) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });

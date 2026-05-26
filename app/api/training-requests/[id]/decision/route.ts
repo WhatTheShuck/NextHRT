@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/api-auth";
 import { approvalService } from "@/lib/services/approvalService";
 import { trainingRequestService } from "@/lib/services/trainingRequestService";
 import prisma from "@/lib/prisma";
@@ -8,7 +9,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getAuth(request);
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   const { id } = await params;
