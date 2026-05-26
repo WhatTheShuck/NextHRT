@@ -17,6 +17,9 @@ import {
   SlidersHorizontal,
   Eye,
   Cpu,
+  ListCheck,
+  CheckSquare,
+  ScrollText,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -72,10 +75,10 @@ export const landingPageNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "user:impersonate",
   },
   {
-    title: "Training Request",
-    description: "Request approval to attending training",
-    icon: CalendarPlus,
-    href: "/training-request",
+    title: "Forms",
+    description: "View and fill out forms",
+    icon: ListCheck,
+    href: "/forms",
     minimumAllowedPermission: "employee:viewSelf",
   },
   {
@@ -97,6 +100,20 @@ export const landingPageNavigationItems: NavigationItem[] = [
     description: "Monitor and manage background job processing",
     icon: Cpu,
     href: "/admin/jobs",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Approvals",
+    description: "Review and action pending training requests",
+    icon: CheckSquare,
+    href: "/approvals",
+    minimumAllowedPermission: "trainingRequest:approve",
+  },
+  {
+    title: "Admin Logs",
+    description: "View system log messages",
+    icon: ScrollText,
+    href: "/admin/logs",
     minimumAllowedPermission: "user:impersonate",
   },
 ];
@@ -239,5 +256,21 @@ export const fieldEditorNavigationItems: NavigationItem[] = [
     href: "/admin/field-editor/tickets",
     icon: IdCard,
     minimumAllowedPermission: "user:impersonate",
+  },
+];
+export const formNavigationItems: NavigationItem[] = [
+  {
+    title: "New Employee Form",
+    description: "Fill in details for a new employee",
+    icon: UserPlus,
+    href: "/forms/new-employee",
+    minimumAllowedPermission: "department:manage",
+  },
+  {
+    title: "Training Request Form",
+    description: "Request to training to be completed",
+    icon: CalendarPlus,
+    href: "/forms/training-request",
+    minimumAllowedPermission: "employee:viewSelf",
   },
 ];

@@ -4,6 +4,7 @@ import { landingPageNavigationItems } from "@/lib/data";
 import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import api from "@/lib/axios";
 
 export function LandingPageContent() {
   const { data: session } = authClient.useSession();
@@ -12,6 +13,7 @@ export function LandingPageContent() {
     typeof landingPageNavigationItems
   >([]);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
 
   useEffect(() => {
     async function checkPermissions() {
@@ -72,6 +74,12 @@ export function LandingPageContent() {
 
       setVisibleItems(itemsWithPermission);
       setIsCheckingPermissions(false);
+
+      // Fetch pending approval count for the badge (best-effort, no error shown)
+      api
+        .get<{ count: number }>("/api/approvals/pending/count")
+        .then((res) => setPendingApprovalCount(res.data.count))
+        .catch(() => {});
     }
 
     checkPermissions();
@@ -133,7 +141,11 @@ export function LandingPageContent() {
             <h2 className="text-xl md:text-2xl font-semibold">My Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {nonAdminItems.map((item) => (
-                <NavigationCard key={item.href} {...item} />
+                <NavigationCard
+                  key={item.href}
+                  {...item}
+                  badge={item.href === "/approvals" ? pendingApprovalCount : undefined}
+                />
               ))}
             </div>
           </div>

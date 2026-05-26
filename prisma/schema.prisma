@@ -30,6 +30,8 @@ model Employee {
   trainingTicketExemptions TrainingTicketExemption[]
   User                     User?
   requirementsCacheEntries RequirementsCacheEntry[]
+  nominatedApprovals       ApprovalRequest[]        @relation("NominatedApprover")
+  trainingRequests         TrainingRequest[]         @relation("TrainingRequests")
 }
 
 enum EmployeeStatus {
@@ -76,9 +78,11 @@ model Training {
   category           Category
   title              String
   isActive           Boolean                   @default(true)
-  trainingRecords    TrainingRecords[]
-  requirements       TrainingRequirement[]
-  trainingExemptions TrainingTicketExemption[]
+  trainingRecords         TrainingRecords[]
+  requirements            TrainingRequirement[]
+  trainingExemptions      TrainingTicketExemption[]
+  trainingRequestLinks    TrainingRequest[]          @relation("TrainingRequestTraining")
+  resolvedCourseRequests  TrainingCourseRequest[]    @relation("ResolvedTraining")
 }
 
 model TrainingRecords {
@@ -237,9 +241,12 @@ model User {
   appSettingUpdates            AppSetting[]
   themeId                      String?
   theme                        Theme?        @relation("UserActiveTheme", fields: [themeId], references: [id], onDelete: SetNull)
-  themes                       Theme[]       @relation("UserThemes")
-  createdAt                    DateTime      @default(now())
-  updatedAt                    DateTime      @updatedAt
+  themes                       Theme[]                @relation("UserThemes")
+  submittedApprovals           ApprovalRequest[]      @relation("SubmittedApprovals")
+  approvalActions              ApprovalAction[]       @relation("ApprovalActions")
+  courseRequests               TrainingCourseRequest[] @relation("CourseRequests")
+  createdAt                    DateTime               @default(now())
+  updatedAt                    DateTime               @updatedAt
 }
 
 model AppSetting {
@@ -319,6 +326,40 @@ model Verification {
   @@unique([identifier, value])
 }
 
+enum ApprovalStatus {
+  Pending
+  Approved
+  Rejected
+  Cancelled
+}
+
+enum ApprovalStage {
+  DepartmentManager
+  HRManager
+  Admin
+}
+
+enum ApprovalDecision {
+  Approved
+  Rejected
+}
+
+enum ApprovalRequestType {
+  Training
+}
+
+enum TrainingCourseRequestStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+enum AppLogSeverity {
+  Info
+  Warning
+  Error
+}
+
 enum JobType {
   EXEMPTION_EXPIRY
   TICKET_EXPIRY
@@ -327,6 +368,7 @@ enum JobType {
   INACTIVE_EMPLOYEE_CHECK
   ORPHANED_IMAGE_CLEANUP
   HISTORY_ARCHIVAL
+  REEVALUATE_PENDING_APPROVALS
 }
 
 enum JobStatus {
@@ -355,6 +397,75 @@ model BackgroundJob {
 
   @@index([status, scheduledAt])
   @@index([type])
+}
+
+model ApprovalRequest {
+  id                          Int                 @id @default(autoincrement())
+  requestType                 ApprovalRequestType
+  status                      ApprovalStatus      @default(Pending)
+  currentStage                ApprovalStage       @default(DepartmentManager)
+  nominatedApproverEmployeeId Int?
+  nominatedApproverEmployee   Employee?           @relation("NominatedApprover", fields: [nominatedApproverEmployeeId], references: [id])
+  submittedByUserId           String
+  submittedByUser             User                @relation("SubmittedApprovals", fields: [submittedByUserId], references: [id])
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+
+  actions         ApprovalAction[]
+  trainingRequest TrainingRequest?
+}
+
+model ApprovalAction {
+  id         Int              @id @default(autoincrement())
+  requestId  Int
+  request    ApprovalRequest  @relation(fields: [requestId], references: [id])
+  stage      ApprovalStage
+  userId     String
+  user       User             @relation("ApprovalActions", fields: [userId], references: [id])
+  decision   ApprovalDecision
+  comment    String?
+  onBehalfOf Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+}
+
+model TrainingRequest {
+  id                      Int                    @id @default(autoincrement())
+  approvalRequestId       Int                    @unique
+  approvalRequest         ApprovalRequest        @relation(fields: [approvalRequestId], references: [id])
+  employeeId              Int
+  employee                Employee               @relation("TrainingRequests", fields: [employeeId], references: [id])
+  trainingId              Int?
+  training                Training?              @relation("TrainingRequestTraining", fields: [trainingId], references: [id])
+  trainingCourseRequestId Int?
+  trainingCourseRequest   TrainingCourseRequest? @relation(fields: [trainingCourseRequestId], references: [id])
+  justification           String?
+  cost                    Float?
+  hours                   Float?
+  trainingDate            DateTime?
+  intendedCompletionDate  DateTime?
+  createdAt               DateTime               @default(now())
+}
+
+model TrainingCourseRequest {
+  id                 Int                         @id @default(autoincrement())
+  name               String
+  description        String?
+  requestedByUserId  String
+  requestedByUser    User                        @relation("CourseRequests", fields: [requestedByUserId], references: [id])
+  status             TrainingCourseRequestStatus @default(Pending)
+  resolvedTrainingId Int?
+  resolvedTraining   Training?                   @relation("ResolvedTraining", fields: [resolvedTrainingId], references: [id])
+  createdAt          DateTime                    @default(now())
+
+  trainingRequests TrainingRequest[]
+}
+
+model AppLog {
+  id        Int            @id @default(autoincrement())
+  message   String
+  severity  AppLogSeverity @default(Info)
+  source    String?
+  createdAt DateTime       @default(now())
 }
 
 model RequirementsCacheEntry {

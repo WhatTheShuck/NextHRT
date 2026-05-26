@@ -13,21 +13,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
   }
 
-  const userRole = session.user.role as UserRole;
-
-  const canList = await auth.api.userHasPermission({
-    body: { role: userRole, permissions: { user: ["list"] } },
-  });
-
-  if (!canList.success) {
-    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
-  }
-
   try {
     const url = new URL(request.url);
     const includeEmployee = url.searchParams.get("includeEmployee") === "true";
+    const userRole = session.user.role as UserRole;
 
-    const users = await userService.getUsers({ includeEmployee });
+    const users = await userService.getUsers({ includeEmployee, userRole });
     return NextResponse.json(users);
   } catch (error) {
     return NextResponse.json(

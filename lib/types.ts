@@ -45,6 +45,7 @@ export interface NavigationItem {
   icon: LucideIcon;
   href: string;
   minimumAllowedPermission: Permission;
+  badge?: number;
 }
 
 export interface EmployeeWithRelations extends Employee {

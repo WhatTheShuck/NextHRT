@@ -90,6 +90,19 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "All Training Records",
     parent: "/reports/training",
   },
+  "/forms": { label: "Forms" },
+  "/forms/new-employee": { label: "New Employee Form", parent: "/forms" },
+  "/forms/training-request": {
+    label: "Training Request Form",
+    parent: "/forms",
+  },
+  "/forms/training-request/[id]": {
+    label: "Request Status",
+    parent: "/forms/training-request",
+  },
+  "/forms/my-requests": { label: "My Requests", parent: "/forms" },
+  "/approvals": { label: "Approvals" },
+  "/admin/logs": { label: "Admin Logs" },
 };
 
 export interface Breadcrumb {

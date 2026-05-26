@@ -9,6 +9,7 @@ export const NavigationCard: React.FC<NavigationItem> = ({
   description,
   icon: Icon,
   href,
+  badge,
 }) => (
   <Link
     href={href}
@@ -20,6 +21,11 @@ export const NavigationCard: React.FC<NavigationItem> = ({
           <div className="flex items-center gap-2">
             <Icon className="w-5 h-5" />
             <span>{title}</span>
+            {badge != null && badge > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-xs font-medium">
+                {badge > 99 ? "99+" : badge}
+              </span>
+            )}
           </div>
           <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </CardTitle>
