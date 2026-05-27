@@ -39,10 +39,14 @@ export const auth = betterAuth({
   advanced: {
     // Share the session cookie across all *.ksb.com.au subdomains so Caddy's
     // forward_auth can read it when validating requests to downstream apps.
-    crossSubDomainCookies: {
-      enabled: true,
-      domain: "ksb.com.au",
-    },
+    // Disabled locally — domain=.ksb.com.au cookies are invisible to localhost,
+    // which causes the OAuth state cookie to be lost on the callback.
+    ...(process.env.NODE_ENV === "production" && {
+      crossSubDomainCookies: {
+        enabled: true,
+        domain: "ksb.com.au",
+      },
+    }),
   },
   session: {
     cookieCache: {

@@ -1,8 +1,8 @@
 allowBuilds:
-  '@prisma/engines': set this to true or false
+  '@prisma/engines': true
   better-sqlite3: true
   core-js: false
   esbuild: true
-  prisma: false
-  sharp: set this to true or false
+  prisma: true
+  sharp: true
   unrs-resolver: false
