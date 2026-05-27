@@ -13,37 +13,7 @@ const eslintConfig = [
   ...compat.config({
     extends: ["next/core-web-vitals", "next/typescript"],
     rules: {
-      // "@typescript-eslint/no-explicit-any": "off",
-      "use-role-hierarchy": {
-        create: function (context) {
-          return {
-            BinaryExpression: function (node) {
-              if (
-                node.operator === "===" &&
-                node.left.name === "userRole" &&
-                node.right.type === "Literal"
-              ) {
-                context.report({
-                  node,
-                  message:
-                    "Consider using hasRoleAccess() instead of direct role comparison",
-                  suggest: [
-                    {
-                      desc: "Use hasRoleAccess function",
-                      fix: function (fixer) {
-                        return fixer.replaceText(
-                          node,
-                          `hasRoleAccess(userRole, ${node.right.raw})`,
-                        );
-                      },
-                    },
-                  ],
-                });
-              }
-            },
-          };
-        },
-      },
+      "@typescript-eslint/no-explicit-any": "off",
     },
   }),
 ];
