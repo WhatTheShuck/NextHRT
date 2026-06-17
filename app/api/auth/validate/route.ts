@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     if (redirectTarget) loginUrl.searchParams.set("redirect", redirectTarget);
 
     return new NextResponse(null, {
-      status: 401,
+      status: 302,
       headers: { Location: loginUrl.toString() },
     });
   }
