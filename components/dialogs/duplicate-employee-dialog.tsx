@@ -169,7 +169,7 @@ function DuplicateForm({
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 text-lg">
-                      {match.firstName} {match.lastName}
+                      {match.legalFirstName} {match.legalLastName}
                     </h4>
                     <p className="text-sm text-gray-600">{match.title}</p>
                   </div>

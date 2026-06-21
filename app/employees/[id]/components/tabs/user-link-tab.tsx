@@ -64,7 +64,7 @@ type LinkedUser = {
 };
 
 interface LinkFormProps {
-  employee: { firstName: string; lastName: string } | null;
+  employee: { legalFirstName: string; legalLastName: string } | null;
   linkedUser: LinkedUser | null;
   userItems: ComboboxItem[];
   selectedUserItem: ComboboxItem | null;
@@ -276,8 +276,8 @@ export function UserLinkTab() {
 
   const linkDialogTitle = linkedUser ? "Change Linked User" : "Link User Account";
   const linkDialogDescription = linkedUser
-    ? `Select a replacement for ${employee?.firstName} ${employee?.lastName}. The current link will be removed first.`
-    : `Select a user account to link to ${employee?.firstName} ${employee?.lastName}.`;
+    ? `Select a replacement for ${employee?.legalFirstName} ${employee?.legalLastName}. The current link will be removed first.`
+    : `Select a user account to link to ${employee?.legalFirstName} ${employee?.legalLastName}.`;
 
   const linkFormProps: LinkFormProps = {
     employee,

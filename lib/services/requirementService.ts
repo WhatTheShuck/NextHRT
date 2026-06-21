@@ -508,8 +508,8 @@ export class RequirementService {
 
     const rows: {
       employeeId: number;
-      firstName: string;
-      lastName: string;
+      legalFirstName: string;
+      legalLastName: string;
       department: (typeof allEmployees)[0]["department"];
       location: (typeof allEmployees)[0]["location"];
       trainingName: string | undefined;
@@ -543,8 +543,8 @@ export class RequirementService {
         const requirement = requirementByTrainingId.get(trainingId);
         rows.push({
           employeeId: employee.id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
+          legalFirstName: employee.legalFirstName,
+          legalLastName: employee.legalLastName,
           department: employee.department,
           location: employee.location,
           trainingName: requirement?.training.title,
@@ -619,8 +619,8 @@ export class RequirementService {
 
     const rows: {
       employeeId: number;
-      firstName: string;
-      lastName: string;
+      legalFirstName: string;
+      legalLastName: string;
       department: (typeof allEmployees)[0]["department"];
       location: (typeof allEmployees)[0]["location"];
       ticketName: string | undefined;
@@ -654,8 +654,8 @@ export class RequirementService {
         const requirement = requirementByTicketId.get(ticketId);
         rows.push({
           employeeId: employee.id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
+          legalFirstName: employee.legalFirstName,
+          legalLastName: employee.legalLastName,
           department: employee.department,
           location: employee.location,
           ticketName: requirement?.ticket.ticketName,

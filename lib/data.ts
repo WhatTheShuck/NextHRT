@@ -22,6 +22,12 @@ import {
   ScrollText,
   Network,
   KeyRound,
+  Briefcase,
+  Stethoscope,
+  AppWindow,
+  Laptop,
+  ClipboardCheck,
+  Inbox,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -110,6 +116,13 @@ export const landingPageNavigationItems: NavigationItem[] = [
     icon: CheckSquare,
     href: "/approvals",
     minimumAllowedPermission: "trainingRequest:approve",
+  },
+  {
+    title: "Onboarding Requests",
+    description: "Review, approve, or reject pending onboarding requests",
+    icon: Inbox,
+    href: "/admin/onboarding",
+    minimumAllowedPermission: "user:impersonate",
   },
   {
     title: "Admin Logs",
@@ -273,6 +286,34 @@ export const fieldEditorNavigationItems: NavigationItem[] = [
     icon: IdCard,
     minimumAllowedPermission: "user:impersonate",
   },
+  {
+    title: "Job Families",
+    description: "Manage job families used to drive onboarding prefills",
+    href: "/admin/field-editor/job-families",
+    icon: Briefcase,
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Medical Standards",
+    description: "Manage pre-employment medical standards",
+    href: "/admin/field-editor/medical-standards",
+    icon: Stethoscope,
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Software Programs",
+    description: "Manage the software-access program catalogue",
+    href: "/admin/field-editor/programs",
+    icon: AppWindow,
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Hardware",
+    description: "Manage the hardware-request catalogue",
+    href: "/admin/field-editor/hardware",
+    icon: Laptop,
+    minimumAllowedPermission: "user:impersonate",
+  },
 ];
 export const formNavigationItems: NavigationItem[] = [
   {
@@ -288,5 +329,12 @@ export const formNavigationItems: NavigationItem[] = [
     icon: CalendarPlus,
     href: "/forms/training-request",
     minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    title: "Employee Onboarding",
+    description: "Submit a new-hire onboarding request for Admin approval",
+    icon: ClipboardCheck,
+    href: "/forms/onboarding",
+    minimumAllowedPermission: "department:manage",
   },
 ];

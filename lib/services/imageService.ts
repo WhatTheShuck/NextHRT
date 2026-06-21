@@ -23,8 +23,8 @@ export class ImageService {
               ticketHolder: {
                 select: {
                   id: true,
-                  firstName: true,
-                  lastName: true,
+                  legalFirstName: true,
+                  legalLastName: true,
                   departmentId: true,
                 },
               },
@@ -57,8 +57,8 @@ export class ImageService {
               personTrained: {
                 select: {
                   id: true,
-                  firstName: true,
-                  lastName: true,
+                  legalFirstName: true,
+                  legalLastName: true,
                   departmentId: true,
                 },
               },

@@ -36,8 +36,10 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
 
   // Form state
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [legalFirstName, setLegalFirstName] = useState("");
+  const [legalLastName, setLegalLastName] = useState("");
+  const [preferredFirstName, setPreferredFirstName] = useState("");
+  const [preferredLastName, setPreferredLastName] = useState("");
   const [title, setTitle] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [locationId, setLocationId] = useState("");
@@ -56,8 +58,10 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   // Initialize form with employee data
   useEffect(() => {
     if (employee) {
-      setFirstName(employee.firstName || "");
-      setLastName(employee.lastName || "");
+      setLegalFirstName(employee.legalFirstName || "");
+      setLegalLastName(employee.legalLastName || "");
+      setPreferredFirstName(employee.preferredFirstName || "");
+      setPreferredLastName(employee.preferredLastName || "");
       setTitle(employee.title || "");
       setDepartmentId(employee.departmentId?.toString() || "");
       setLocationId(employee.locationId?.toString() || "");
@@ -99,8 +103,11 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
     setIsLoading(true);
 
     const updateData = {
-      firstName,
-      lastName,
+      legalFirstName,
+      legalLastName,
+      // Fall back to legal names when preferred is left blank
+      preferredFirstName: preferredFirstName || legalFirstName,
+      preferredLastName: preferredLastName || legalLastName,
       title,
       departmentId: departmentId ? parseInt(departmentId) : null,
       locationId: locationId ? parseInt(locationId) : null,
@@ -138,23 +145,46 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6 pt-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="firstName">First Name</Label>
+          <Label htmlFor="legalFirstName">Legal First Name</Label>
           <Input
-            id="firstName"
-            name="firstName"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            id="legalFirstName"
+            name="legalFirstName"
+            value={legalFirstName}
+            onChange={(e) => setLegalFirstName(e.target.value)}
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="lastName">Last Name</Label>
+          <Label htmlFor="legalLastName">Legal Last Name</Label>
           <Input
-            id="lastName"
-            name="lastName"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            id="legalLastName"
+            name="legalLastName"
+            value={legalLastName}
+            onChange={(e) => setLegalLastName(e.target.value)}
             required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="preferredFirstName">Preferred First Name</Label>
+          <Input
+            id="preferredFirstName"
+            name="preferredFirstName"
+            value={preferredFirstName}
+            onChange={(e) => setPreferredFirstName(e.target.value)}
+            placeholder="Defaults to legal first name"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="preferredLastName">Preferred Last Name</Label>
+          <Input
+            id="preferredLastName"
+            name="preferredLastName"
+            value={preferredLastName}
+            onChange={(e) => setPreferredLastName(e.target.value)}
+            placeholder="Defaults to legal last name"
           />
         </div>
       </div>

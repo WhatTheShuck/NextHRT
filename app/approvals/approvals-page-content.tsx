@@ -18,7 +18,7 @@ interface PendingApproval {
   status: string;
   currentStage: string;
   createdAt: string;
-  nominatedApproverEmployee: { id: number; firstName: string; lastName: string } | null;
+  nominatedApproverEmployee: { id: number; legalFirstName: string; legalLastName: string } | null;
   submittedByUser: { id: string; name: string | null };
   actions: {
     id: number;
@@ -35,7 +35,7 @@ interface PendingApproval {
     cost: number | null;
     hours: number | null;
     trainingDate: string | null;
-    employee: { id: number; firstName: string; lastName: string };
+    employee: { id: number; legalFirstName: string; legalLastName: string };
     training: { id: number; title: string } | null;
     trainingCourseRequest: { id: number; name: string } | null;
   } | null;
@@ -76,7 +76,7 @@ function ApprovalCard({
   const tr = approval.trainingRequest;
   const trainingName = tr?.training?.title ?? tr?.trainingCourseRequest?.name ?? "Unknown";
   const employeeName = tr
-    ? `${tr.employee.firstName} ${tr.employee.lastName}`
+    ? `${tr.employee.legalFirstName} ${tr.employee.legalLastName}`
     : "Unknown";
 
   const courseRequestPending = !!tr?.trainingCourseRequest;
@@ -161,8 +161,8 @@ function ApprovalCard({
               <>
                 <span className="text-muted-foreground">Nominated Approver</span>
                 <span>
-                  {approval.nominatedApproverEmployee.firstName}{" "}
-                  {approval.nominatedApproverEmployee.lastName}
+                  {approval.nominatedApproverEmployee.legalFirstName}{" "}
+                  {approval.nominatedApproverEmployee.legalLastName}
                 </span>
               </>
             )}

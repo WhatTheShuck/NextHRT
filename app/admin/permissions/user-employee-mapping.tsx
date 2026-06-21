@@ -245,15 +245,15 @@ export function UserEmployeeMapping() {
     if (!id) return null;
     const employee = employees.find((emp) => emp.id === id);
     return employee
-      ? `${employee.firstName} ${employee.lastName}`
+      ? `${employee.legalFirstName} ${employee.legalLastName}`
       : "Unknown Employee";
   };
 
   const employeeItems: ComboboxItem[] = employees.map((employee) =>
     createComboboxItem(
       employee.id,
-      `${employee.firstName} ${employee.lastName}`,
-      `${employee.firstName} ${employee.lastName} ${employee.title} ${employee.department.name}`,
+      `${employee.legalFirstName} ${employee.legalLastName}`,
+      `${employee.legalFirstName} ${employee.legalLastName} ${employee.preferredFirstName ?? ""} ${employee.preferredLastName ?? ""} ${employee.title} ${employee.department.name}`,
       `${employee.title} - ${employee.department.name}`,
     ),
   );

@@ -41,7 +41,7 @@ interface TrainingRequestDetail {
   trainingDate: string | null;
   intendedCompletionDate: string | null;
   createdAt: string;
-  employee: { id: number; firstName: string; lastName: string };
+  employee: { id: number; legalFirstName: string; legalLastName: string };
   training: { id: number; title: string } | null;
   trainingCourseRequest: { id: number; name: string; status: string } | null;
   approvalRequest: {
@@ -49,7 +49,7 @@ interface TrainingRequestDetail {
     status: string;
     currentStage: string;
     submittedByUser: { id: string; name: string | null };
-    nominatedApproverEmployee: { id: number; firstName: string; lastName: string } | null;
+    nominatedApproverEmployee: { id: number; legalFirstName: string; legalLastName: string } | null;
     actions: ApprovalAction[];
   };
 }
@@ -171,7 +171,7 @@ export function TrainingRequestStatusContent({ requestId }: { requestId: number 
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <span className="text-muted-foreground">Employee</span>
               <span>
-                {detail.employee.firstName} {detail.employee.lastName}
+                {detail.employee.legalFirstName} {detail.employee.legalLastName}
               </span>
 
               <span className="text-muted-foreground">Training</span>
@@ -221,8 +221,8 @@ export function TrainingRequestStatusContent({ requestId }: { requestId: number 
                 <>
                   <span className="text-muted-foreground">Nominated Approver</span>
                   <span>
-                    {detail.approvalRequest.nominatedApproverEmployee.firstName}{" "}
-                    {detail.approvalRequest.nominatedApproverEmployee.lastName}
+                    {detail.approvalRequest.nominatedApproverEmployee.legalFirstName}{" "}
+                    {detail.approvalRequest.nominatedApproverEmployee.legalLastName}
                   </span>
                 </>
               )}

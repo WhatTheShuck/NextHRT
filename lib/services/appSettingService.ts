@@ -62,6 +62,20 @@ const SETTING_DEFAULTS: SettingDefault[] = [
       "How often the job runner polls for pending work (milliseconds)",
   },
   {
+    key: "jobs.maxRetries",
+    envVar: "JOBS_MAX_RETRIES",
+    defaultValue: "3",
+    description:
+      "How many times a failed job is retried before being marked Failed",
+  },
+  {
+    key: "jobs.retryBackoffMs",
+    envVar: "JOBS_RETRY_BACKOFF_MS",
+    defaultValue: "30000",
+    description:
+      "Base delay before retrying a failed job; grows exponentially per attempt (milliseconds)",
+  },
+  {
     key: "theme.default",
     envVar: "DEFAULT_THEME",
     defaultValue: "default",

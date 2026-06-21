@@ -49,7 +49,7 @@ export class EmployeeService {
         },
         where: whereClause,
         orderBy: {
-          lastName: "asc",
+          legalLastName: "asc",
         },
       });
     }
@@ -69,8 +69,8 @@ export class EmployeeService {
       return await prisma.employee.findMany({
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          legalFirstName: true,
+          legalLastName: true,
           title: true,
           isActive: true,
           department: {
@@ -89,7 +89,7 @@ export class EmployeeService {
         },
         where: whereClause,
         orderBy: {
-          lastName: "asc",
+          legalLastName: "asc",
         },
       });
     }
@@ -136,7 +136,7 @@ export class EmployeeService {
           location: true,
         },
         orderBy: {
-          lastName: "asc",
+          legalLastName: "asc",
         },
       });
     }
@@ -164,8 +164,10 @@ export class EmployeeService {
 
   async createEmployee(
     data: {
-      firstName: string;
-      lastName: string;
+      legalFirstName: string;
+      legalLastName: string;
+      preferredFirstName?: string | null;
+      preferredLastName?: string | null;
       title: string;
       startDate: string;
       finishDate?: string | null;
@@ -183,11 +185,11 @@ export class EmployeeService {
     if (!data.confirmDuplicate) {
       const potentialDuplicates = await prisma.employee.findMany({
         where: {
-          firstName: {
-            equals: data.firstName,
+          legalFirstName: {
+            equals: data.legalFirstName,
           },
-          lastName: {
-            equals: data.lastName,
+          legalLastName: {
+            equals: data.legalLastName,
           },
         },
         include: {
@@ -209,8 +211,8 @@ export class EmployeeService {
           code: "DUPLICATE_EMPLOYEE",
           matches: potentialDuplicates.map((emp) => ({
             id: emp.id,
-            firstName: emp.firstName,
-            lastName: emp.lastName,
+            legalFirstName: emp.legalFirstName,
+            legalLastName: emp.legalLastName,
             title: emp.title,
             department: emp.department || "Unknown",
             location: emp.location || "Unknown",
@@ -226,8 +228,11 @@ export class EmployeeService {
     // Create the employee
     const employee = await prisma.employee.create({
       data: {
-        firstName: data.firstName,
-        lastName: data.lastName,
+        legalFirstName: data.legalFirstName,
+        legalLastName: data.legalLastName,
+        // Default preferred names to the legal names when not supplied
+        preferredFirstName: data.preferredFirstName ?? data.legalFirstName,
+        preferredLastName: data.preferredLastName ?? data.legalLastName,
         title: data.title,
         startDate: new Date(data.startDate),
         finishDate: data.finishDate ? new Date(data.finishDate) : null,
@@ -307,8 +312,10 @@ export class EmployeeService {
   async updateEmployeePartial(
     employeeId: number,
     data: {
-      firstName?: string;
-      lastName?: string;
+      legalFirstName?: string;
+      legalLastName?: string;
+      preferredFirstName?: string | null;
+      preferredLastName?: string | null;
       title?: string;
       startDate?: string | null;
       finishDate?: string | null;
@@ -333,8 +340,12 @@ export class EmployeeService {
     const updateData: Prisma.EmployeeUpdateInput = {};
 
     if (data.notes !== undefined) updateData.notes = data.notes;
-    if (data.firstName !== undefined) updateData.firstName = data.firstName;
-    if (data.lastName !== undefined) updateData.lastName = data.lastName;
+    if (data.legalFirstName !== undefined) updateData.legalFirstName = data.legalFirstName;
+    if (data.legalLastName !== undefined) updateData.legalLastName = data.legalLastName;
+    if (data.preferredFirstName !== undefined)
+      updateData.preferredFirstName = data.preferredFirstName;
+    if (data.preferredLastName !== undefined)
+      updateData.preferredLastName = data.preferredLastName;
     if (data.title !== undefined) updateData.title = data.title;
     if (data.usi !== undefined) updateData.usi = data.usi;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
@@ -397,8 +408,10 @@ export class EmployeeService {
   async updateEmployeeFull(
     employeeId: number,
     data: {
-      firstName: string;
-      lastName: string;
+      legalFirstName: string;
+      legalLastName: string;
+      preferredFirstName?: string | null;
+      preferredLastName?: string | null;
       title: string;
       startDate: string;
       finishDate?: string | null;
@@ -423,8 +436,10 @@ export class EmployeeService {
     const updatedEmployee = await prisma.employee.update({
       where: { id: employeeId },
       data: {
-        firstName: data.firstName,
-        lastName: data.lastName,
+        legalFirstName: data.legalFirstName,
+        legalLastName: data.legalLastName,
+        preferredFirstName: data.preferredFirstName ?? data.legalFirstName,
+        preferredLastName: data.preferredLastName ?? data.legalLastName,
         title: data.title,
         startDate: new Date(data.startDate),
         finishDate: data.finishDate ? new Date(data.finishDate) : null,

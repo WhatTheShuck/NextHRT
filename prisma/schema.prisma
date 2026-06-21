@@ -12,8 +12,10 @@ datasource db {
 
 model Employee {
   id                       Int                       @id @default(autoincrement())
-  firstName                String
-  lastName                 String
+  legalFirstName           String
+  legalLastName            String
+  preferredFirstName       String?
+  preferredLastName        String?
   title                    String
   startDate                DateTime
   finishDate               DateTime?
@@ -25,6 +27,11 @@ model Employee {
   usi                      String? //Universal Student Identifier
   isActive                 Boolean                   @default(true)
   status                   EmployeeStatus            @default(Permanent)
+  // Internal/External, derived from `status` via deriveEmploymentType() (§6.2). Nullable
+  // so existing rows backfill gradually; kept in sync on every create/update.
+  employmentType           EmploymentType?
+  jobFamily                JobFamily?                @relation(fields: [jobFamilyId], references: [id])
+  jobFamilyId              Int?
   trainingRecords          TrainingRecords[]
   ticketRecords            TicketRecords[]
   trainingTicketExemptions TrainingTicketExemption[]
@@ -40,6 +47,113 @@ enum EmployeeStatus {
   LabourContractor
   IndustryExperience
   PartTimePermanent
+}
+
+// Internal vs External — derived deterministically from EmployeeStatus (§6.2).
+// Internal: Permanent, PartTimePermanent. External: LabourContractor,
+// IndustryExperience, Apprentice.
+enum EmploymentType {
+  Internal
+  External
+}
+
+// Onboarding request lifecycle (§6.3). Admin gates only the Employee creation.
+enum OnboardingStatus {
+  Pending
+  Approved
+  Rejected
+  Cancelled
+}
+
+// Managed reference table (like Department/Location), admin-editable (§6.5).
+model JobFamily {
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  isActive           Boolean             @default(true)
+  employees          Employee[]
+  onboardingRequests OnboardingRequest[]
+}
+
+// Pre-employment medical standards — managed table, NOT a Prisma enum (§6.6).
+// Seed: KSB Standard / No / Telfer.
+model MedicalStandard {
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  isActive           Boolean             @default(true)
+  onboardingRequests OnboardingRequest[]
+}
+
+// Software-access program catalogue — admin-editable reference table (§6.4).
+// IT-ticket link is constructed from `ticketNumber` + a configurable base URL.
+model Program {
+  id                    Int      @id @default(autoincrement())
+  name                  String   @unique
+  ticketNumber          String? // IT ticket number (not the full URL)
+  infoRequired          String? // "info required" text shown to IT
+  requiresReferenceUser Boolean  @default(false)
+  isActive              Boolean  @default(true)
+}
+
+// Hardware catalogue — admin-editable reference table (§6.4).
+// `payloadTemplate` is the request-type/payload template for the hardware API.
+model HardwareItem {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  payloadTemplate String? // JSON/template for the hardware-request platform
+  isActive        Boolean  @default(true)
+}
+
+// Admin-editable email templates keyed by a stable template id (§6.7).
+// Bodies support variable interpolation (preferred name, start date, etc.).
+model EmailTemplate {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique // stable template id, e.g. "manager.nextSteps.internal"
+  name      String
+  subject   String   @default("")
+  body      String   @default("")
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+// Manager-facing onboarding submission (§6.3). Hybrid storage: explicit columns for
+// the core HR fields the Admin reviews/edits (→ become the Employee on approval), plus
+// a JSON `payload` for the non-HR sub-objects (programs/hardware/compliance/notes).
+model OnboardingRequest {
+  id                Int              @id @default(autoincrement())
+  status            OnboardingStatus @default(Pending)
+  submittedByUserId String
+  submittedByUser   User             @relation("OnboardingSubmissions", fields: [submittedByUserId], references: [id])
+
+  // --- Core HR fields the ADMIN reviews/edits → become the Employee on approval ---
+  legalFirstName     String
+  legalLastName      String
+  preferredFirstName String?
+  preferredLastName  String?
+  title              String
+  departmentId       Int
+  locationId         Int
+  employmentStatus   EmployeeStatus // the hire's EmployeeStatus (named to avoid clashing with request `status`)
+  employmentType     EmploymentType // derived from employmentStatus via deriveEmploymentType()
+  startDate          DateTime
+  managerEmployeeId  Int? // who the next-steps email goes to (request-only)
+  jobFamilyId        Int?
+  jobFamily          JobFamily?       @relation(fields: [jobFamilyId], references: [id])
+  medicalStandardId  Int?
+  medicalStandard    MedicalStandard? @relation(fields: [medicalStandardId], references: [id])
+  emailConfirmed     Boolean          @default(false)
+
+  // --- Non-HR payload (NOT admin-approved; drives jobs; archived to profile) ---
+  payload String // JSON: { programs[], hardware[], compliance{}, notes{it,hr,payroll} }
+
+  // --- Lifecycle ---
+  createdEmployeeId Int? // set on approval
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  reviewNotes       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status])
 }
 
 model Location {
@@ -243,6 +357,7 @@ model User {
   theme                        Theme?        @relation("UserActiveTheme", fields: [themeId], references: [id], onDelete: SetNull)
   themes                       Theme[]                @relation("UserThemes")
   submittedApprovals           ApprovalRequest[]      @relation("SubmittedApprovals")
+  onboardingRequests           OnboardingRequest[]    @relation("OnboardingSubmissions")
   approvalActions              ApprovalAction[]       @relation("ApprovalActions")
   courseRequests               TrainingCourseRequest[] @relation("CourseRequests")
   apiKeys                      Apikey[]
@@ -370,6 +485,7 @@ enum JobType {
   ORPHANED_IMAGE_CLEANUP
   HISTORY_ARCHIVAL
   REEVALUATE_PENDING_APPROVALS
+  SEND_EMAIL
 }
 
 enum JobStatus {
@@ -377,6 +493,7 @@ enum JobStatus {
   Running
   Completed
   Failed
+  Cancelled
 }
 
 enum CacheItemType {
@@ -391,6 +508,7 @@ model BackgroundJob {
   payload       String?   // JSON string
   resultSummary String?   // JSON string
   errorMessage  String?
+  attempts      Int       @default(0) // number of failed attempts so far
   scheduledAt   DateTime  @default(now())
   startedAt     DateTime?
   completedAt   DateTime?

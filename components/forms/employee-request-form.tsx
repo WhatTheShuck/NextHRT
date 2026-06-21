@@ -83,8 +83,8 @@ export function EmployeeRequestForm({ onSuccess }: EmployeeAddFormProps) {
     fetchData();
   }, []);
   const createEmployeeData = (): EmployeeFormData => ({
-    firstName,
-    lastName,
+    legalFirstName: firstName,
+    legalLastName: lastName,
     title,
     departmentId: parseInt(departmentId),
     locationId: parseInt(locationId),
@@ -103,8 +103,8 @@ export function EmployeeRequestForm({ onSuccess }: EmployeeAddFormProps) {
     setIsSubmitting(true);
     try {
       const response = await api.post<EmployeeWithRelations>("/api/employees", {
-        firstName,
-        lastName,
+        legalFirstName: firstName,
+        legalLastName: lastName,
         title,
         departmentId: parseInt(departmentId),
         locationId: parseInt(locationId),

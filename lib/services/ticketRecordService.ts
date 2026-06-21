@@ -47,8 +47,8 @@ export class TicketRecordService {
       ticketHolder: {
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          legalFirstName: true,
+          legalLastName: true,
           title: true,
           department: {
             select: {
@@ -76,7 +76,7 @@ export class TicketRecordService {
 
     const orderBy = [
       { dateIssued: "desc" as const },
-      { ticketHolder: { lastName: "asc" as const } },
+      { ticketHolder: { legalLastName: "asc" as const } },
     ];
 
     const canViewAll = await auth.api.userHasPermission({
@@ -156,8 +156,8 @@ export class TicketRecordService {
         ticketHolder: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            legalFirstName: true,
+            legalLastName: true,
             title: true,
             department: {
               select: {
@@ -273,8 +273,8 @@ export class TicketRecordService {
         ticketHolder: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            legalFirstName: true,
+            legalLastName: true,
             title: true,
             department: {
               select: {
@@ -462,8 +462,8 @@ export class TicketRecordService {
         ticketHolder: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            legalFirstName: true,
+            legalLastName: true,
             title: true,
             department: {
               select: {
@@ -514,8 +514,8 @@ export class TicketRecordService {
       include: {
         ticketHolder: {
           select: {
-            firstName: true,
-            lastName: true,
+            legalFirstName: true,
+            legalLastName: true,
           },
         },
         ticket: {
@@ -558,7 +558,7 @@ export class TicketRecordService {
       message: "Ticket record deleted successfully",
       deletedRecord: {
         id: existingRecord.id,
-        employee: `${existingRecord.ticketHolder.firstName} ${existingRecord.ticketHolder.lastName}`,
+        employee: `${existingRecord.ticketHolder.legalFirstName} ${existingRecord.ticketHolder.legalLastName}`,
         ticket: `${existingRecord.ticket.ticketCode} - ${existingRecord.ticket.ticketName}`,
         dateIssued: existingRecord.dateIssued,
       },

@@ -114,8 +114,10 @@ export interface UserWithRelations extends User {
 }
 
 export type EmployeeFormData = {
-  firstName: string;
-  lastName: string;
+  legalFirstName: string;
+  legalLastName: string;
+  preferredFirstName?: string | null;
+  preferredLastName?: string | null;
   title: string;
   departmentId: number; // Form has parsed numbers
   locationId: number; // Form has parsed numbers

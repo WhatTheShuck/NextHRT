@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, History } from "lucide-react";
+import { RefreshCw, History, RotateCcw, Ban } from "lucide-react";
 import { format } from "date-fns";
 
 interface BackgroundJob {
@@ -21,6 +21,7 @@ interface BackgroundJob {
   payload: string | null;
   resultSummary: string | null;
   errorMessage: string | null;
+  attempts: number;
   scheduledAt: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -32,6 +33,7 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
   Running: "secondary",
   Completed: "default",
   Failed: "destructive",
+  Cancelled: "outline",
 };
 
 const JOB_TYPE_LABELS: Record<string, string> = {
@@ -42,6 +44,8 @@ const JOB_TYPE_LABELS: Record<string, string> = {
   INACTIVE_EMPLOYEE_CHECK: "Inactive Check",
   ORPHANED_IMAGE_CLEANUP: "Image Cleanup",
   HISTORY_ARCHIVAL: "History Archival",
+  REEVALUATE_PENDING_APPROVALS: "Reevaluate Approvals",
+  SEND_EMAIL: "Send Email",
 };
 
 const PAGE_SIZE = 20;
@@ -53,6 +57,7 @@ export function JobHistoryTable() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [loading, setLoading] = useState(false);
+  const [actioningId, setActioningId] = useState<number | null>(null);
 
   const fetchJobs = useCallback(async () => {
     setLoading(true);
@@ -73,6 +78,24 @@ export function JobHistoryTable() {
       setLoading(false);
     }
   }, [page, statusFilter, typeFilter]);
+
+  const runAction = useCallback(
+    async (jobId: number, action: "retry" | "cancel") => {
+      setActioningId(jobId);
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        if (!res.ok) throw new Error(`Failed to ${action} job`);
+        await fetchJobs();
+      } finally {
+        setActioningId(null);
+      }
+    },
+    [fetchJobs],
+  );
 
   useEffect(() => {
     fetchJobs();
@@ -111,6 +134,7 @@ export function JobHistoryTable() {
                 <SelectItem value="Running">Running</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
                 <SelectItem value="Failed">Failed</SelectItem>
+                <SelectItem value="Cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -150,12 +174,13 @@ export function JobHistoryTable() {
                 <th className="text-left pb-2 font-medium">Queued</th>
                 <th className="text-left pb-2 font-medium">Duration</th>
                 <th className="text-left pb-2 font-medium">Result / Error</th>
+                <th className="text-right pb-2 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {jobs.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     No jobs found
                   </td>
                 </tr>
@@ -168,9 +193,19 @@ export function JobHistoryTable() {
                     </span>
                   </td>
                   <td className="py-2 pr-4">
-                    <Badge variant={STATUS_VARIANTS[job.status] ?? "outline"}>
-                      {job.status}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant={STATUS_VARIANTS[job.status] ?? "outline"}>
+                        {job.status}
+                      </Badge>
+                      {job.attempts > 0 && (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          title={`${job.attempts} failed attempt${job.attempts !== 1 ? "s" : ""}`}
+                        >
+                          ×{job.attempts}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2 pr-4 text-muted-foreground whitespace-nowrap">
                     {format(new Date(job.createdAt), "dd MMM yyyy HH:mm")}
@@ -191,6 +226,32 @@ export function JobHistoryTable() {
                           })()
                         : "—"}
                   </td>
+                  <td className="py-2 text-right whitespace-nowrap">
+                    {(job.status === "Failed" || job.status === "Cancelled") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={actioningId === job.id}
+                        onClick={() => runAction(job.id, "retry")}
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Retry
+                      </Button>
+                    )}
+                    {job.status === "Pending" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={actioningId === job.id}
+                        onClick={() => runAction(job.id, "cancel")}
+                      >
+                        <Ban className="h-3 w-3 mr-1" />
+                        Cancel
+                      </Button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -208,9 +269,16 @@ export function JobHistoryTable() {
                 <span className="font-medium">
                   {JOB_TYPE_LABELS[job.type] ?? job.type}
                 </span>
-                <Badge variant={STATUS_VARIANTS[job.status] ?? "outline"}>
-                  {job.status}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  {job.attempts > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      ×{job.attempts}
+                    </span>
+                  )}
+                  <Badge variant={STATUS_VARIANTS[job.status] ?? "outline"}>
+                    {job.status}
+                  </Badge>
+                </div>
               </div>
               <div className="text-xs text-muted-foreground space-y-0.5">
                 <div>Queued: {format(new Date(job.createdAt), "dd MMM yyyy HH:mm")}</div>
@@ -219,6 +287,35 @@ export function JobHistoryTable() {
                   <div className="text-destructive truncate">{job.errorMessage}</div>
                 )}
               </div>
+              {(job.status === "Failed" ||
+                job.status === "Cancelled" ||
+                job.status === "Pending") && (
+                <div className="mt-2">
+                  {job.status === "Pending" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={actioningId === job.id}
+                      onClick={() => runAction(job.id, "cancel")}
+                    >
+                      <Ban className="h-3 w-3 mr-1" />
+                      Cancel
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={actioningId === job.id}
+                      onClick={() => runAction(job.id, "retry")}
+                    >
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Retry
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

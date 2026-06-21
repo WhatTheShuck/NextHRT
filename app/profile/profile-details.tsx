@@ -159,7 +159,7 @@ export default function UserProfileDetails({
                     Full Name
                   </label>
                   <p className="text-base font-medium">
-                    {userData.employee.firstName} {userData.employee.lastName}
+                    {userData.employee.legalFirstName} {userData.employee.legalLastName}
                   </p>
                 </div>
                 <div>

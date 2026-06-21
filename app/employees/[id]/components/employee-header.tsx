@@ -55,7 +55,7 @@ export function EmployeeHeader() {
             </Avatar>
             <div className="min-w-0">
               <h1 className="text-xl font-semibold sm:text-2xl">
-                {employee.firstName} {employee.lastName}
+                {employee.legalFirstName} {employee.legalLastName}
               </h1>
               <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground sm:gap-2">
                 <span className="truncate">{employee.title}</span>

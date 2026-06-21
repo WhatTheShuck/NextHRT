@@ -5,6 +5,7 @@ import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/axios";
+import { sendNotification } from "@/app/actions/mail";
 
 export function LandingPageContent() {
   const { data: session } = authClient.useSession();
@@ -92,6 +93,19 @@ export function LandingPageContent() {
     (item) => item.minimumAllowedPermission === "user:impersonate",
   );
 
+  const sendTestMail = async () => {
+    try {
+      await sendNotification({
+        to: session?.user.email ?? "",
+        subject: "test",
+        text: "Testing",
+      });
+      console.log("mail queued");
+    } catch (error) {
+      console.error("Failed to send test mail:", error);
+    }
+  };
+
   const getWelcomeMessage = () => {
     switch (userRole) {
       case "Admin":
@@ -134,6 +148,7 @@ export function LandingPageContent() {
         <div>
           <h1 className="text-2xl md:text-4xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-2">{getWelcomeMessage()}</p>
+          <button onClick={sendTestMail}>Send Test Mail</button>
         </div>
 
         {nonAdminItems.length > 0 && (

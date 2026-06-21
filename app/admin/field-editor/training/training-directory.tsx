@@ -110,7 +110,7 @@ const ExemptionsCell = ({
       const expiryText = exemption.endDate
         ? ` (expires ${new Date(exemption.endDate).toLocaleDateString()})`
         : " (permanent)";
-      return `${exemption.employee?.firstName} ${exemption.employee?.lastName}: ${exemption.reason}${expiryText}`;
+      return `${exemption.employee?.legalFirstName} ${exemption.employee?.legalLastName}: ${exemption.reason}${expiryText}`;
     })
     .join("\n");
 

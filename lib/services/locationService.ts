@@ -51,8 +51,8 @@ export class LocationService {
         employees: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            legalFirstName: true,
+            legalLastName: true,
             title: true,
             department: {
               select: {

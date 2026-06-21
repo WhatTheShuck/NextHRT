@@ -17,7 +17,7 @@ export const columns: ColumnDef<TrainingRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "personTrained.firstName",
+    accessorKey: "personTrained.legalFirstName",
     meta: {
       headerText: "First Name",
     },
@@ -33,7 +33,7 @@ export const columns: ColumnDef<TrainingRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "personTrained.lastName",
+    accessorKey: "personTrained.legalLastName",
     meta: {
       headerText: "Last Name",
     },

@@ -234,7 +234,7 @@ export function AccessCheckAdminContent() {
           <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="font-semibold text-base">
-                {accessInfo.firstName} {accessInfo.lastName}
+                {accessInfo.legalFirstName} {accessInfo.legalLastName}
               </span>
               <Badge variant="outline">{accessInfo.department}</Badge>
               <Badge variant="outline">{accessInfo.location}</Badge>

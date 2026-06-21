@@ -128,12 +128,12 @@ class ApprovalService {
           actions: { include: { user: { select: { id: true, name: true } } } },
           trainingRequest: {
             include: {
-              employee: { select: { id: true, firstName: true, lastName: true } },
+              employee: { select: { id: true, legalFirstName: true, legalLastName: true } },
               training: { select: { id: true, title: true } },
               trainingCourseRequest: { select: { id: true, name: true } },
             },
           },
-          nominatedApproverEmployee: { select: { id: true, firstName: true, lastName: true } },
+          nominatedApproverEmployee: { select: { id: true, legalFirstName: true, legalLastName: true } },
           submittedByUser: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: "asc" },
@@ -170,12 +170,12 @@ class ApprovalService {
         actions: { include: { user: { select: { id: true, name: true } } } },
         trainingRequest: {
           include: {
-            employee: { select: { id: true, firstName: true, lastName: true } },
+            employee: { select: { id: true, legalFirstName: true, legalLastName: true } },
             training: { select: { id: true, title: true } },
             trainingCourseRequest: { select: { id: true, name: true } },
           },
         },
-        nominatedApproverEmployee: { select: { id: true, firstName: true, lastName: true } },
+        nominatedApproverEmployee: { select: { id: true, legalFirstName: true, legalLastName: true } },
         submittedByUser: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: "asc" },

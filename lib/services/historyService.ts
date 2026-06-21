@@ -130,7 +130,7 @@ export class HistoryService {
 
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, legalFirstName: true, legalLastName: true },
     });
 
     if (!employee) {
@@ -329,8 +329,8 @@ export class HistoryService {
     return {
       employee: {
         id: employee.id,
-        firstName: employee.firstName,
-        lastName: employee.lastName,
+        legalFirstName: employee.legalFirstName,
+        legalLastName: employee.legalLastName,
       },
       data: historyRecords,
       totalCount,

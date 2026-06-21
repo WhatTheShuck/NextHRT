@@ -18,7 +18,7 @@ export const columns: ColumnDef<EmployeeWithRequirementStatus>[] = [
         </Button>
       );
     },
-    accessorKey: "firstName",
+    accessorKey: "legalFirstName",
     meta: {
       headerText: "First Name",
     },
@@ -34,7 +34,7 @@ export const columns: ColumnDef<EmployeeWithRequirementStatus>[] = [
         </Button>
       );
     },
-    accessorKey: "lastName",
+    accessorKey: "legalLastName",
     meta: {
       headerText: "Last Name",
     },

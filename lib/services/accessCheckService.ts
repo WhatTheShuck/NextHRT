@@ -11,8 +11,8 @@ export interface AccessorInfo {
 
 export interface EmployeeAccessInfo {
   employeeId: number;
-  firstName: string;
-  lastName: string;
+  legalFirstName: string;
+  legalLastName: string;
   department: string;
   location: string;
   accessors: AccessorInfo[];
@@ -25,8 +25,8 @@ class AccessCheckService {
   private buildAccessors(
     employee: {
       id: number;
-      firstName: string;
-      lastName: string;
+      legalFirstName: string;
+      legalLastName: string;
       departmentId: number;
       department: { name: string };
       location: { name: string };
@@ -104,8 +104,8 @@ class AccessCheckService {
   private toEmployeeAccessInfo(
     employee: {
       id: number;
-      firstName: string;
-      lastName: string;
+      legalFirstName: string;
+      legalLastName: string;
       departmentId: number;
       department: { name: string };
       location: { name: string };
@@ -114,8 +114,8 @@ class AccessCheckService {
   ): EmployeeAccessInfo {
     return {
       employeeId: employee.id,
-      firstName: employee.firstName,
-      lastName: employee.lastName,
+      legalFirstName: employee.legalFirstName,
+      legalLastName: employee.legalLastName,
       department: employee.department.name,
       location: employee.location.name,
       accessors,
@@ -169,8 +169,8 @@ class AccessCheckService {
         where: { id: employeeId },
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          legalFirstName: true,
+          legalLastName: true,
           departmentId: true,
           department: { select: { name: true } },
           location: { select: { name: true } },
@@ -196,13 +196,13 @@ class AccessCheckService {
         where: activeOnly ? { isActive: true } : undefined,
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          legalFirstName: true,
+          legalLastName: true,
           departmentId: true,
           department: { select: { name: true } },
           location: { select: { name: true } },
         },
-        orderBy: { lastName: "asc" },
+        orderBy: { legalLastName: "asc" },
       }),
       this.fetchSharedData(),
       prisma.user.findMany({
@@ -229,13 +229,13 @@ class AccessCheckService {
         where: { departmentId: departmentId, isActive: true },
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          legalFirstName: true,
+          legalLastName: true,
           departmentId: true,
           department: { select: { name: true } },
           location: { select: { name: true } },
         },
-        orderBy: { lastName: "asc" },
+        orderBy: { legalLastName: "asc" },
       }),
       this.fetchSharedData(),
       prisma.user.findMany({
@@ -262,13 +262,13 @@ class AccessCheckService {
         where: { locationId: locationId, isActive: true },
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          legalFirstName: true,
+          legalLastName: true,
           departmentId: true,
           department: { select: { name: true } },
           location: { select: { name: true } },
         },
-        orderBy: { lastName: "asc" },
+        orderBy: { legalLastName: "asc" },
       }),
       this.fetchSharedData(),
       prisma.user.findMany({
