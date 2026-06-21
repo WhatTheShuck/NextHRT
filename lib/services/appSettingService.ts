@@ -2,7 +2,9 @@ import prisma from "@/lib/prisma";
 
 interface SettingDefault {
   key: string;
-  envVar: string;
+  // Optional: when present, the env var seeds the initial value. Some settings
+  // (e.g. uploaded-attachment paths) are only ever set at runtime, no env var.
+  envVar?: string;
   defaultValue: string;
   description: string;
 }
@@ -87,12 +89,59 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     defaultValue: "false",
     description: "When true, prevents users from overriding the org theme",
   },
+  // --- Onboarding config (§6.7). The email domain is intentionally NOT here —
+  // it is sourced from companyDetails.domain_extension (NEXT_PUBLIC_COMPANY_DOMAIN_EXTENSION). ---
+  {
+    key: "onboarding.itTicketBaseUrl",
+    envVar: "ONBOARDING_IT_TICKET_BASE_URL",
+    defaultValue: "https://itsp.intern.ksb.com/assystnet/#serviceOfferings/",
+    description:
+      "Base URL for IT service-offering tickets; a program's ticket number is appended to it.",
+  },
+  {
+    key: "onboarding.hardwareEndpoint",
+    envVar: "ONBOARDING_HARDWARE_ENDPOINT",
+    defaultValue: "https://checkout.ksb.com.au/",
+    description: "Endpoint for the hardware-request platform (placeholder).",
+  },
+  {
+    key: "onboarding.recipient.marketing",
+    envVar: "ONBOARDING_RECIPIENT_MARKETING",
+    defaultValue: "",
+    description:
+      "Email address that receives marketing-induction booking requests.",
+  },
+  {
+    key: "onboarding.recipient.medical",
+    envVar: "ONBOARDING_RECIPIENT_MEDICAL",
+    defaultValue: "",
+    description: "Email address for pre-employment medical contacts.",
+  },
+  {
+    key: "onboarding.recipient.licence",
+    envVar: "ONBOARDING_RECIPIENT_LICENCE",
+    defaultValue: "",
+    description:
+      "Recipient for driver-licence copies (currently 'Vicki'); configurable.",
+  },
+  {
+    key: "onboarding.attachment.employmentForms",
+    defaultValue: "",
+    description:
+      "Stored path of the employment-forms compliance attachment (set via upload).",
+  },
+  {
+    key: "onboarding.attachment.policeCheck",
+    defaultValue: "",
+    description:
+      "Stored path of the police-check compliance attachment (set via upload).",
+  },
 ];
 
 export class AppSettingService {
   async ensureDefaults(): Promise<void> {
     const upserts = SETTING_DEFAULTS.map((s) => {
-      const value = process.env[s.envVar] ?? s.defaultValue;
+      const value = (s.envVar ? process.env[s.envVar] : undefined) ?? s.defaultValue;
       return prisma.appSetting.upsert({
         where: { key: s.key },
         create: { key: s.key, value, description: s.description },

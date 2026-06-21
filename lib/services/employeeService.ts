@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma";
-import { UserRole, Prisma } from "@/generated/prisma_client/client";
+import { UserRole, Prisma, EmployeeStatus } from "@/generated/prisma_client/client";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { auth } from "../auth";
+import { deriveEmploymentType } from "@/lib/employment";
 
 export interface GetEmployeesOptions {
   activeOnly?: boolean;
@@ -178,6 +179,7 @@ export class EmployeeService {
       status?: string;
       isActive?: boolean;
       confirmDuplicate?: boolean;
+      jobFamilyId?: number | null;
     },
     userId: string,
   ) {
@@ -246,6 +248,8 @@ export class EmployeeService {
         usi: data.usi,
         status: data.status as any,
         isActive: data.isActive ?? true,
+        employmentType: deriveEmploymentType((data.status ?? "Permanent") as EmployeeStatus),
+        jobFamily: data.jobFamilyId ? { connect: { id: data.jobFamilyId } } : undefined,
       },
       include: {
         department: true,
@@ -421,6 +425,7 @@ export class EmployeeService {
       usi?: string | null;
       status?: string;
       isActive?: boolean;
+      jobFamilyId?: number | null;
     },
     userId: string,
   ) {
@@ -453,6 +458,10 @@ export class EmployeeService {
         usi: data.usi,
         status: data.status as any,
         isActive: data.isActive ?? true,
+        employmentType: deriveEmploymentType((data.status ?? "Permanent") as EmployeeStatus),
+        jobFamily: data.jobFamilyId !== undefined
+          ? (data.jobFamilyId ? { connect: { id: data.jobFamilyId } } : { disconnect: true })
+          : undefined,
       },
     });
 

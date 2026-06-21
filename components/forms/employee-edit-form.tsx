@@ -20,6 +20,7 @@ import api from "@/lib/axios";
 import {
   Department,
   EmployeeStatus,
+  JobFamily,
   Location,
 } from "@/generated/prisma_client/client";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,10 +50,12 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const [usi, setUsi] = useState("");
   const [status, setStatus] = useState<EmployeeStatus>("Permanent");
   const [isActive, setIsActive] = useState(true);
+  const [jobFamilyId, setJobFamilyId] = useState("");
 
   // Options data
   const [departments, setDepartments] = useState<Department[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [jobFamilies, setJobFamilies] = useState<JobFamily[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
 
   // Initialize form with employee data
@@ -71,6 +74,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       setIsActive(employee.isActive ?? true);
       setStartDate(employee.startDate || new Date());
       setFinishDate(employee.finishDate || null);
+      setJobFamilyId((employee as any).jobFamilyId?.toString() || "");
     }
   }, [employee]);
 
@@ -79,13 +83,15 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
     const fetchOptions = async () => {
       try {
         setIsLoadingOptions(true);
-        const [deptResponse, locResponse] = await Promise.all([
+        const [deptResponse, locResponse, jobFamiliesRes] = await Promise.all([
           api.get<Department[]>("/api/departments?activeOnly=true"),
           api.get<Location[]>("/api/locations?isActive=true"),
+          api.get<JobFamily[]>("/api/job-families?activeOnly=true"),
         ]);
 
         setDepartments(deptResponse.data);
         setLocations(locResponse.data);
+        setJobFamilies(jobFamiliesRes.data);
       } catch (error) {
         console.error("Error fetching options:", error);
       } finally {
@@ -117,6 +123,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       status,
       usi,
       isActive,
+      jobFamilyId: jobFamilyId ? parseInt(jobFamilyId) : null,
     };
 
     try {
@@ -284,6 +291,24 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
           </SelectContent>
         </Select>
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="jobFamily">Job Family</Label>
+        <Select value={jobFamilyId} onValueChange={setJobFamilyId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select job family (optional)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">— None —</SelectItem>
+            {jobFamilies.map((jf) => (
+              <SelectItem key={jf.id} value={jf.id.toString()}>
+                {jf.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="startDate">Start Date</Label>
