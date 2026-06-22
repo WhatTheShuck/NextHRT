@@ -23,6 +23,9 @@ export const EMAIL_TEMPLATE_TOKENS = [
   "managerName",
   "employmentType",
   "email",
+  // Fan-out computed tokens (§7): rendered at job time, not from the Employee record.
+  "programs", // it.programs: HTML list of selected programs with ticket URLs
+  "notes",    // hr.notes / payroll.notes / it.programs: the freeform department note
 ] as const;
 
 const PLACEHOLDER_BODY =

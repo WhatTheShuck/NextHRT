@@ -10,6 +10,7 @@ import { orphanedImageCleanupHandler } from "@/lib/jobs/handlers/orphanedImageCl
 import { historyArchivalHandler } from "@/lib/jobs/handlers/historyArchival";
 import { reevaluatePendingApprovalsHandler } from "@/lib/jobs/handlers/reevaluatePendingApprovals";
 import { sendEmailHandler } from "@/lib/jobs/handlers/sendEmail";
+import { hardwareRequestHandler } from "@/lib/jobs/handlers/hardwareRequest";
 
 export async function start(): Promise<void> {
   registerHandler("EXEMPTION_EXPIRY", exemptionExpiryHandler);
@@ -21,6 +22,7 @@ export async function start(): Promise<void> {
   registerHandler("HISTORY_ARCHIVAL", historyArchivalHandler);
   registerHandler("REEVALUATE_PENDING_APPROVALS", reevaluatePendingApprovalsHandler);
   registerHandler("SEND_EMAIL", sendEmailHandler);
+  registerHandler("HARDWARE_REQUEST", hardwareRequestHandler);
 
   // Warm the requirements cache on boot
   await enqueue("REQUIREMENTS_CACHE_REBUILD");

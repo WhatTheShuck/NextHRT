@@ -4,6 +4,12 @@ import { enqueue } from "@/lib/jobs/jobQueue";
 import { logService } from "@/lib/services/logService";
 import { AppLogSeverity } from "@/generated/prisma_client/enums";
 
+export interface MailAttachment {
+  filename?: string;
+  path?: string;
+  contentType?: string;
+}
+
 export interface MailParams {
   to: string | string[];
   subject: string;
@@ -13,6 +19,7 @@ export interface MailParams {
   cc?: string | string[];
   bcc?: string | string[];
   replyTo?: string;
+  attachments?: MailAttachment[];
 }
 
 const DEFAULT_FROM = process.env.MAIL_FROM ?? '"HRT" <HRT@ksb.com>';
@@ -50,6 +57,7 @@ class MailService {
         subject: params.subject,
         text: params.text,
         html: params.html,
+        attachments: params.attachments,
       });
 
       await logService.log(

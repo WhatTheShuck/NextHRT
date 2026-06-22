@@ -105,6 +105,24 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     description: "Endpoint for the hardware-request platform (placeholder).",
   },
   {
+    key: "onboarding.recipient.it",
+    envVar: "ONBOARDING_RECIPIENT_IT",
+    defaultValue: "",
+    description: "Email address that receives consolidated IT software-access requests.",
+  },
+  {
+    key: "onboarding.recipient.hr",
+    envVar: "ONBOARDING_RECIPIENT_HR",
+    defaultValue: "",
+    description: "Email address that receives HR department notes.",
+  },
+  {
+    key: "onboarding.recipient.payroll",
+    envVar: "ONBOARDING_RECIPIENT_PAYROLL",
+    defaultValue: "",
+    description: "Email address that receives Payroll department notes.",
+  },
+  {
     key: "onboarding.recipient.marketing",
     envVar: "ONBOARDING_RECIPIENT_MARKETING",
     defaultValue: "",
@@ -135,6 +153,30 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     defaultValue: "",
     description:
       "Stored path of the police-check compliance attachment (set via upload).",
+  },
+  // Job Family prefill rules (spec §6.5). Store the Job Family ID as a string.
+  // When the matching job family is selected in the onboarding form, the
+  // corresponding hardware/software/compliance fields are pre-filled.
+  {
+    key: "onboarding.jobFamily.serviceTechnician",
+    envVar: "ONBOARDING_JOB_FAMILY_SERVICE_TECHNICIAN",
+    defaultValue: "",
+    description:
+      "Job Family ID whose selection sets Service Technician prefills: laptop unchecked, iPad checked, E3 licence unchecked.",
+  },
+  {
+    key: "onboarding.jobFamily.engineering",
+    envVar: "ONBOARDING_JOB_FAMILY_ENGINEERING",
+    defaultValue: "",
+    description:
+      "Job Family ID whose selection sets Engineering prefills: non-standard laptop checked.",
+  },
+  {
+    key: "onboarding.jobFamily.salesMarketing",
+    envVar: "ONBOARDING_JOB_FAMILY_SALES_MARKETING",
+    defaultValue: "",
+    description:
+      "Job Family ID whose selection enables the marketing induction checkbox.",
   },
 ];
 

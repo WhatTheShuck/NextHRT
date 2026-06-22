@@ -30,10 +30,39 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
+import { JobFamily } from "@/generated/prisma_client/client";
 
 type Settings = Record<string, string>;
+
+// Job Family prefill rule config keys (§6.5).
+const JOB_FAMILY_FIELDS: { key: string; label: string; description: string }[] =
+  [
+    {
+      key: "onboarding.jobFamily.serviceTechnician",
+      label: "Service Technician job family",
+      description:
+        "Laptop unchecked, iPad checked, E3 licence unchecked when this family is selected.",
+    },
+    {
+      key: "onboarding.jobFamily.engineering",
+      label: "Engineering job family",
+      description: "Non-standard laptop checked when this family is selected.",
+    },
+    {
+      key: "onboarding.jobFamily.salesMarketing",
+      label: "Sales / Marketing job family",
+      description: "Marketing induction checked when this family is selected.",
+    },
+  ];
 
 interface EmailTemplate {
   id: number;
@@ -82,6 +111,7 @@ const ATTACHMENT_SLOTS: { slot: string; label: string }[] = [
 export function OnboardingSettings() {
   const [settings, setSettings] = useState<Settings>({});
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [jobFamilies, setJobFamilies] = useState<JobFamily[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,12 +122,14 @@ export function OnboardingSettings() {
     try {
       setLoading(true);
       setError(null);
-      const [settingsRes, templatesRes] = await Promise.all([
+      const [settingsRes, templatesRes, jfRes] = await Promise.all([
         api.get<Settings>("/api/settings"),
         api.get<EmailTemplate[]>("/api/email-templates"),
+        api.get<JobFamily[]>("/api/job-families?activeOnly=true"),
       ]);
       setSettings(settingsRes.data);
       setTemplates(templatesRes.data);
+      setJobFamilies(jfRes.data);
     } catch (err) {
       setError(
         err instanceof AxiosError && err.response?.status === 403
@@ -122,10 +154,13 @@ export function OnboardingSettings() {
     try {
       setSaving(true);
       setError(null);
-      const updates = CONFIG_FIELDS.map((f) => ({
-        key: f.key,
-        value: settings[f.key] ?? "",
-      }));
+      const updates = [
+        ...CONFIG_FIELDS.map((f) => ({ key: f.key, value: settings[f.key] ?? "" })),
+        ...JOB_FAMILY_FIELDS.map((f) => ({
+          key: f.key,
+          value: settings[f.key] ?? "",
+        })),
+      ];
       await api.put("/api/settings", { updates });
       setSaved(true);
     } catch (err) {
@@ -172,6 +207,49 @@ export function OnboardingSettings() {
                 value={settings[f.key] ?? ""}
                 onChange={(e) => set(f.key, e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">{f.description}</p>
+            </div>
+          ))}
+          <div className="flex items-center gap-4 pt-2">
+            <Button onClick={handleSaveConfig} disabled={saving}>
+              {saving ? "Saving..." : "Save config"}
+            </Button>
+            {saved && (
+              <span className="text-sm text-green-600">Settings saved.</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Job Family prefill rules */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Job Family prefill rules</CardTitle>
+          <CardDescription>
+            Set which Job Family drives each hardware/software prefill in the
+            onboarding form.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {JOB_FAMILY_FIELDS.map((f) => (
+            <div key={f.key} className="space-y-2">
+              <Label htmlFor={f.key}>{f.label}</Label>
+              <Select
+                value={settings[f.key] ?? ""}
+                onValueChange={(v) => set(f.key, v)}
+              >
+                <SelectTrigger id={f.key}>
+                  <SelectValue placeholder="— None —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">— None —</SelectItem>
+                  {jobFamilies.map((jf) => (
+                    <SelectItem key={jf.id} value={jf.id.toString()}>
+                      {jf.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">{f.description}</p>
             </div>
           ))}
