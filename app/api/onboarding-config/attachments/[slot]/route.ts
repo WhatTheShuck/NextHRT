@@ -18,10 +18,12 @@ export async function GET(
   }
 
   const { slot } = await params;
+  const requestedPath =
+    request.nextUrl.searchParams.get("path") ?? undefined;
 
   try {
     const { buffer, contentType } =
-      await onboardingConfigService.readAttachmentFile(slot);
+      await onboardingConfigService.readAttachmentFile(slot, requestedPath);
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": contentType,
@@ -54,7 +56,8 @@ export async function GET(
   }
 }
 
-// DELETE remove the attachment for a slot (Admin only).
+// DELETE remove a compliance attachment (Admin only). With `?path=<relPath>`
+// only that file is removed; without it the whole slot is cleared.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ slot: string }> },
@@ -70,12 +73,22 @@ export async function DELETE(
   }
 
   const { slot } = await params;
+  const targetPath = request.nextUrl.searchParams.get("path");
 
   try {
-    const result = await onboardingConfigService.deleteAttachment(
-      slot,
-      session.user.id,
-    );
+    const result = targetPath
+      ? {
+          slot,
+          attachments: await onboardingConfigService.removeAttachment(
+            slot,
+            targetPath,
+            session.user.id,
+          ),
+        }
+      : await onboardingConfigService.removeAllAttachments(
+          slot,
+          session.user.id,
+        );
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_SLOT") {

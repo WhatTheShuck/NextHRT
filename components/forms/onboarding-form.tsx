@@ -29,9 +29,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateSelector } from "@/components/date-selector";
 import { EmployeeCombobox } from "@/components/combobox/employee-combobox";
-import { AddDepartmentDialog } from "@/components/dialogs/department/add-department-dialog";
-import { AddLocationDialog } from "@/components/dialogs/location/add-location-dialog";
-import { AlertTriangle, CheckCircle2, Plus } from "lucide-react";
+import { AddDepartmentDialog, PendingDepartment } from "@/components/dialogs/department/add-department-dialog";
+import { AddLocationDialog, PendingLocation } from "@/components/dialogs/location/add-location-dialog";
+import { AlertTriangle, CheckCircle2, Clock, Plus, X } from "lucide-react";
 import { companyDetails } from "@/lib/data";
 import {
   Department,
@@ -42,6 +42,7 @@ import {
   Location,
   MedicalStandard,
   Program,
+  UserRole,
 } from "@/generated/prisma_client/client";
 import type {
   CreateOnboardingData,
@@ -61,16 +62,12 @@ const INTERNAL_STATUSES: EmployeeStatus[] = ["Permanent", "PartTimePermanent"];
 
 export interface OnboardingFormProps {
   linkedEmployeeId: number | null;
-  jobFamilyIdServiceTechnician: number | null;
-  jobFamilyIdEngineering: number | null;
-  jobFamilyIdSalesMarketing: number | null;
+  userRole?: UserRole | null;
 }
 
 export function OnboardingForm({
   linkedEmployeeId,
-  jobFamilyIdServiceTechnician,
-  jobFamilyIdEngineering,
-  jobFamilyIdSalesMarketing,
+  userRole,
 }: OnboardingFormProps) {
   // ── Reference data ───────────────────────────────────────────────────────────
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -102,6 +99,8 @@ export function OnboardingForm({
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [isDepartmentDialogOpen, setIsDepartmentDialogOpen] = useState(false);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  const [pendingDepartment, setPendingDepartment] = useState<PendingDepartment | null>(null);
+  const [pendingLocation, setPendingLocation] = useState<PendingLocation | null>(null);
 
   // ── Section 2: Compliance ────────────────────────────────────────────────────
   const [letterOfOfferSigned, setLetterOfOfferSigned] = useState(false);
@@ -204,40 +203,63 @@ export function OnboardingForm({
     if (programs.length === 0 || hardwareItems.length === 0) return;
 
     const jfIdNum = jobFamilyId ? parseInt(jobFamilyId) : null;
-    const isServiceTech =
-      jfIdNum !== null && jfIdNum === jobFamilyIdServiceTechnician;
-    const isEngineering =
-      jfIdNum !== null && jfIdNum === jobFamilyIdEngineering;
-    const isSalesMarketing =
-      jfIdNum !== null && jfIdNum === jobFamilyIdSalesMarketing;
+    const selectedJF = jfIdNum !== null ? jobFamilies.find((jf) => jf.id === jfIdNum) : null;
 
     const hw: Record<number, boolean> = {};
-    if (laptopItem) hw[laptopItem.id] = !isServiceTech;
-    if (iPadItem) hw[iPadItem.id] = isServiceTech;
+
+    // Laptop: default true, overridden by job family if set
+    if (laptopItem) {
+      hw[laptopItem.id] =
+        selectedJF?.prefillLaptop !== null && selectedJF?.prefillLaptop !== undefined
+          ? selectedJF.prefillLaptop
+          : true;
+    }
+
+    // iPad: default false, overridden by job family if set
+    if (iPadItem) {
+      hw[iPadItem.id] =
+        selectedJF?.prefillIpad !== null && selectedJF?.prefillIpad !== undefined
+          ? selectedJF.prefillIpad
+          : false;
+    }
+
     setHardwareChecked((prev) => ({ ...prev, ...hw }));
 
+    // Non-standard laptop: default false, overridden by job family if set
     if (nonStdLaptopItem) {
       setHardwareNonStandard((prev) => ({
         ...prev,
-        [nonStdLaptopItem.id]: isEngineering,
+        [nonStdLaptopItem.id]:
+          selectedJF?.prefillNonStandardLaptop !== null &&
+          selectedJF?.prefillNonStandardLaptop !== undefined
+            ? selectedJF.prefillNonStandardLaptop
+            : false,
       }));
     }
 
+    // E3 licence: default true, overridden by job family if set
     if (e3LicenceProgram) {
       setProgramChecked((prev) => ({
         ...prev,
-        [e3LicenceProgram.id]: !isServiceTech,
+        [e3LicenceProgram.id]:
+          selectedJF?.prefillE3Licence !== null && selectedJF?.prefillE3Licence !== undefined
+            ? selectedJF.prefillE3Licence
+            : true,
       }));
     }
 
-    setMarketingInductionRequired(isSalesMarketing);
+    // Marketing induction: default false, overridden by job family if set
+    setMarketingInductionRequired(
+      selectedJF?.prefillMarketingInduction !== null &&
+        selectedJF?.prefillMarketingInduction !== undefined
+        ? selectedJF.prefillMarketingInduction
+        : false,
+    );
   }, [
     jobFamilyId,
+    jobFamilies,
     programs,
     hardwareItems,
-    jobFamilyIdServiceTechnician,
-    jobFamilyIdEngineering,
-    jobFamilyIdSalesMarketing,
     laptopItem,
     iPadItem,
     nonStdLaptopItem,
@@ -306,8 +328,8 @@ export function OnboardingForm({
     }
     if (!emailConfirmed) return "Please confirm the email address looks correct.";
     if (!title.trim()) return "Title is required.";
-    if (!departmentId) return "Department is required.";
-    if (!locationId) return "Location is required.";
+    if (!departmentId && !pendingDepartment) return "Department is required.";
+    if (!locationId && !pendingLocation) return "Location is required.";
     if (!startDate) return "Start date is required.";
 
     for (const prog of programs) {
@@ -386,8 +408,10 @@ export function OnboardingForm({
         ? null
         : preferredLastName.trim() || null,
       title: title.trim(),
-      departmentId: parseInt(departmentId),
-      locationId: parseInt(locationId),
+      departmentId: pendingDepartment ? null : (departmentId ? parseInt(departmentId) : null),
+      locationId: pendingLocation ? null : (locationId ? parseInt(locationId) : null),
+      pendingDepartmentRequestId: pendingDepartment?.orgRequestId ?? null,
+      pendingLocationRequestId: pendingLocation?.orgRequestId ?? null,
       employmentStatus,
       startDate: startDate.toISOString(),
       managerEmployeeId: managerEmployeeId ? parseInt(managerEmployeeId) : null,
@@ -609,24 +633,56 @@ export function OnboardingForm({
           <div className="space-y-2">
             <Label>Department *</Label>
             <div className="flex gap-2">
-              <Select value={departmentId} onValueChange={setDepartmentId}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((d) => (
-                    <SelectItem key={d.id} value={d.id.toString()}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {pendingDepartment ? (
+                <div className="flex-1 flex items-center gap-2 h-9 rounded-md border border-input bg-background px-3 text-sm">
+                  <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span className="flex-1 truncate">{pendingDepartment.name}</span>
+                  <span className="text-xs text-amber-600 bg-amber-100 rounded px-1.5 py-0.5 shrink-0">Pending</span>
+                  <button
+                    type="button"
+                    className="ml-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => { setPendingDepartment(null); setDepartmentId(""); }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : departmentId ? (
+                <div className="flex-1 flex items-center gap-2 h-9 rounded-md border border-input bg-background px-3 text-sm">
+                  <span className="flex-1 truncate">
+                    {departments.find((d) => d.id.toString() === departmentId)?.name ?? departmentId}
+                  </span>
+                  <button
+                    type="button"
+                    className="ml-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => setDepartmentId("")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <Select
+                  value={departmentId}
+                  onValueChange={(v) => { setDepartmentId(v); setPendingDepartment(null); }}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.filter((d) => d.id > 0).map((d) => (
+                      <SelectItem key={d.id} value={d.id.toString()}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Button
                 type="button"
                 size="icon"
                 variant="outline"
                 onClick={() => setIsDepartmentDialogOpen(true)}
-                title="Add new department"
+                title={userRole === "Admin" ? "Add new department" : "Request new department"}
+                disabled={!!pendingDepartment}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -637,24 +693,56 @@ export function OnboardingForm({
           <div className="space-y-2">
             <Label>Location *</Label>
             <div className="flex gap-2">
-              <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Select location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locations.map((l) => (
-                    <SelectItem key={l.id} value={l.id.toString()}>
-                      {l.name}, {l.state}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {pendingLocation ? (
+                <div className="flex-1 flex items-center gap-2 h-9 rounded-md border border-input bg-background px-3 text-sm">
+                  <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span className="flex-1 truncate">{pendingLocation.name}, {pendingLocation.state}</span>
+                  <span className="text-xs text-amber-600 bg-amber-100 rounded px-1.5 py-0.5 shrink-0">Pending</span>
+                  <button
+                    type="button"
+                    className="ml-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => { setPendingLocation(null); setLocationId(""); }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : locationId ? (
+                <div className="flex-1 flex items-center gap-2 h-9 rounded-md border border-input bg-background px-3 text-sm">
+                  <span className="flex-1 truncate">
+                    {(() => { const l = locations.find((l) => l.id.toString() === locationId); return l ? `${l.name}, ${l.state}` : locationId; })()}
+                  </span>
+                  <button
+                    type="button"
+                    className="ml-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => setLocationId("")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <Select
+                  value={locationId}
+                  onValueChange={(v) => { setLocationId(v); setPendingLocation(null); }}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.filter((l) => l.id > 0).map((l) => (
+                      <SelectItem key={l.id} value={l.id.toString()}>
+                        {l.name}, {l.state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Button
                 type="button"
                 size="icon"
                 variant="outline"
                 onClick={() => setIsLocationDialogOpen(true)}
-                title="Add new location"
+                title={userRole === "Admin" ? "Add new location" : "Request new location"}
+                disabled={!!pendingLocation}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -708,12 +796,15 @@ export function OnboardingForm({
           {/* Job Family */}
           <div className="space-y-2">
             <Label>Job Family</Label>
-            <Select value={jobFamilyId} onValueChange={setJobFamilyId}>
+            <Select
+              value={jobFamilyId || "__none__"}
+              onValueChange={(v) => setJobFamilyId(v === "__none__" ? "" : v)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select job family (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— None —</SelectItem>
+                <SelectItem value="__none__">— None —</SelectItem>
                 {jobFamilies.map((jf) => (
                   <SelectItem key={jf.id} value={jf.id.toString()}>
                     {jf.name}
@@ -752,6 +843,7 @@ export function OnboardingForm({
             checked={letterOfOfferSigned}
             onCheckedChange={setLetterOfOfferSigned}
             label="Letter of offer signed"
+            description="Has the letter of offer been signed and emailed to HR?"
           />
           <CheckboxRow
             id="employmentFormsRequired"
@@ -778,14 +870,16 @@ export function OnboardingForm({
           <div className="space-y-2">
             <Label>Pre-employment medical level</Label>
             <Select
-              value={medicalStandardId}
-              onValueChange={setMedicalStandardId}
+              value={medicalStandardId || "__none__"}
+              onValueChange={(v) =>
+                setMedicalStandardId(v === "__none__" ? "" : v)
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select medical level" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— None —</SelectItem>
+                <SelectItem value="__none__">— None —</SelectItem>
                 {medicalStandards.map((m) => (
                   <SelectItem key={m.id} value={m.id.toString()}>
                     {m.name}
@@ -1047,17 +1141,27 @@ export function OnboardingForm({
         open={isDepartmentDialogOpen}
         onOpenChange={setIsDepartmentDialogOpen}
         departments={departments}
+        userRole={userRole}
         onDepartmentAdded={(dept) => {
           setDepartments((prev) => [...prev, dept]);
           setDepartmentId(dept.id.toString());
+        }}
+        onDepartmentRequested={(pending) => {
+          setPendingDepartment(pending);
+          setDepartmentId("");
         }}
       />
       <AddLocationDialog
         open={isLocationDialogOpen}
         onOpenChange={setIsLocationDialogOpen}
+        userRole={userRole}
         onLocationAdded={(loc) => {
           setLocations((prev) => [...prev, loc]);
           setLocationId(loc.id.toString());
+        }}
+        onLocationRequested={(pending) => {
+          setPendingLocation(pending);
+          setLocationId("");
         }}
       />
     </form>

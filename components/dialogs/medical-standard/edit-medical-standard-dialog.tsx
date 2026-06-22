@@ -7,6 +7,8 @@ import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -48,15 +50,27 @@ function MedicalStandardEditForm({
 }: MedicalStandardEditFormProps) {
   const [name, setName] = useState("");
   const [isActive, setIsActive] = useState<boolean>(true);
+  const [managerEmailSubject, setManagerEmailSubject] = useState("");
+  const [managerEmailBody, setManagerEmailBody] = useState("");
+  const [employeeEmailSubject, setEmployeeEmailSubject] = useState("");
+  const [employeeEmailBody, setEmployeeEmailBody] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (open && medicalStandard) {
       setName(medicalStandard.name || "");
       setIsActive(medicalStandard.isActive ?? true);
+      setManagerEmailSubject(medicalStandard.managerEmailSubject ?? "");
+      setManagerEmailBody(medicalStandard.managerEmailBody ?? "");
+      setEmployeeEmailSubject(medicalStandard.employeeEmailSubject ?? "");
+      setEmployeeEmailBody(medicalStandard.employeeEmailBody ?? "");
     } else if (!open) {
       setName("");
       setIsActive(true);
+      setManagerEmailSubject("");
+      setManagerEmailBody("");
+      setEmployeeEmailSubject("");
+      setEmployeeEmailBody("");
     }
   }, [open, medicalStandard]);
 
@@ -77,6 +91,10 @@ function MedicalStandardEditForm({
         {
           name: name.trim(),
           isActive,
+          managerEmailSubject,
+          managerEmailBody,
+          employeeEmailSubject,
+          employeeEmailBody,
         },
       );
 
@@ -100,12 +118,6 @@ function MedicalStandardEditForm({
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g., KSB Standard"
           disabled={isUpdating}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleUpdate();
-            }
-          }}
         />
       </div>
       <div className="flex items-center justify-between space-x-2 py-2">
@@ -124,6 +136,73 @@ function MedicalStandardEditForm({
           disabled={isUpdating}
         />
       </div>
+
+      <Separator />
+
+      <div className="space-y-1">
+        <p className="text-sm font-medium">Email templates</p>
+        <p className="text-xs text-muted-foreground">
+          Use {"{tokens}"} to interpolate values:{" "}
+          {"{preferredFirstName}"}, {"{preferredLastName}"}, {"{startDate}"},{" "}
+          {"{managerName}"}, {"{department}"}, {"{location}"}. Leave the body
+          blank to skip that email.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Manager email (sent on start date)
+        </p>
+        <div className="space-y-2">
+          <Label htmlFor="managerEmailSubject">Subject</Label>
+          <Input
+            id="managerEmailSubject"
+            value={managerEmailSubject}
+            onChange={(e) => setManagerEmailSubject(e.target.value)}
+            placeholder="Pre-employment medical for {preferredFirstName} {preferredLastName}"
+            disabled={isUpdating}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="managerEmailBody">Body</Label>
+          <Textarea
+            id="managerEmailBody"
+            value={managerEmailBody}
+            onChange={(e) => setManagerEmailBody(e.target.value)}
+            placeholder="Enter email body… (leave blank to skip this email)"
+            rows={8}
+            disabled={isUpdating}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Employee follow-up email (sent 3 days after start date)
+        </p>
+        <div className="space-y-2">
+          <Label htmlFor="employeeEmailSubject">Subject</Label>
+          <Input
+            id="employeeEmailSubject"
+            value={employeeEmailSubject}
+            onChange={(e) => setEmployeeEmailSubject(e.target.value)}
+            placeholder="Your pre-employment medical"
+            disabled={isUpdating}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="employeeEmailBody">Body</Label>
+          <Textarea
+            id="employeeEmailBody"
+            value={employeeEmailBody}
+            onChange={(e) => setEmployeeEmailBody(e.target.value)}
+            placeholder="Enter email body… (leave blank to skip this email)"
+            rows={8}
+            disabled={isUpdating}
+          />
+        </div>
+      </div>
+
       <div className="flex flex-col space-y-2 w-full md:flex-row-reverse pb-2 md:gap-2 md:space-y-0 md:justify-start">
         <Button type="button" onClick={handleUpdate} disabled={isUpdating}>
           {isUpdating ? "Updating..." : "Update Medical Standard"}
@@ -154,12 +233,13 @@ export function EditMedicalStandardDialog({
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Medical Standard</DialogTitle>
             <DialogDescription>
-              Update the medical standard name or active status. This change
-              will affect all onboarding requests using this standard.
+              Update the medical standard name, status, and email templates.
+              Each standard can have its own email content for the manager and
+              employee.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -181,12 +261,11 @@ export function EditMedicalStandardDialog({
         <DrawerHeader className="text-left">
           <DrawerTitle>Edit Medical Standard</DrawerTitle>
           <DrawerDescription>
-            Update the medical standard name or active status. This change
-            will affect all onboarding requests using this standard.
+            Update the medical standard name, status, and email templates.
           </DrawerDescription>
         </DrawerHeader>
         <MedicalStandardEditForm
-          className="px-4"
+          className="px-4 pb-4 overflow-y-auto"
           open={open}
           medicalStandard={medicalStandard}
           onMedicalStandardUpdated={onMedicalStandardUpdated}

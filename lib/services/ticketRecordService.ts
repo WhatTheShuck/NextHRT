@@ -37,10 +37,13 @@ export class TicketRecordService {
         isActive: true,
       };
     }
-    if (includeExpired) {
-      whereClause.expiryDate = {
-        gte: new Date(),
-      };
+    // Hide expired tickets unless explicitly requested. Tickets with no expiry
+    // date (never expire) are always shown.
+    if (!includeExpired) {
+      whereClause.OR = [
+        { expiryDate: null },
+        { expiryDate: { gte: new Date() } },
+      ];
     }
 
     const includeClause = {

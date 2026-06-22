@@ -130,12 +130,6 @@ const SETTING_DEFAULTS: SettingDefault[] = [
       "Email address that receives marketing-induction booking requests.",
   },
   {
-    key: "onboarding.recipient.medical",
-    envVar: "ONBOARDING_RECIPIENT_MEDICAL",
-    defaultValue: "",
-    description: "Email address for pre-employment medical contacts.",
-  },
-  {
     key: "onboarding.recipient.licence",
     envVar: "ONBOARDING_RECIPIENT_LICENCE",
     defaultValue: "",
@@ -146,13 +140,13 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     key: "onboarding.attachment.employmentForms",
     defaultValue: "",
     description:
-      "Stored path of the employment-forms compliance attachment (set via upload).",
+      "JSON array of employment-forms compliance attachments (set via upload); supports multiple files.",
   },
   {
     key: "onboarding.attachment.policeCheck",
     defaultValue: "",
     description:
-      "Stored path of the police-check compliance attachment (set via upload).",
+      "JSON array (single file) of the police-check compliance attachment (set via upload).",
   },
   // Job Family prefill rules (spec §6.5). Store the Job Family ID as a string.
   // When the matching job family is selected in the onboarding form, the
@@ -162,21 +156,21 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     envVar: "ONBOARDING_JOB_FAMILY_SERVICE_TECHNICIAN",
     defaultValue: "",
     description:
-      "Job Family ID whose selection sets Service Technician prefills: laptop unchecked, iPad checked, E3 licence unchecked.",
+      "Comma-separated Job Family IDs that trigger Service Technician prefills: laptop unchecked, iPad checked, E3 licence unchecked.",
   },
   {
     key: "onboarding.jobFamily.engineering",
     envVar: "ONBOARDING_JOB_FAMILY_ENGINEERING",
     defaultValue: "",
     description:
-      "Job Family ID whose selection sets Engineering prefills: non-standard laptop checked.",
+      "Comma-separated Job Family IDs that trigger Engineering prefills: non-standard laptop checked.",
   },
   {
     key: "onboarding.jobFamily.salesMarketing",
     envVar: "ONBOARDING_JOB_FAMILY_SALES_MARKETING",
     defaultValue: "",
     description:
-      "Job Family ID whose selection enables the marketing induction checkbox.",
+      "Comma-separated Job Family IDs that trigger Sales/Marketing prefills: marketing induction checked.",
   },
 ];
 

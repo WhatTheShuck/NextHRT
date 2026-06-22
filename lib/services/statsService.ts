@@ -13,6 +13,14 @@ export class StatsService {
       activeTraining,
       totalTickets,
       activeTickets,
+      totalJobFamilies,
+      activeJobFamilies,
+      totalMedicalStandards,
+      activeMedicalStandards,
+      totalPrograms,
+      activePrograms,
+      totalHardwareItems,
+      activeHardwareItems,
     ] = await Promise.all([
       prisma.employee.count(),
       prisma.employee.count({ where: { isActive: true } }),
@@ -24,6 +32,14 @@ export class StatsService {
       prisma.training.count({ where: { isActive: true } }),
       prisma.ticket.count(),
       prisma.ticket.count({ where: { isActive: true } }),
+      prisma.jobFamily.count(),
+      prisma.jobFamily.count({ where: { isActive: true } }),
+      prisma.medicalStandard.count(),
+      prisma.medicalStandard.count({ where: { isActive: true } }),
+      prisma.program.count(),
+      prisma.program.count({ where: { isActive: true } }),
+      prisma.hardwareItem.count(),
+      prisma.hardwareItem.count({ where: { isActive: true } }),
     ]);
 
     return {
@@ -37,6 +53,14 @@ export class StatsService {
       activeTraining,
       totalTickets,
       activeTickets,
+      totalJobFamilies,
+      activeJobFamilies,
+      totalMedicalStandards,
+      activeMedicalStandards,
+      totalPrograms,
+      activePrograms,
+      totalHardwareItems,
+      activeHardwareItems,
     };
   }
 }

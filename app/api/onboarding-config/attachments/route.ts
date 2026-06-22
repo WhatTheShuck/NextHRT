@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/api-auth";
 import { onboardingConfigService } from "@/lib/services/onboardingConfigService";
 
-// POST upload (or replace) a compliance attachment for a slot (Admin only).
-// Multipart form data: `slot` ("employmentForms" | "policeCheck") + `file`.
+// POST upload compliance attachment(s) for a slot (Admin only).
+// Multipart form data: `slot` ("employmentForms" | "policeCheck") + one or more
+// `file` entries. The employment-forms slot appends; police check replaces.
 export async function POST(request: NextRequest) {
   const session = await getAuth(request);
 
@@ -18,21 +19,23 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const slot = formData.get("slot");
-    const file = formData.get("file");
+    const files = formData
+      .getAll("file")
+      .filter((f): f is File => f instanceof File && f.size > 0);
 
     if (typeof slot !== "string") {
       return NextResponse.json({ error: "Missing slot" }, { status: 400 });
     }
-    if (!(file instanceof File) || file.size === 0) {
+    if (files.length === 0) {
       return NextResponse.json({ error: "Missing file" }, { status: 400 });
     }
 
-    const result = await onboardingConfigService.setAttachment(
+    const attachments = await onboardingConfigService.addAttachments(
       slot,
-      file,
+      files,
       session.user.id,
     );
-    return NextResponse.json(result);
+    return NextResponse.json({ slot, attachments });
   } catch (error) {
     if (error instanceof Error) {
       switch (error.message) {
@@ -41,6 +44,8 @@ export async function POST(request: NextRequest) {
             { error: "Invalid attachment slot" },
             { status: 400 },
           );
+        case "NO_FILES":
+          return NextResponse.json({ error: "Missing file" }, { status: 400 });
         case "INVALID_FILE_TYPE":
           return NextResponse.json(
             { error: "Invalid file type" },
@@ -49,6 +54,14 @@ export async function POST(request: NextRequest) {
         case "FILE_TOO_LARGE":
           return NextResponse.json(
             { error: "File too large" },
+            { status: 400 },
+          );
+        case "EMAIL_SIZE_EXCEEDED":
+          return NextResponse.json(
+            {
+              error:
+                "These files would make the onboarding email too large to send (the 25MB limit applies to employment forms and the police-check form combined). Remove or shrink a file and try again.",
+            },
             { status: 400 },
           );
       }

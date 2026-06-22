@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/api-auth";
 import { onboardingService } from "@/lib/services/onboardingService";
 import { OnboardingStatus } from "@/generated/prisma_client/client";
+import { mailService } from "@/lib/services/mailService";
+import prisma from "@/lib/prisma";
 
 const VALID_STATUSES: OnboardingStatus[] = [
   "Pending",
@@ -67,6 +69,10 @@ export async function POST(request: NextRequest) {
       json,
       session.user.id,
     );
+
+    // Notify all admins — best-effort, never blocks or fails the submission.
+    notifyAdmins(created, session.user.name ?? session.user.email, request.nextUrl.origin).catch(() => {});
+
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     return NextResponse.json(
@@ -77,4 +83,26 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+async function notifyAdmins(
+  request: { id: number; legalFirstName: string; legalLastName: string },
+  submittedBy: string,
+  origin: string,
+) {
+  const admins = await prisma.user.findMany({
+    where: { role: "Admin" },
+    select: { email: true },
+  });
+  if (admins.length === 0) return;
+
+  const candidateName = `${request.legalFirstName} ${request.legalLastName}`;
+  const reviewUrl = `${origin}/admin/onboarding/${request.id}`;
+
+  await mailService.send({
+    to: admins.map((a) => a.email).filter((e): e is string => e !== null),
+    subject: `New onboarding request: ${candidateName}`,
+    html: `<p>${submittedBy} has submitted a new employee onboarding request for <strong>${candidateName}</strong>.</p><p><a href="${reviewUrl}">Review the request</a></p>`,
+    text: `${submittedBy} has submitted a new employee onboarding request for ${candidateName}.\n\nReview: ${reviewUrl}`,
+  });
 }

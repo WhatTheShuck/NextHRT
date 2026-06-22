@@ -54,8 +54,8 @@ export interface OnboardingCoreHRData {
   preferredFirstName?: string | null;
   preferredLastName?: string | null;
   title: string;
-  departmentId: number;
-  locationId: number;
+  departmentId?: number | null;
+  locationId?: number | null;
   employmentStatus: EmployeeStatus;
   startDate: string;
   managerEmployeeId?: number | null;
@@ -66,6 +66,8 @@ export interface OnboardingCoreHRData {
 
 export interface CreateOnboardingData extends OnboardingCoreHRData {
   payload: OnboardingPayload;
+  pendingDepartmentRequestId?: number | null;
+  pendingLocationRequestId?: number | null;
 }
 
 export interface ListOnboardingOptions {
@@ -73,12 +75,16 @@ export interface ListOnboardingOptions {
   createdEmployeeId?: number;
 }
 
-// OnboardingRequest stores departmentId/locationId as plain scalars (no relation
-// — they're snapshotted on the request), so only the true relations are included.
 const requestInclude = {
   submittedByUser: { select: { id: true, name: true, email: true } },
   jobFamily: true,
   medicalStandard: true,
+  pendingDepartmentRequest: {
+    select: { id: true, type: true, requestedData: true, status: true, requestedByUser: { select: { id: true, name: true, email: true } } },
+  },
+  pendingLocationRequest: {
+    select: { id: true, type: true, requestedData: true, status: true, requestedByUser: { select: { id: true, name: true, email: true } } },
+  },
 } satisfies Prisma.OnboardingRequestInclude;
 
 function emptyPayload(): OnboardingPayload {
@@ -102,8 +108,14 @@ export class OnboardingService {
         preferredFirstName: data.preferredFirstName ?? null,
         preferredLastName: data.preferredLastName ?? null,
         title: data.title,
-        departmentId: data.departmentId,
-        locationId: data.locationId,
+        departmentId: data.departmentId ?? null,
+        locationId: data.locationId ?? null,
+        pendingDepartmentRequest: data.pendingDepartmentRequestId
+          ? { connect: { id: data.pendingDepartmentRequestId } }
+          : undefined,
+        pendingLocationRequest: data.pendingLocationRequestId
+          ? { connect: { id: data.pendingLocationRequestId } }
+          : undefined,
         employmentStatus: data.employmentStatus,
         employmentType,
         startDate: new Date(data.startDate),
@@ -197,6 +209,9 @@ export class OnboardingService {
       if (request.status !== "Pending") {
         throw new Error("ONBOARDING_REQUEST_NOT_PENDING");
       }
+      if (request.pendingDepartmentRequestId !== null || request.pendingLocationRequestId !== null) {
+        throw new Error("ONBOARDING_HAS_PENDING_ORG_REQUESTS");
+      }
 
       // Merge the Admin's edits over the submitted core HR fields.
       const employmentStatus = (edits?.employmentStatus ??
@@ -214,6 +229,9 @@ export class OnboardingService {
       const title = edits?.title ?? request.title;
       const departmentId = edits?.departmentId ?? request.departmentId;
       const locationId = edits?.locationId ?? request.locationId;
+      if (!departmentId || !locationId) {
+        throw new Error("ONBOARDING_MISSING_DEPT_OR_LOCATION");
+      }
       const startDate = edits?.startDate
         ? new Date(edits.startDate)
         : request.startDate;
@@ -330,6 +348,10 @@ export class OnboardingService {
     });
 
     return updated;
+  }
+
+  async getPendingCount(): Promise<number> {
+    return prisma.onboardingRequest.count({ where: { status: "Pending" } });
   }
 }
 

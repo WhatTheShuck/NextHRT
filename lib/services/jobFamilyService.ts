@@ -34,14 +34,33 @@ export class JobFamilyService {
     return jobFamily;
   }
 
-  async createJobFamily(data: { name: string; isActive?: boolean }, userId: string) {
+  async createJobFamily(
+    data: {
+      name: string;
+      isActive?: boolean;
+      prefillLaptop?: boolean | null;
+      prefillIpad?: boolean | null;
+      prefillNonStandardLaptop?: boolean | null;
+      prefillE3Licence?: boolean | null;
+      prefillMarketingInduction?: boolean | null;
+    },
+    userId: string,
+  ) {
     const existing = await prisma.jobFamily.findFirst({ where: { name: data.name } });
     if (existing) {
       throw new Error("DUPLICATE_JOB_FAMILY");
     }
 
     const jobFamily = await prisma.jobFamily.create({
-      data: { name: data.name, isActive: data.isActive ?? true },
+      data: {
+        name: data.name,
+        isActive: data.isActive ?? true,
+        prefillLaptop: data.prefillLaptop ?? null,
+        prefillIpad: data.prefillIpad ?? null,
+        prefillNonStandardLaptop: data.prefillNonStandardLaptop ?? null,
+        prefillE3Licence: data.prefillE3Licence ?? null,
+        prefillMarketingInduction: data.prefillMarketingInduction ?? null,
+      },
     });
 
     await prisma.history.create({
@@ -59,7 +78,15 @@ export class JobFamilyService {
 
   async updateJobFamily(
     id: number,
-    data: { name: string; isActive?: boolean },
+    data: {
+      name: string;
+      isActive?: boolean;
+      prefillLaptop?: boolean | null;
+      prefillIpad?: boolean | null;
+      prefillNonStandardLaptop?: boolean | null;
+      prefillE3Licence?: boolean | null;
+      prefillMarketingInduction?: boolean | null;
+    },
     userId: string,
   ) {
     const current = await prisma.jobFamily.findUnique({ where: { id } });
@@ -72,7 +99,15 @@ export class JobFamilyService {
 
     const updated = await prisma.jobFamily.update({
       where: { id },
-      data: { name: data.name, isActive: data.isActive },
+      data: {
+        name: data.name,
+        isActive: data.isActive,
+        prefillLaptop: data.prefillLaptop ?? null,
+        prefillIpad: data.prefillIpad ?? null,
+        prefillNonStandardLaptop: data.prefillNonStandardLaptop ?? null,
+        prefillE3Licence: data.prefillE3Licence ?? null,
+        prefillMarketingInduction: data.prefillMarketingInduction ?? null,
+      },
     });
 
     await prisma.history.create({

@@ -10,7 +10,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, FileImage, Edit, Trash } from "lucide-react";
+import { Plus, Eye, FileImage, Edit, Trash, Archive } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -39,7 +41,14 @@ export function TicketTab() {
   const { employee, addTicketRecord, updateTicketRecord, deleteTicketRecord } = useEmployee();
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user.role === "Admin";
-  const ticketRecords = useEmployeeTicketRecords();
+  const allTicketRecords = useEmployeeTicketRecords();
+  const [includeExpired, setIncludeExpired] = useState(false);
+  const isExpired = (record: TicketRecordsWithRelations) =>
+    !!record.expiryDate && new Date(record.expiryDate) < new Date();
+  const expiredCount = allTicketRecords.filter(isExpired).length;
+  const ticketRecords = includeExpired
+    ? allTicketRecords
+    : allTicketRecords.filter((record) => !isExpired(record));
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] =
@@ -118,8 +127,28 @@ export function TicketTab() {
               <CardDescription>
                 Showing {ticketRecords.length} ticket record
                 {ticketRecords.length !== 1 ? "s" : ""}
+                {!includeExpired && expiredCount > 0
+                  ? ` (${expiredCount} expired hidden)`
+                  : ""}
               </CardDescription>
             </div>
+            <div className="flex items-center gap-3">
+              {expiredCount > 0 && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="include-expired-tickets"
+                    checked={includeExpired}
+                    onCheckedChange={setIncludeExpired}
+                  />
+                  <Label
+                    htmlFor="include-expired-tickets"
+                    className="flex items-center gap-2"
+                  >
+                    <Archive className="h-4 w-4" />
+                    Include expired
+                  </Label>
+                </div>
+              )}
             {isAdmin && (
               <Sheet open={isAddSheetOpen} onOpenChange={setIsAddSheetOpen}>
                 <SheetTrigger asChild>
@@ -136,6 +165,7 @@ export function TicketTab() {
                 </SheetContent>
               </Sheet>
             )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>

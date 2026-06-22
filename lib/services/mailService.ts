@@ -7,6 +7,7 @@ import { AppLogSeverity } from "@/generated/prisma_client/enums";
 export interface MailAttachment {
   filename?: string;
   path?: string;
+  content?: string;
   contentType?: string;
 }
 

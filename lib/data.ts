@@ -26,7 +26,6 @@ import {
   Stethoscope,
   AppWindow,
   Laptop,
-  ClipboardCheck,
   Inbox,
 } from "lucide-react";
 
@@ -329,12 +328,5 @@ export const formNavigationItems: NavigationItem[] = [
     icon: CalendarPlus,
     href: "/forms/training-request",
     minimumAllowedPermission: "employee:viewSelf",
-  },
-  {
-    title: "Employee Onboarding",
-    description: "Submit a new-hire onboarding request for Admin approval",
-    icon: ClipboardCheck,
-    href: "/forms/onboarding",
-    minimumAllowedPermission: "department:manage",
   },
 ];

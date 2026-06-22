@@ -2,11 +2,13 @@ import "server-only";
 import path from "path";
 import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
-import { mailService } from "@/lib/services/mailService";
+import { mailService, type MailAttachment } from "@/lib/services/mailService";
 import { emailTemplateService } from "@/lib/services/emailTemplateService";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { onboardingService } from "@/lib/services/onboardingService";
+import { parseStoredAttachments } from "@/lib/services/onboardingConfigService";
 import { companyDetails } from "@/lib/data";
+import { FILE_UPLOAD_CONFIG, estimateEncodedSize } from "@/lib/file-config";
 import type { OnboardingProgramSelection } from "@/lib/services/onboardingService";
 
 // Infer the types from the approveRequest return so they stay in sync automatically.
@@ -36,6 +38,46 @@ function displayName(
   return `${preferred ?? legal} ${preferredLast ?? legalLast}`;
 }
 
+// Returns an ICS calendar attachment for an all-day "free" event on startDate.
+// TRANSP:TRANSPARENT means it shows as "not busy" in the recipient's calendar.
+function buildCalendarInvite(
+  requestId: number,
+  startDate: Date,
+  employeeName: string,
+): MailAttachment {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const dateStr =
+    `${startDate.getFullYear()}${pad(startDate.getMonth() + 1)}${pad(startDate.getDate())}`;
+  const nextDay = new Date(startDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const nextDateStr =
+    `${nextDay.getFullYear()}${pad(nextDay.getMonth() + 1)}${pad(nextDay.getDate())}`;
+  const now = new Date();
+  const dtstamp =
+    `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}` +
+    `T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//KSB//HRT//EN",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    `UID:onboarding-${requestId}@ksb.com`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART;VALUE=DATE:${dateStr}`,
+    `DTEND;VALUE=DATE:${nextDateStr}`,
+    `SUMMARY:First day: ${employeeName}`,
+    `DESCRIPTION:New hire start date for ${employeeName}.`,
+    "STATUS:CONFIRMED",
+    "TRANSP:TRANSPARENT",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  return { filename: "invite.ics", content: ics, contentType: "text/calendar" };
+}
+
 class OnboardingFanOutService {
   // Build interpolation vars for email templates.
   private buildVars(
@@ -44,6 +86,8 @@ class OnboardingFanOutService {
     managerInfo: ManagerInfo | null,
     employeeEmail: string,
   ): Record<string, string | null | undefined> {
+    const iamValidTo = new Date(request.startDate);
+    iamValidTo.setFullYear(iamValidTo.getFullYear() + 1);
     return {
       legalFirstName: request.legalFirstName,
       legalLastName: request.legalLastName,
@@ -53,6 +97,7 @@ class OnboardingFanOutService {
       department: employee.department.name,
       location: employee.location.name,
       startDate: formatDate(request.startDate),
+      iamValidTo: formatDate(iamValidTo),
       managerName: managerInfo?.name ?? "",
       employmentType: request.employmentType,
       email: employeeEmail,
@@ -160,7 +205,9 @@ class OnboardingFanOutService {
         : "manager.nextSteps.external";
 
     const { subject, body } = await emailTemplateService.render(templateKey, vars);
-    await mailService.send({ to: managerInfo.email, subject, html: body });
+    const employeeName = `${vars.preferredFirstName ?? ""} ${vars.preferredLastName ?? ""}`.trim();
+    const invite = buildCalendarInvite(request.id, request.startDate, employeeName);
+    await mailService.send({ to: managerInfo.email, subject, html: body, attachments: [invite] });
   }
 
   // §7.3 — Forms-related jobs (offer reminder, attachments, marketing, medical, licence).
@@ -191,30 +238,46 @@ class OnboardingFanOutService {
     // Employment forms / police check → email manager with any stored attachments.
     if ((compliance.employmentFormsRequired || compliance.policeCheckRequired) && managerEmail) {
       const attachments: { filename: string; path: string }[] = [];
-      if (compliance.employmentFormsRequired) {
-        const storedPath = settings["onboarding.attachment.employmentForms"];
-        if (storedPath) {
+      let rawBytes = 0;
+      const collect = (settingKey: string) => {
+        for (const a of parseStoredAttachments(settings[settingKey])) {
           attachments.push({
-            filename: "Employment Forms.pdf",
-            path: path.join(process.cwd(), "uploads", storedPath),
+            filename: a.name,
+            path: path.join(process.cwd(), "uploads", a.path),
           });
+          rawBytes += a.size;
         }
+      };
+      if (compliance.employmentFormsRequired) {
+        collect("onboarding.attachment.employmentForms");
       }
       if (compliance.policeCheckRequired) {
-        const storedPath = settings["onboarding.attachment.policeCheck"];
-        if (storedPath) {
-          attachments.push({
-            filename: "Police Check Form.pdf",
-            path: path.join(process.cwd(), "uploads", storedPath),
-          });
-        }
+        collect("onboarding.attachment.policeCheck");
       }
+
+      // Defensive guard: uploads are size-checked, but legacy/zero-size entries
+      // could slip through. If the encoded payload would exceed the mail-server
+      // limit, drop the attachments rather than fail the send, and tell the
+      // manager the forms will follow separately.
+      const oversized =
+        estimateEncodedSize(rawBytes) > FILE_UPLOAD_CONFIG.MAX_EMAIL_SIZE;
+      if (oversized) {
+        console.error(
+          `[onboarding-fan-out] Compliance attachments for request ${request.id} ` +
+            `exceed the ${FILE_UPLOAD_CONFIG.MAX_EMAIL_SIZE_DISPLAY} email limit; sending without them.`,
+        );
+      }
+
       const { subject, body } = await emailTemplateService.render("forms.attachments", vars);
+      const html = oversized
+        ? body +
+          `<p><strong>Note:</strong> the employment / police-check forms were too large to attach to this email and will be sent to you separately.</p>`
+        : body;
       await mailService.send({
         to: managerEmail,
         subject,
-        html: body,
-        ...(attachments.length > 0 ? { attachments } : {}),
+        html,
+        ...(!oversized && attachments.length > 0 ? { attachments } : {}),
       });
     }
 
@@ -235,9 +298,12 @@ class OnboardingFanOutService {
     const medicalRequired =
       request.medicalStandardId != null && request.medicalStandard?.name !== "No";
 
-    if (medicalRequired) {
-      if (managerEmail) {
-        const { subject, body } = await emailTemplateService.render("medical.manager", vars);
+    if (medicalRequired && request.medicalStandard) {
+      const ms = request.medicalStandard;
+
+      if (managerEmail && ms.managerEmailBody) {
+        const subject = emailTemplateService.interpolate(ms.managerEmailSubject, vars);
+        const body = emailTemplateService.interpolate(ms.managerEmailBody, vars);
         await enqueue(
           "SEND_EMAIL",
           { to: managerEmail, subject, html: body } as Record<string, unknown>,
@@ -246,17 +312,17 @@ class OnboardingFanOutService {
       }
 
       // Employee follow-up: 3 days after start date so their mailbox exists.
-      const followUpDate = new Date(request.startDate);
-      followUpDate.setDate(followUpDate.getDate() + 3);
-      const { subject: empSubject, body: empBody } = await emailTemplateService.render(
-        "medical.employee",
-        vars,
-      );
-      await enqueue(
-        "SEND_EMAIL",
-        { to: employeeEmail, subject: empSubject, html: empBody } as Record<string, unknown>,
-        followUpDate,
-      );
+      if (ms.employeeEmailBody) {
+        const followUpDate = new Date(request.startDate);
+        followUpDate.setDate(followUpDate.getDate() + 3);
+        const empSubject = emailTemplateService.interpolate(ms.employeeEmailSubject, vars);
+        const empBody = emailTemplateService.interpolate(ms.employeeEmailBody, vars);
+        await enqueue(
+          "SEND_EMAIL",
+          { to: employeeEmail, subject: empSubject, html: empBody } as Record<string, unknown>,
+          followUpDate,
+        );
+      }
     }
 
     // Vehicle → email licence recipient; they request a copy from the employee.
@@ -267,10 +333,21 @@ class OnboardingFanOutService {
         await mailService.send({ to: licenceRecipient, subject, html: body });
       }
     }
+
+    // Vehicle → notify manager.
+    if ((compliance.willReceiveVehicle || compliance.willDriveVehicle) && managerEmail) {
+      const { subject, body } = await emailTemplateService.render("manager.vehicle", {
+        ...vars,
+        willReceiveVehicle: compliance.willReceiveVehicle ? "Yes" : "No",
+        willDriveVehicle: compliance.willDriveVehicle ? "Yes" : "No",
+      });
+      await mailService.send({ to: managerEmail, subject, html: body });
+    }
   }
 
   // §7.4 — Consolidated IT email covering all selected programs.
   private async enqueueProgramsEmail(
+    request: FanOutRequest,
     vars: Record<string, string | null | undefined>,
     payload: ReturnType<typeof onboardingService.parsePayload>,
     settings: Record<string, string>,
@@ -292,7 +369,9 @@ class OnboardingFanOutService {
       notes: payload.notes.it ?? "",
     });
 
-    await mailService.send({ to: itRecipient, subject, html: body });
+    const employeeName = `${vars.preferredFirstName ?? ""} ${vars.preferredLastName ?? ""}`.trim();
+    const invite = buildCalendarInvite(request.id, request.startDate, employeeName);
+    await mailService.send({ to: itRecipient, subject, html: body, attachments: [invite] });
   }
 
   // §7.4 (notes portion) + §5.5 — HR and Payroll notes emails.
@@ -364,7 +443,7 @@ class OnboardingFanOutService {
     const results = await Promise.allSettled([
       this.enqueueManagerEmail(request, vars, managerInfo),
       this.enqueueFormsJobs(request, vars, payload, settings, managerInfo, employeeEmail),
-      this.enqueueProgramsEmail(vars, payload, settings),
+      this.enqueueProgramsEmail(request, vars, payload, settings),
       this.enqueueHrPayrollNotes(vars, payload, settings),
       this.enqueueHardwareJobs(request, employee, payload),
     ]);

@@ -5,7 +5,6 @@ import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/axios";
-import { sendNotification } from "@/app/actions/mail";
 
 export function LandingPageContent() {
   const { data: session } = authClient.useSession();
@@ -15,6 +14,7 @@ export function LandingPageContent() {
   >([]);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [pendingOnboardingCount, setPendingOnboardingCount] = useState(0);
 
   useEffect(() => {
     async function checkPermissions() {
@@ -76,10 +76,14 @@ export function LandingPageContent() {
       setVisibleItems(itemsWithPermission);
       setIsCheckingPermissions(false);
 
-      // Fetch pending approval count for the badge (best-effort, no error shown)
+      // Fetch pending counts for badges (best-effort, no error shown)
       api
         .get<{ count: number }>("/api/approvals/pending/count")
         .then((res) => setPendingApprovalCount(res.data.count))
+        .catch(() => {});
+      api
+        .get<{ count: number }>("/api/onboarding/pending/count")
+        .then((res) => setPendingOnboardingCount(res.data.count))
         .catch(() => {});
     }
 
@@ -92,19 +96,6 @@ export function LandingPageContent() {
   const adminItems = visibleItems.filter(
     (item) => item.minimumAllowedPermission === "user:impersonate",
   );
-
-  const sendTestMail = async () => {
-    try {
-      await sendNotification({
-        to: session?.user.email ?? "",
-        subject: "test",
-        text: "Testing",
-      });
-      console.log("mail queued");
-    } catch (error) {
-      console.error("Failed to send test mail:", error);
-    }
-  };
 
   const getWelcomeMessage = () => {
     switch (userRole) {
@@ -148,7 +139,6 @@ export function LandingPageContent() {
         <div>
           <h1 className="text-2xl md:text-4xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-2">{getWelcomeMessage()}</p>
-          <button onClick={sendTestMail}>Send Test Mail</button>
         </div>
 
         {nonAdminItems.length > 0 && (
@@ -177,7 +167,15 @@ export function LandingPageContent() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {adminItems.map((item) => (
-                <NavigationCard key={item.href} {...item} />
+                <NavigationCard
+                  key={item.href}
+                  {...item}
+                  badge={
+                    item.href === "/admin/onboarding"
+                      ? pendingOnboardingCount
+                      : undefined
+                  }
+                />
               ))}
             </div>
           </div>

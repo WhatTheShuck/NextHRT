@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -30,39 +30,46 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
-import { JobFamily } from "@/generated/prisma_client/client";
+import {
+  FILE_UPLOAD_CONFIG,
+  estimateEncodedSize,
+  formatFileSize,
+} from "@/lib/file-config";
 
 type Settings = Record<string, string>;
 
-// Job Family prefill rule config keys (§6.5).
-const JOB_FAMILY_FIELDS: { key: string; label: string; description: string }[] =
-  [
-    {
-      key: "onboarding.jobFamily.serviceTechnician",
-      label: "Service Technician job family",
-      description:
-        "Laptop unchecked, iPad checked, E3 licence unchecked when this family is selected.",
-    },
-    {
-      key: "onboarding.jobFamily.engineering",
-      label: "Engineering job family",
-      description: "Non-standard laptop checked when this family is selected.",
-    },
-    {
-      key: "onboarding.jobFamily.salesMarketing",
-      label: "Sales / Marketing job family",
-      description: "Marketing induction checked when this family is selected.",
-    },
-  ];
+interface StoredAttachment {
+  path: string;
+  name: string;
+  size: number;
+}
+
+// Client-side mirror of parseStoredAttachments (server util pulls in fs/prisma,
+// so it can't be imported here). Tolerates the legacy bare-path string format.
+function parseAttachments(value: string | undefined): StoredAttachment[] {
+  if (!value || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((e) => e && typeof e.path === "string" && e.path)
+        .map((e) => ({
+          path: e.path as string,
+          name:
+            typeof e.name === "string" && e.name
+              ? e.name
+              : (e.path as string).split("/").pop() ?? (e.path as string),
+          size: typeof e.size === "number" ? e.size : 0,
+        }));
+    }
+  } catch {
+    // not JSON
+  }
+  return [{ path: value, name: value.split("/").pop() ?? value, size: 0 }];
+}
+
 
 interface EmailTemplate {
   id: number;
@@ -87,14 +94,24 @@ const CONFIG_FIELDS: { key: string; label: string; description: string }[] = [
     description: "Endpoint for the hardware-request platform (placeholder).",
   },
   {
+    key: "onboarding.recipient.it",
+    label: "IT recipient",
+    description: "Email address that receives consolidated IT software-access requests.",
+  },
+  {
+    key: "onboarding.recipient.hr",
+    label: "HR recipient",
+    description: "Email address that receives HR department notes.",
+  },
+  {
+    key: "onboarding.recipient.payroll",
+    label: "Payroll recipient",
+    description: "Email address that receives Payroll department notes.",
+  },
+  {
     key: "onboarding.recipient.marketing",
     label: "Marketing induction recipient",
     description: "Email address that receives marketing-induction bookings.",
-  },
-  {
-    key: "onboarding.recipient.medical",
-    label: "Medical contact recipient",
-    description: "Email address for pre-employment medical contacts.",
   },
   {
     key: "onboarding.recipient.licence",
@@ -103,15 +120,14 @@ const CONFIG_FIELDS: { key: string; label: string; description: string }[] = [
   },
 ];
 
-const ATTACHMENT_SLOTS: { slot: string; label: string }[] = [
-  { slot: "employmentForms", label: "Employment forms" },
-  { slot: "policeCheck", label: "Police check form" },
+const ATTACHMENT_SLOTS: { slot: string; label: string; multi: boolean }[] = [
+  { slot: "employmentForms", label: "Employment forms", multi: true },
+  { slot: "policeCheck", label: "Police check form", multi: false },
 ];
 
 export function OnboardingSettings() {
   const [settings, setSettings] = useState<Settings>({});
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-  const [jobFamilies, setJobFamilies] = useState<JobFamily[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,14 +138,12 @@ export function OnboardingSettings() {
     try {
       setLoading(true);
       setError(null);
-      const [settingsRes, templatesRes, jfRes] = await Promise.all([
+      const [settingsRes, templatesRes] = await Promise.all([
         api.get<Settings>("/api/settings"),
         api.get<EmailTemplate[]>("/api/email-templates"),
-        api.get<JobFamily[]>("/api/job-families?activeOnly=true"),
       ]);
       setSettings(settingsRes.data);
       setTemplates(templatesRes.data);
-      setJobFamilies(jfRes.data);
     } catch (err) {
       setError(
         err instanceof AxiosError && err.response?.status === 403
@@ -154,13 +168,7 @@ export function OnboardingSettings() {
     try {
       setSaving(true);
       setError(null);
-      const updates = [
-        ...CONFIG_FIELDS.map((f) => ({ key: f.key, value: settings[f.key] ?? "" })),
-        ...JOB_FAMILY_FIELDS.map((f) => ({
-          key: f.key,
-          value: settings[f.key] ?? "",
-        })),
-      ];
+      const updates = CONFIG_FIELDS.map((f) => ({ key: f.key, value: settings[f.key] ?? "" }));
       await api.put("/api/settings", { updates });
       setSaved(true);
     } catch (err) {
@@ -221,47 +229,16 @@ export function OnboardingSettings() {
         </CardContent>
       </Card>
 
-      {/* Job Family prefill rules */}
+      {/* Job Family prefills (informational pointer) */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Job Family prefill rules</CardTitle>
+          <CardTitle className="text-base">Job Family prefills</CardTitle>
           <CardDescription>
-            Set which Job Family drives each hardware/software prefill in the
-            onboarding form.
+            Each job family defines its own onboarding prefills (laptop, iPad, E3 licence,
+            non-standard laptop, marketing induction). Configure these per family under
+            <strong> Admin &rsaquo; Field Editor &rsaquo; Job Families</strong>.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {JOB_FAMILY_FIELDS.map((f) => (
-            <div key={f.key} className="space-y-2">
-              <Label htmlFor={f.key}>{f.label}</Label>
-              <Select
-                value={settings[f.key] ?? ""}
-                onValueChange={(v) => set(f.key, v)}
-              >
-                <SelectTrigger id={f.key}>
-                  <SelectValue placeholder="— None —" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">— None —</SelectItem>
-                  {jobFamilies.map((jf) => (
-                    <SelectItem key={jf.id} value={jf.id.toString()}>
-                      {jf.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">{f.description}</p>
-            </div>
-          ))}
-          <div className="flex items-center gap-4 pt-2">
-            <Button onClick={handleSaveConfig} disabled={saving}>
-              {saving ? "Saving..." : "Save config"}
-            </Button>
-            {saved && (
-              <span className="text-sm text-green-600">Settings saved.</span>
-            )}
-          </div>
-        </CardContent>
       </Card>
 
       {/* Email templates */}
@@ -303,7 +280,9 @@ export function OnboardingSettings() {
           <CardTitle className="text-base">Compliance attachments</CardTitle>
           <CardDescription>
             Upload the employment-forms pack and police-check form attached to
-            onboarding emails. PDF or image, max 5MB.
+            onboarding emails. PDF or image, max {FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY} each.
+            Employment forms accepts multiple files; the combined attachments
+            must stay under the {FILE_UPLOAD_CONFIG.MAX_EMAIL_SIZE_DISPLAY} email limit.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -312,10 +291,12 @@ export function OnboardingSettings() {
               key={a.slot}
               slot={a.slot}
               label={a.label}
-              currentPath={settings[`onboarding.attachment.${a.slot}`] ?? ""}
+              multi={a.multi}
+              value={settings[`onboarding.attachment.${a.slot}`] ?? ""}
               onChanged={load}
             />
           ))}
+          <CombinedSizeIndicator settings={settings} />
         </CardContent>
       </Card>
 
@@ -343,25 +324,33 @@ export function OnboardingSettings() {
 function AttachmentRow({
   slot,
   label,
-  currentPath,
+  multi,
+  value,
   onChanged,
 }: {
   slot: string;
   label: string;
-  currentPath: string;
+  multi: boolean;
+  value: string;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = async (file: File) => {
+  const attachments = parseAttachments(value);
+
+  const handleUpload = async (files: File[]) => {
+    if (files.length === 0) return;
     try {
       setBusy(true);
       setError(null);
       const formData = new FormData();
       formData.append("slot", slot);
-      formData.append("file", file);
-      await api.post("/api/onboarding-config/attachments", formData);
+      for (const file of files) formData.append("file", file);
+      await api.post("/api/onboarding-config/attachments", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       onChanged();
     } catch (err) {
       setError(
@@ -374,11 +363,14 @@ function AttachmentRow({
     }
   };
 
-  const handleRemove = async () => {
+  const handleRemove = async (relativePath?: string) => {
     try {
       setBusy(true);
       setError(null);
-      await api.delete(`/api/onboarding-config/attachments/${slot}`);
+      const query = relativePath
+        ? `?path=${encodeURIComponent(relativePath)}`
+        : "";
+      await api.delete(`/api/onboarding-config/attachments/${slot}${query}`);
       onChanged();
     } catch {
       setError("Failed to remove attachment.");
@@ -387,44 +379,119 @@ function AttachmentRow({
     }
   };
 
+  const uploadLabel = busy
+    ? "Uploading…"
+    : multi
+      ? "Add files"
+      : attachments.length > 0
+        ? "Replace"
+        : "Upload";
+
   return (
     <div className="space-y-2 rounded-md border p-3">
       <div className="flex items-center justify-between gap-4">
-        <Label>{label}</Label>
-        {currentPath ? (
-          <div className="flex items-center gap-2">
-            <a
-              href={`/api/onboarding-config/attachments/${slot}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-primary underline"
-            >
-              View current
-            </a>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRemove}
-              disabled={busy}
-            >
-              Remove
-            </Button>
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">None uploaded</span>
-        )}
+        <p className="text-sm font-medium">{label}</p>
+        <div className="shrink-0">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf,image/*"
+            multiple={multi}
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > 0) handleUpload(files);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            {uploadLabel}
+          </Button>
+        </div>
       </div>
-      <Input
-        type="file"
-        accept="application/pdf,image/*"
-        disabled={busy}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleUpload(file);
-          e.target.value = "";
-        }}
-      />
+
+      {attachments.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No file uploaded</p>
+      ) : (
+        <ul className="space-y-1">
+          {attachments.map((a) => (
+            <li
+              key={a.path}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
+              <a
+                href={`/api/onboarding-config/attachments/${slot}?path=${encodeURIComponent(a.path)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-w-0 truncate text-primary underline"
+                title={a.name}
+              >
+                {a.name}
+              </a>
+              <div className="flex shrink-0 items-center gap-2">
+                {a.size > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {formatFileSize(a.size)}
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemove(a.path)}
+                  disabled={busy}
+                >
+                  Remove
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+// Shows the combined encoded size of every compliance attachment against the
+// email limit — these all go in one message, so the limit is shared.
+function CombinedSizeIndicator({ settings }: { settings: Settings }) {
+  const rawBytes = ATTACHMENT_SLOTS.reduce(
+    (sum, a) =>
+      sum +
+      parseAttachments(settings[`onboarding.attachment.${a.slot}`]).reduce(
+        (s, f) => s + f.size,
+        0,
+      ),
+    0,
+  );
+  if (rawBytes === 0) return null;
+
+  const encoded = estimateEncodedSize(rawBytes);
+  const limit = FILE_UPLOAD_CONFIG.MAX_EMAIL_SIZE;
+  const pct = Math.min(100, Math.round((encoded / limit) * 100));
+  const near = pct >= 80;
+
+  return (
+    <div className="space-y-1 pt-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">
+          Combined email attachment size (encoded)
+        </span>
+        <span className={near ? "font-medium text-amber-600" : "text-muted-foreground"}>
+          ~{formatFileSize(encoded)} / {FILE_UPLOAD_CONFIG.MAX_EMAIL_SIZE_DISPLAY}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full ${near ? "bg-amber-500" : "bg-primary"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }

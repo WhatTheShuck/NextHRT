@@ -11,72 +11,68 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
-  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Department } from "@/generated/prisma_client/client";
+import { Department, UserRole } from "@/generated/prisma_client/client";
 import {
   GenericCombobox,
   ComboboxItem,
   createComboboxItem,
 } from "@/components/ui/generic-combobox";
 
+export interface PendingDepartment {
+  id: string; // "pending-{orgRequestId}"
+  orgRequestId: number;
+  name: string;
+  parentDepartmentId: number | null;
+  isPending: true;
+}
+
 interface AddDepartmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDepartmentAdded?: (department: Department) => void;
+  onDepartmentRequested?: (pending: PendingDepartment) => void;
   departments: Department[];
+  userRole?: UserRole | null;
 }
 
 interface DepartmentFormProps {
   departments: Department[];
   onDepartmentAdded?: (department: Department) => void;
+  onDepartmentRequested?: (pending: PendingDepartment) => void;
   onClose: () => void;
+  isRequestMode: boolean;
   className?: string;
 }
 
 function DepartmentForm({
   departments,
   onDepartmentAdded,
+  onDepartmentRequested,
   onClose,
+  isRequestMode,
   className,
 }: DepartmentFormProps) {
   const [departmentName, setDepartmentName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [parentDepartmentId, setParentDepartmentId] = useState<string | null>(
-    null,
-  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [parentDepartmentId, setParentDepartmentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter to only show parent departments (departments that don't have a parent themselves)
-  const parentDepartments = departments.filter(
-    (dep) => dep.parentDepartmentId === null,
-  );
-
-  // Transform parent departments to ComboboxItem format
+  const parentDepartments = departments.filter((dep) => dep.parentDepartmentId === null);
   const parentDepartmentItems: ComboboxItem[] = parentDepartments.map((dept) =>
     createComboboxItem(dept.id, dept.name, dept.name),
   );
-
-  // Find the currently selected parent department
   const selectedParentDepartment =
-    parentDepartmentItems.find(
-      (item) => item.id.toString() === parentDepartmentId,
-    ) || null;
-
-  const handleParentDepartmentSelect = (item: ComboboxItem | null) => {
-    setParentDepartmentId(item ? String(item.id) : null);
-  };
+    parentDepartmentItems.find((item) => item.id.toString() === parentDepartmentId) || null;
 
   const resetForm = () => {
     setDepartmentName("");
@@ -84,36 +80,55 @@ function DepartmentForm({
     setError(null);
   };
 
-  const handleCreate = async () => {
+  const handleSubmit = async () => {
     if (!departmentName.trim()) {
       setError("Please enter a department name");
       return;
     }
 
-    setIsCreating(true);
+    setIsSubmitting(true);
     setError(null);
 
-    try {
-      const response = await api.post<Department>("/api/departments", {
-        name: departmentName,
-        parentDepartmentId: parentDepartmentId
-          ? parseInt(parentDepartmentId)
-          : null,
-      });
+    const parsedParentId = parentDepartmentId ? parseInt(parentDepartmentId) : null;
 
-      onDepartmentAdded?.(response.data);
-      onClose();
-      resetForm();
-    } catch (err: any) {
-      console.error("Error creating department:", err);
-
-      if (err.response?.status === 409) {
-        setError("A department with this name already exists");
-      } else {
-        setError(err.response?.data?.error || "Failed to create department");
+    if (isRequestMode) {
+      try {
+        const response = await api.post<{ id: number }>("/api/org-requests", {
+          type: "Department",
+          requestedData: { name: departmentName.trim(), parentDepartmentId: parsedParentId },
+        });
+        onDepartmentRequested?.({
+          id: `pending-${response.data.id}`,
+          orgRequestId: response.data.id,
+          name: departmentName.trim(),
+          parentDepartmentId: parsedParentId,
+          isPending: true,
+        });
+        onClose();
+        resetForm();
+      } catch (err: any) {
+        setError(err.response?.data?.error || "Failed to submit request");
+      } finally {
+        setIsSubmitting(false);
       }
-    } finally {
-      setIsCreating(false);
+    } else {
+      try {
+        const response = await api.post<Department>("/api/departments", {
+          name: departmentName.trim(),
+          parentDepartmentId: parsedParentId,
+        });
+        onDepartmentAdded?.(response.data);
+        onClose();
+        resetForm();
+      } catch (err: any) {
+        if (err.response?.status === 409) {
+          setError("A department with this name already exists");
+        } else {
+          setError(err.response?.data?.error || "Failed to create department");
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -124,6 +139,11 @@ function DepartmentForm({
 
   return (
     <div className={cn("space-y-4", className)}>
+      {isRequestMode && (
+        <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-800 border border-blue-200">
+          This department doesn't exist yet. Submitting a request will notify an admin who can approve it. You can continue filling out the form in the meantime.
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="departmentName">Department Name</Label>
         <Input
@@ -131,10 +151,10 @@ function DepartmentForm({
           value={departmentName}
           onChange={(e) => {
             setDepartmentName(e.target.value);
-            if (error) setError(null); // Clear error when user starts typing
+            if (error) setError(null);
           }}
           placeholder="e.g., Engineering"
-          disabled={isCreating}
+          disabled={isSubmitting}
         />
       </div>
       <div className="space-y-2">
@@ -142,14 +162,14 @@ function DepartmentForm({
         <GenericCombobox
           items={parentDepartmentItems}
           selectedItem={selectedParentDepartment}
-          onSelect={handleParentDepartmentSelect}
+          onSelect={(item) => setParentDepartmentId(item ? String(item.id) : null)}
           placeholder="Select a parent department..."
           searchPlaceholder="Search parent departments..."
           emptyMessage="No parent departments found."
           allowClear={true}
           clearLabel="No parent department"
           width="w-full"
-          disabled={isCreating}
+          disabled={isSubmitting}
         />
       </div>
       {error && (
@@ -158,15 +178,12 @@ function DepartmentForm({
         </div>
       )}
       <div className="flex flex-col space-y-2 w-full md:flex-row-reverse pb-2 md:gap-2 md:space-y-0 md:justify-start">
-        <Button type="button" onClick={handleCreate} disabled={isCreating}>
-          {isCreating ? "Creating..." : "Create Department"}
+        <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+          {isSubmitting
+            ? isRequestMode ? "Submitting..." : "Creating..."
+            : isRequestMode ? "Submit Request" : "Create Department"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleClose}
-          disabled={isCreating}
-        >
+        <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
           Cancel
         </Button>
       </div>
@@ -178,29 +195,40 @@ export function AddDepartmentDialog({
   open,
   onOpenChange,
   onDepartmentAdded,
+  onDepartmentRequested,
   departments,
+  userRole,
 }: AddDepartmentDialogProps) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isRequestMode = userRole !== "Admin";
+
+  const title = isRequestMode ? "Request New Department" : "Add New Department";
+  const description = isRequestMode
+    ? "Request a new department for admin approval."
+    : "Create a new department that will be available for selection.";
 
   const handleClose = () => onOpenChange(false);
+
+  const form = (className?: string) => (
+    <DepartmentForm
+      departments={departments}
+      onDepartmentAdded={onDepartmentAdded}
+      onDepartmentRequested={onDepartmentRequested}
+      onClose={handleClose}
+      isRequestMode={isRequestMode}
+      className={className}
+    />
+  );
 
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Department</DialogTitle>
-            <DialogDescription>
-              Create a new department that will be available for selection.
-            </DialogDescription>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <DepartmentForm
-              departments={departments}
-              onDepartmentAdded={onDepartmentAdded}
-              onClose={handleClose}
-            />
-          </div>
+          <div className="py-4">{form()}</div>
         </DialogContent>
       </Dialog>
     );
@@ -210,17 +238,10 @@ export function AddDepartmentDialog({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="text-left">
-          <DrawerTitle>Add New Department</DrawerTitle>
-          <DrawerDescription>
-            Create a new department that will be available for selection.
-          </DrawerDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
-        <DepartmentForm
-          className="px-4"
-          departments={departments}
-          onDepartmentAdded={onDepartmentAdded}
-          onClose={handleClose}
-        />
+        {form("px-4")}
       </DrawerContent>
     </Drawer>
   );

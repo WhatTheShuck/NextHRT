@@ -258,12 +258,12 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="jobFamily">Job Family</Label>
-        <Select value={jobFamilyId} onValueChange={setJobFamilyId}>
+        <Select value={jobFamilyId} onValueChange={(v) => setJobFamilyId(v === "none" ? "" : v)}>
           <SelectTrigger>
             <SelectValue placeholder="Select job family (optional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">— None —</SelectItem>
+            <SelectItem value="none">— None —</SelectItem>
             {jobFamilies.map((jf) => (
               <SelectItem key={jf.id} value={jf.id.toString()}>
                 {jf.name}

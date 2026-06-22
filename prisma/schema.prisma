@@ -66,21 +66,35 @@ enum OnboardingStatus {
 }
 
 // Managed reference table (like Department/Location), admin-editable (§6.5).
+// Prefill flags: null = no override; true/false = force the field to checked/unchecked when
+// this job family is selected on the onboarding form.
 model JobFamily {
-  id                 Int                 @id @default(autoincrement())
-  name               String              @unique
-  isActive           Boolean             @default(true)
-  employees          Employee[]
-  onboardingRequests OnboardingRequest[]
+  id                       Int                 @id @default(autoincrement())
+  name                     String              @unique
+  isActive                 Boolean             @default(true)
+  prefillLaptop            Boolean?
+  prefillIpad              Boolean?
+  prefillNonStandardLaptop Boolean?
+  prefillE3Licence         Boolean?
+  prefillMarketingInduction Boolean?
+  employees                Employee[]
+  onboardingRequests       OnboardingRequest[]
 }
 
 // Pre-employment medical standards — managed table, NOT a Prisma enum (§6.6).
 // Seed: KSB Standard / No / Telfer.
+// Each standard carries its own email templates (manager at start date;
+// employee follow-up 3 days later). Use {tokens} for interpolation.
+// Empty body = no email sent for that recipient.
 model MedicalStandard {
-  id                 Int                 @id @default(autoincrement())
-  name               String              @unique
-  isActive           Boolean             @default(true)
-  onboardingRequests OnboardingRequest[]
+  id                   Int                 @id @default(autoincrement())
+  name                 String              @unique
+  isActive             Boolean             @default(true)
+  managerEmailSubject  String              @default("")
+  managerEmailBody     String              @default("")
+  employeeEmailSubject String              @default("")
+  employeeEmailBody    String              @default("")
+  onboardingRequests   OnboardingRequest[]
 }
 
 // Software-access program catalogue — admin-editable reference table (§6.4).
@@ -130,11 +144,17 @@ model OnboardingRequest {
   preferredFirstName String?
   preferredLastName  String?
   title              String
-  departmentId       Int
-  locationId         Int
+  departmentId       Int?
+  locationId         Int?
   employmentStatus   EmployeeStatus // the hire's EmployeeStatus (named to avoid clashing with request `status`)
   employmentType     EmploymentType // derived from employmentStatus via deriveEmploymentType()
   startDate          DateTime
+  // --- Pending org requests (set when user requests a new dept/location) ---
+  pendingDepartmentRequestId Int?
+  pendingDepartmentRequest   OrgRequest? @relation("PendingDepartmentRequest", fields: [pendingDepartmentRequestId], references: [id])
+  pendingLocationRequestId   Int?
+  pendingLocationRequest     OrgRequest? @relation("PendingLocationRequest", fields: [pendingLocationRequestId], references: [id])
+
   managerEmployeeId  Int? // who the next-steps email goes to (request-only)
   jobFamilyId        Int?
   jobFamily          JobFamily?       @relation(fields: [jobFamilyId], references: [id])
@@ -152,6 +172,38 @@ model OnboardingRequest {
   reviewNotes       String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  @@index([status])
+}
+
+enum OrgRequestType {
+  Department
+  Location
+}
+
+enum OrgRequestStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+model OrgRequest {
+  id               Int             @id @default(autoincrement())
+  type             OrgRequestType
+  requestedData    String          // JSON: dept { name, parentDepartmentId? } | location { name, state }
+  status           OrgRequestStatus @default(Pending)
+  note             String?
+  requestedByUserId String
+  requestedByUser  User            @relation("OrgRequests", fields: [requestedByUserId], references: [id])
+  reviewedByUserId String?
+  reviewedByUser   User?           @relation("OrgRequestReviews", fields: [reviewedByUserId], references: [id])
+  reviewedAt       DateTime?
+  createdDepartmentId Int?
+  createdLocationId   Int?
+  createdAt        DateTime        @default(now())
+
+  onboardingAsDepartment OnboardingRequest[] @relation("PendingDepartmentRequest")
+  onboardingAsLocation   OnboardingRequest[] @relation("PendingLocationRequest")
 
   @@index([status])
 }
@@ -358,6 +410,8 @@ model User {
   themes                       Theme[]                @relation("UserThemes")
   submittedApprovals           ApprovalRequest[]      @relation("SubmittedApprovals")
   onboardingRequests           OnboardingRequest[]    @relation("OnboardingSubmissions")
+  orgRequests                  OrgRequest[]           @relation("OrgRequests")
+  orgRequestReviews            OrgRequest[]           @relation("OrgRequestReviews")
   approvalActions              ApprovalAction[]       @relation("ApprovalActions")
   courseRequests               TrainingCourseRequest[] @relation("CourseRequests")
   apiKeys                      Apikey[]

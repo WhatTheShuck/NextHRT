@@ -56,6 +56,16 @@ export async function POST(
             { error: "Only pending requests can be approved" },
             { status: 409 },
           );
+        case "ONBOARDING_HAS_PENDING_ORG_REQUESTS":
+          return NextResponse.json(
+            { error: "Resolve all pending department/location requests before approving" },
+            { status: 409 },
+          );
+        case "ONBOARDING_MISSING_DEPT_OR_LOCATION":
+          return NextResponse.json(
+            { error: "Department and location must be set before approving" },
+            { status: 422 },
+          );
       }
     }
     return NextResponse.json(

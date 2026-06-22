@@ -41,7 +41,14 @@ export class MedicalStandardService {
   }
 
   async createMedicalStandard(
-    data: { name: string; isActive?: boolean },
+    data: {
+      name: string;
+      isActive?: boolean;
+      managerEmailSubject?: string;
+      managerEmailBody?: string;
+      employeeEmailSubject?: string;
+      employeeEmailBody?: string;
+    },
     userId: string,
   ) {
     const existing = await prisma.medicalStandard.findUnique({
@@ -56,6 +63,10 @@ export class MedicalStandardService {
       data: {
         name: data.name,
         isActive: data.isActive ?? true,
+        managerEmailSubject: data.managerEmailSubject ?? "",
+        managerEmailBody: data.managerEmailBody ?? "",
+        employeeEmailSubject: data.employeeEmailSubject ?? "",
+        employeeEmailBody: data.employeeEmailBody ?? "",
       },
     });
 
@@ -74,7 +85,14 @@ export class MedicalStandardService {
 
   async updateMedicalStandard(
     id: number,
-    data: { name?: string; isActive?: boolean },
+    data: {
+      name?: string;
+      isActive?: boolean;
+      managerEmailSubject?: string;
+      managerEmailBody?: string;
+      employeeEmailSubject?: string;
+      employeeEmailBody?: string;
+    },
     userId: string,
   ) {
     const current = await prisma.medicalStandard.findUnique({
@@ -99,6 +117,10 @@ export class MedicalStandardService {
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+        ...(data.managerEmailSubject !== undefined ? { managerEmailSubject: data.managerEmailSubject } : {}),
+        ...(data.managerEmailBody !== undefined ? { managerEmailBody: data.managerEmailBody } : {}),
+        ...(data.employeeEmailSubject !== undefined ? { employeeEmailSubject: data.employeeEmailSubject } : {}),
+        ...(data.employeeEmailBody !== undefined ? { employeeEmailBody: data.employeeEmailBody } : {}),
       },
     });
 

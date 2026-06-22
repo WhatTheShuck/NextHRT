@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -54,10 +54,20 @@ import {
   XCircle,
   User,
   ExternalLink,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
 // ─── Data types ───────────────────────────────────────────────────────────────
+
+interface PendingOrgRequest {
+  id: number;
+  type: "Department" | "Location";
+  requestedData: string; // JSON
+  status: "Pending" | "Approved" | "Rejected";
+  requestedByUser: { id: string; name: string | null; email: string };
+}
 
 interface OnboardingRequest {
   id: number;
@@ -67,8 +77,12 @@ interface OnboardingRequest {
   preferredFirstName: string | null;
   preferredLastName: string | null;
   title: string;
-  departmentId: number;
-  locationId: number;
+  departmentId: number | null;
+  locationId: number | null;
+  pendingDepartmentRequestId: number | null;
+  pendingLocationRequestId: number | null;
+  pendingDepartmentRequest: PendingOrgRequest | null;
+  pendingLocationRequest: PendingOrgRequest | null;
   employmentStatus: EmployeeStatus;
   employmentType: string;
   startDate: string;
@@ -397,6 +411,9 @@ export function OnboardingDetailContent({
   const [approving, setApproving] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [orgRequestAction, setOrgRequestAction] = useState<{ id: number; action: "approve" | "reject" } | null>(null);
+  const [orgRequestNote, setOrgRequestNote] = useState("");
+  const [orgRequestSubmitting, setOrgRequestSubmitting] = useState(false);
 
   // Editable core HR fields (pre-filled from the request).
   const [edits, setEdits] = useState<Partial<OnboardingCoreHRData>>({});
@@ -461,6 +478,28 @@ export function OnboardingDetailContent({
     fetchAll();
   }, [fetchAll]);
 
+  const handleOrgRequestDecision = async () => {
+    if (!orgRequestAction) return;
+    setOrgRequestSubmitting(true);
+    setActionError(null);
+    try {
+      await api.post(`/api/org-requests/${orgRequestAction.id}/${orgRequestAction.action}`, {
+        note: orgRequestNote.trim() || undefined,
+      });
+      setOrgRequestAction(null);
+      setOrgRequestNote("");
+      await fetchAll();
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "response" in e
+          ? ((e as { response?: { data?: { error?: string } } }).response?.data?.error) ?? "Failed."
+          : "Failed.";
+      setActionError(msg);
+    } finally {
+      setOrgRequestSubmitting(false);
+    }
+  };
+
   const handleApprove = async () => {
     setApproving(true);
     setActionError(null);
@@ -524,6 +563,8 @@ export function OnboardingDetailContent({
   }
 
   const isPending = request.status === "Pending";
+  const hasPendingOrgRequests =
+    request.pendingDepartmentRequestId !== null || request.pendingLocationRequestId !== null;
   const payload = (() => {
     try {
       return JSON.parse(request.payload) as OnboardingPayload;
@@ -532,12 +573,16 @@ export function OnboardingDetailContent({
     }
   })();
 
-  const deptName =
-    departments.find((d) => d.id === request.departmentId)?.name ??
-    `Dept #${request.departmentId}`;
-  const locName =
-    locations.find((l) => l.id === request.locationId)?.name ??
-    `Location #${request.locationId}`;
+  const deptName = request.departmentId
+    ? (departments.find((d) => d.id === request.departmentId)?.name ?? `Dept #${request.departmentId}`)
+    : request.pendingDepartmentRequest
+    ? `${(JSON.parse(request.pendingDepartmentRequest.requestedData) as { name: string }).name} (Pending)`
+    : "—";
+  const locName = request.locationId
+    ? (locations.find((l) => l.id === request.locationId)?.name ?? `Location #${request.locationId}`)
+    : request.pendingLocationRequest
+    ? `${(JSON.parse(request.pendingLocationRequest.requestedData) as { name: string; state: string }).name} (Pending)`
+    : "—";
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -903,10 +948,88 @@ export function OnboardingDetailContent({
               {isPending && (
                 <>
                   <Separator />
+                  {/* Pending org requests — must be resolved before approval */}
+                  {hasPendingOrgRequests && (
+                    <div className="space-y-3">
+                      <Alert>
+                        <Clock className="h-4 w-4" />
+                        <AlertTitle>Pending Org Requests</AlertTitle>
+                        <AlertDescription>
+                          The submitter requested new org entries below. Resolve them before approving this onboarding request.
+                        </AlertDescription>
+                      </Alert>
+                      {[request.pendingDepartmentRequest, request.pendingLocationRequest]
+                        .filter((r): r is PendingOrgRequest => r !== null && r.status === "Pending")
+                        .map((orgReq) => {
+                          const data = JSON.parse(orgReq.requestedData) as Record<string, string>;
+                          return (
+                            <div key={orgReq.id} className="rounded-md border p-3 space-y-2 text-sm">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div>
+                                  <span className="font-medium">{orgReq.type}: </span>
+                                  <span>{data.name}</span>
+                                  {data.state && <span className="text-muted-foreground">, {data.state}</span>}
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    Requested by {orgReq.requestedByUser.name ?? orgReq.requestedByUser.email}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2 shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-green-700 border-green-300 hover:bg-green-50"
+                                    onClick={() => { setOrgRequestAction({ id: orgReq.id, action: "approve" }); setOrgRequestNote(""); }}
+                                    disabled={orgRequestSubmitting}
+                                  >
+                                    <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                                    onClick={() => { setOrgRequestAction({ id: orgReq.id, action: "reject" }); setOrgRequestNote(""); }}
+                                    disabled={orgRequestSubmitting}
+                                  >
+                                    <XCircle className="h-3.5 w-3.5 mr-1" />
+                                    Reject
+                                  </Button>
+                                </div>
+                              </div>
+                              {orgRequestAction?.id === orgReq.id && (
+                                <div className="space-y-2 pt-1 border-t">
+                                  {orgRequestAction.action === "reject" && (
+                                    <div className="space-y-1">
+                                      <Label htmlFor={`org-note-${orgReq.id}`} className="text-xs">Reason (optional)</Label>
+                                      <Textarea
+                                        id={`org-note-${orgReq.id}`}
+                                        value={orgRequestNote}
+                                        onChange={(e) => setOrgRequestNote(e.target.value)}
+                                        rows={2}
+                                        disabled={orgRequestSubmitting}
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={handleOrgRequestDecision} disabled={orgRequestSubmitting}>
+                                      {orgRequestSubmitting ? "Saving…" : `Confirm ${orgRequestAction.action === "approve" ? "Approval" : "Rejection"}`}
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setOrgRequestAction(null)} disabled={orgRequestSubmitting}>
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       onClick={handleApprove}
-                      disabled={approving || rejecting}
+                      disabled={approving || rejecting || hasPendingOrgRequests}
+                      title={hasPendingOrgRequests ? "Resolve pending org requests first" : undefined}
                       className="flex items-center gap-2"
                     >
                       <CheckCircle className="h-4 w-4" />

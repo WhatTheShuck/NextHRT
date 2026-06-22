@@ -26,6 +26,10 @@ export const EMAIL_TEMPLATE_TOKENS = [
   // Fan-out computed tokens (§7): rendered at job time, not from the Employee record.
   "programs", // it.programs: HTML list of selected programs with ticket URLs
   "notes",    // hr.notes / payroll.notes / it.programs: the freeform department note
+  // Vehicle tokens (manager.vehicle template only).
+  "willReceiveVehicle", // "Yes" or "No"
+  "willDriveVehicle",   // "Yes" or "No"
+  "iamValidTo",         // startDate + 1 year (external hires only)
 ] as const;
 
 const PLACEHOLDER_BODY =
@@ -46,26 +50,73 @@ const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
     key: "manager.nextSteps.external",
     name: "Manager next steps — external hire",
     subject: "Next steps for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
+    body: `<p>Hi {managerName},</p>
+
+<p>{preferredFirstName} {preferredLastName} is starting on {startDate} as an external contractor. Please set up their KSB identity account by completing the IAM contractor request form:</p>
+
+<p><a href="https://iam.ksb.com/workitemdlg.aspx?ACTTEMP=1001819&amp;RURLID=062e87d9-6494-49fa-852b-f9e50fef0e8d">Click here to open the contractor request form</a></p>
+
+<p>If that link doesn't work, go to <a href="https://iam.ksb.com">iam.ksb.com</a>, select <strong>Services</strong> in the left-hand bar, then choose <strong>Request Contractor Identity</strong>.</p>
+
+<p>Fill in the form as follows:</p>
+
+<ul>
+  <li><strong>First name:</strong> {preferredFirstName}</li>
+  <li><strong>Last name:</strong> {preferredLastName}</li>
+  <li><strong>Valid from:</strong> {startDate}</li>
+  <li><strong>Valid to:</strong> {iamValidTo} <em>(external employees have a maximum of one year; you will be reminded to extend their access before expiry)</em></li>
+  <li><strong>KSB Responsible:</strong> your name</li>
+  <li><strong>Ext. Company:</strong> AIGroup (or the actual company they have been hired through)</li>
+  <li><strong>Field of activity / Job title:</strong> {title}</li>
+  <li><strong>Preferred Language:</strong> English</li>
+  <li><strong>KSB Company:</strong> KSB Australia Pty Ltd. [5055]</li>
+  <li><strong>Country:</strong> Australia</li>
+  <li><strong>Cost center:</strong> the cost center for their department</li>
+  <li><strong>Location:</strong> {location}</li>
+</ul>
+
+<p>You do not need to fill in external contact information. Select <strong>Submit</strong> when done.</p>
+
+<p>Because you are filling this in as their manager, it will auto-approve.</p>`,
   },
   {
     key: "hr.notes",
     name: "HR department note",
     subject: "New hire — note for HR: {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
+    body: `<p>Hi,</p>
+
+<p>A note has been recorded for HR regarding the onboarding of <strong>{preferredFirstName} {preferredLastName}</strong> ({title}), who is joining {department} at {location} on {startDate}.</p>
+
+<p>{notes}</p>
+
+<p>Please action this as required.</p>`,
   },
   {
     key: "payroll.notes",
     name: "Payroll department note",
     subject:
       "New hire — note for Payroll: {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
+    body: `<p>Hi,</p>
+
+<p>A note has been recorded for Payroll regarding the onboarding of <strong>{preferredFirstName} {preferredLastName}</strong> ({title}), who is joining {department} at {location} on {startDate}.</p>
+
+<p>{notes}</p>
+
+<p>Please action this as required.</p>`,
   },
   {
     key: "it.programs",
     name: "IT software-access request",
     subject: "Software access for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
+    body: `<p>Hi,</p>
+
+<p>Please arrange software access for <strong>{preferredFirstName} {preferredLastName}</strong> ({title}), who is joining {department} at {location} on {startDate}. Their manager is {managerName}.</p>
+
+<p>The following programs have been requested:</p>
+
+{programs}
+
+<p>If you have any questions, please reach out to their manager directly.</p>`,
   },
   {
     key: "marketing.induction",
@@ -75,23 +126,17 @@ const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
     body: PLACEHOLDER_BODY,
   },
   {
-    key: "medical.manager",
-    name: "Pre-employment medical — manager",
-    subject:
-      "Pre-employment medical for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
-  },
-  {
-    key: "medical.employee",
-    name: "Pre-employment medical — employee follow-up",
-    subject: "Your pre-employment medical",
-    body: PLACEHOLDER_BODY,
-  },
-  {
     key: "licence.request",
     name: "Driver licence request",
     subject:
       "Driver licence copy for {preferredFirstName} {preferredLastName}",
+    body: PLACEHOLDER_BODY,
+  },
+  {
+    key: "manager.vehicle",
+    name: "Manager vehicle notification",
+    subject:
+      "Vehicle arrangements for {preferredFirstName} {preferredLastName}",
     body: PLACEHOLDER_BODY,
   },
   {

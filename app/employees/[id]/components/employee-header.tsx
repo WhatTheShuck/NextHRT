@@ -55,8 +55,14 @@ export function EmployeeHeader() {
             </Avatar>
             <div className="min-w-0">
               <h1 className="text-xl font-semibold sm:text-2xl">
-                {employee.legalFirstName} {employee.legalLastName}
+                {employee.preferredFirstName || employee.legalFirstName}{" "}
+                {employee.preferredLastName || employee.legalLastName}
               </h1>
+              {(employee.preferredFirstName || employee.preferredLastName) && (
+                <p className="text-xs text-muted-foreground">
+                  Legal: {employee.legalFirstName} {employee.legalLastName}
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground sm:gap-2">
                 <span className="truncate">{employee.title}</span>
                 <span>•</span>
