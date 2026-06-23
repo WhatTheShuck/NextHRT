@@ -124,6 +124,13 @@ export const landingPageNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "user:impersonate",
   },
   {
+    title: "Required Training",
+    description: "Record completions for training you personally deliver",
+    icon: GraduationCap,
+    href: "/required-training",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
     title: "Admin Logs",
     description: "View system log messages",
     icon: ScrollText,

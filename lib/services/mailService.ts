@@ -24,6 +24,7 @@ export interface MailParams {
 }
 
 const DEFAULT_FROM = process.env.MAIL_FROM ?? '"HRT" <HRT@ksb.com>';
+const DEFAULT_REPLY_TO = process.env.MAIL_REPLY_TO;
 
 function formatRecipients(to: MailParams["to"]): string {
   return Array.isArray(to) ? to.join(", ") : to;
@@ -54,7 +55,7 @@ class MailService {
         to: params.to,
         cc: params.cc,
         bcc: params.bcc,
-        replyTo: params.replyTo,
+        replyTo: params.replyTo ?? DEFAULT_REPLY_TO,
         subject: params.subject,
         text: params.text,
         html: params.html,

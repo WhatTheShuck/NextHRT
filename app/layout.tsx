@@ -11,6 +11,7 @@ import prisma from "@/lib/prisma";
 import { themeService } from "@/lib/services/themeService";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { ThemeScript } from "@/components/theme-script";
+import { Toaster } from "sonner";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -74,6 +75,7 @@ export default async function RootLayout({
           <ConditionalBreadcrumbs />
           {children}
           <Footer />
+          <Toaster richColors position="bottom-right" />
         </ThemeProvider>
       </body>
     </html>

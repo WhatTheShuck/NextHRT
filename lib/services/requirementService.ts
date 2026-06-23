@@ -669,6 +669,136 @@ export class RequirementService {
       uniqueEmployees: new Set(rows.map((r) => r.employeeId)).size,
     };
   }
+
+  async getDeliveredTrainingTracker(userId: string, userRole: string) {
+    const setting = await prisma.appSetting.findUnique({
+      where: { key: "internallyDeliveredTrainingIds" },
+    });
+    const curatedIds: number[] = setting?.value ? JSON.parse(setting.value) : [];
+
+    if (curatedIds.length === 0) {
+      return { courses: [], rows: [] };
+    }
+
+    const courses = await prisma.training.findMany({
+      where: { id: { in: curatedIds }, isActive: true },
+      select: { id: true, title: true },
+    });
+
+    if (courses.length === 0) {
+      return { courses: [], rows: [] };
+    }
+
+    const activeCuratedIds = courses.map((c) => c.id);
+    const accessibleIds = await this.getAccessibleEmployeeIds(userId, userRole);
+
+    const [
+      allEmployees,
+      allRequirements,
+      allTrainingRecords,
+      allExemptions,
+      allOnboardingRequests,
+    ] = await Promise.all([
+      prisma.employee.findMany({
+        where: {
+          isActive: true,
+          ...(accessibleIds !== null && { id: { in: accessibleIds } }),
+        },
+        select: {
+          id: true,
+          legalFirstName: true,
+          legalLastName: true,
+          departmentId: true,
+          locationId: true,
+        },
+      }),
+      prisma.trainingRequirement.findMany({
+        where: { trainingId: { in: activeCuratedIds } },
+      }),
+      prisma.trainingRecords.findMany({
+        where: { trainingId: { in: activeCuratedIds } },
+        select: { employeeId: true, trainingId: true },
+      }),
+      prisma.trainingTicketExemption.findMany({
+        where: { trainingId: { in: activeCuratedIds }, status: "Active" },
+        select: { employeeId: true, trainingId: true },
+      }),
+      prisma.onboardingRequest.findMany({
+        where: { status: "Approved", createdEmployeeId: { not: null } },
+        select: { createdEmployeeId: true },
+      }),
+    ]);
+
+    const completedMap = new Map<number, Set<number>>();
+    allTrainingRecords.forEach((r) => {
+      if (!completedMap.has(r.employeeId)) completedMap.set(r.employeeId, new Set());
+      completedMap.get(r.employeeId)!.add(r.trainingId);
+    });
+
+    const exemptionMap = new Map<number, Set<number>>();
+    allExemptions.forEach((e) => {
+      if (e.trainingId === null) return;
+      if (!exemptionMap.has(e.employeeId)) exemptionMap.set(e.employeeId, new Set());
+      exemptionMap.get(e.employeeId)!.add(e.trainingId);
+    });
+
+    const newStarterIds = new Set(
+      allOnboardingRequests
+        .map((r) => r.createdEmployeeId)
+        .filter((id): id is number => id !== null),
+    );
+
+    const rows: {
+      employee: { id: number; legalFirstName: string; legalLastName: string };
+      isNewStarter: boolean;
+      cells: { trainingId: number; status: "done" | "outstanding" | "na" }[];
+    }[] = [];
+
+    for (const employee of allEmployees) {
+      const cells = courses.map((course) => {
+        if (completedMap.get(employee.id)?.has(course.id)) {
+          return { trainingId: course.id, status: "done" as const };
+        }
+
+        const isRequired = allRequirements.some((req) => {
+          if (req.trainingId !== course.id) return false;
+          const deptMatch =
+            req.departmentId === -1 || req.departmentId === employee.departmentId;
+          const locMatch =
+            req.locationId === -1 || req.locationId === employee.locationId;
+          return deptMatch && locMatch;
+        });
+
+        if (!isRequired) return { trainingId: course.id, status: "na" as const };
+
+        const isExempt = exemptionMap.get(employee.id)?.has(course.id) ?? false;
+        if (isExempt) return { trainingId: course.id, status: "na" as const };
+
+        return { trainingId: course.id, status: "outstanding" as const };
+      });
+
+      if (!cells.some((c) => c.status === "outstanding")) continue;
+
+      rows.push({
+        employee: {
+          id: employee.id,
+          legalFirstName: employee.legalFirstName,
+          legalLastName: employee.legalLastName,
+        },
+        isNewStarter: newStarterIds.has(employee.id),
+        cells,
+      });
+    }
+
+    rows.sort((a, b) => {
+      if (a.isNewStarter !== b.isNewStarter) return a.isNewStarter ? -1 : 1;
+      const last = a.employee.legalLastName.localeCompare(b.employee.legalLastName);
+      if (last !== 0) return last;
+      return a.employee.legalFirstName.localeCompare(b.employee.legalFirstName);
+    });
+
+    return { courses, rows };
+  }
 }
 
 export const requirementService = new RequirementService();

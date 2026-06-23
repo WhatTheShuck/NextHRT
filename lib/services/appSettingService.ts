@@ -172,6 +172,12 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     description:
       "Comma-separated Job Family IDs that trigger Sales/Marketing prefills: marketing induction checked.",
   },
+  {
+    key: "internallyDeliveredTrainingIds",
+    defaultValue: "[]",
+    description:
+      "JSON array of Training IDs personally delivered by the admin. Used by the Training I Deliver tracker.",
+  },
 ];
 
 export class AppSettingService {
