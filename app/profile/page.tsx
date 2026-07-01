@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserProfileDetails from "./profile-details";
 import { AppearanceSettings } from "./appearance-settings";
+import { ExpiryNotificationSettings } from "./expiry-notification-settings";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { appSettingService } from "@/lib/services/appSettingService";
@@ -13,12 +14,17 @@ async function Profile() {
   if (session === null) return redirect("/auth");
 
   const [dbUser, settings] = await Promise.all([
-    prisma.user.findUnique({ where: { id: session.user.id }, select: { themeId: true } }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { themeId: true, receivesExpiryNotifications: true },
+    }),
     appSettingService.getSettings(),
   ]);
 
   const locked = settings["theme.lock"] === "true";
   const currentThemeId = dbUser?.themeId ?? null;
+  const isAdmin = session.user.role === "Admin";
+  const receivesExpiryNotifications = dbUser?.receivesExpiryNotifications ?? true;
 
   return (
     <div className="flex items-center justify-center min-h-[90vh] p-4">
@@ -56,6 +62,17 @@ async function Profile() {
             <AppearanceSettings currentThemeId={currentThemeId} locked={locked} />
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card className="shadow-lg">
+            <CardContent className="p-5 md:p-8">
+              <h2 className="text-lg font-semibold mb-6">Notifications</h2>
+              <ExpiryNotificationSettings
+                initialValue={receivesExpiryNotifications}
+              />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

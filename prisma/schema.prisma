@@ -315,6 +315,7 @@ model TicketRecords {
   ticketId      Int
   licenseNumber String? // Optional unique number for the actual license instance
   expiryDate    DateTime?
+  expiryNotificationStage String? // null | "WarnSent" | "ExpiredSent" — idempotency anchor for the TICKET_EXPIRY job (spec §5.5). NOT compliance state.
   images        TicketImage[]
 
   @@index([employeeId])
@@ -394,6 +395,7 @@ model User {
   emailVerified                Boolean?
   image                        String?
   role                         UserRole?     @default(User)
+  receivesExpiryNotifications  Boolean       @default(true) // opt-out: admins receive ticket-expiry emails unless they turn this off (spec §5.6)
   banned                       Boolean?      // better-auth admin plugin
   banReason                    String?       // better-auth admin plugin
   banExpires                   DateTime?     // better-auth admin plugin
