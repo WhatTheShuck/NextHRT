@@ -2,6 +2,8 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { UserRole } from "@/generated/prisma_client/client";
+import { isTicketRecordValid } from "@/lib/services/ticketCompliance";
+import { isTrainingSatisfied, type TrainingLite } from "@/lib/services/trainingCompliance";
 
 export class RequirementService {
   /**
@@ -115,10 +117,40 @@ export class RequirementService {
       }),
     ]);
 
+    const now = new Date();
+
+    // Group training records by trainingId for revision-aware compliance check
+    const recordsByTraining = new Map<number, { revisionId: number | null }[]>();
+    for (const r of trainingRecords) {
+      const list = recordsByTraining.get(r.trainingId) ?? [];
+      list.push(r);
+      recordsByTraining.set(r.trainingId, list);
+    }
+    // Fetch revision data for all training types that have records
+    const trainingIdsWithRecords = [...recordsByTraining.keys()];
+    const trainingsWithRevisions = trainingIdsWithRecords.length > 0
+      ? await prisma.training.findMany({
+          where: { id: { in: trainingIdsWithRecords } },
+          select: {
+            id: true,
+            requiresRetrainingOnRevision: true,
+            revisions: { select: { id: true, effectiveDate: true, createdAt: true, overrideRequiresRetraining: true } },
+          },
+        })
+      : [];
+    const trainingMap = new Map<number, TrainingLite>(trainingsWithRevisions.map((t) => [t.id, t]));
     const completedTrainingIds = new Set(
-      trainingRecords.map((r) => r.trainingId),
+      [...recordsByTraining.entries()]
+        .filter(([trainingId, recs]) => {
+          const t = trainingMap.get(trainingId);
+          return t ? isTrainingSatisfied(recs, t, now) : recs.length > 0;
+        })
+        .map(([trainingId]) => trainingId),
     );
-    const completedTicketIds = new Set(ticketRecords.map((r) => r.ticketId));
+
+    const completedTicketIds = new Set(
+      ticketRecords.filter((r) => isTicketRecordValid(r, now)).map((r) => r.ticketId),
+    );
     const exemptedTrainingIds = new Set(
       exemptions
         .filter((e) => e.type === "Training" && e.trainingId != null)
@@ -221,8 +253,26 @@ export class RequirementService {
       },
     });
 
+    const now = new Date();
+    const ruleTrainings = await prisma.training.findMany({
+      where: { id: { in: [trainingId] } },
+      select: {
+        id: true,
+        requiresRetrainingOnRevision: true,
+        revisions: { select: { id: true, effectiveDate: true, createdAt: true, overrideRequiresRetraining: true } },
+      },
+    });
+    const ruleTraining = ruleTrainings[0] as TrainingLite | undefined;
+    const recordsByEmployee = new Map<number, { revisionId: number | null }[]>();
+    for (const r of trainingRecords) {
+      const list = recordsByEmployee.get(r.employeeId) ?? [];
+      list.push(r);
+      recordsByEmployee.set(r.employeeId, list);
+    }
     const completedEmployeeIds = new Set(
-      trainingRecords.map((record) => record.employeeId),
+      [...recordsByEmployee.entries()]
+        .filter(([, recs]) => (ruleTraining ? isTrainingSatisfied(recs, ruleTraining, now) : recs.length > 0))
+        .map(([employeeId]) => employeeId),
     );
 
     const exemptEmployeeIds = new Set(
@@ -322,8 +372,11 @@ export class RequirementService {
       },
     });
 
+    const now = new Date();
     const completedEmployeeIds = new Set(
-      ticketRecords.map((record) => record.employeeId),
+      ticketRecords
+        .filter((record) => isTicketRecordValid(record, now))
+        .map((record) => record.employeeId),
     );
 
     const exemptEmployeeIds = new Set(
@@ -483,13 +536,35 @@ export class RequirementService {
       ],
     );
 
-    const completedMap = new Map<number, Set<number>>();
-    allTrainingRecords.forEach((record) => {
-      if (!completedMap.has(record.employeeId)) {
-        completedMap.set(record.employeeId, new Set());
-      }
-      completedMap.get(record.employeeId)!.add(record.trainingId);
+    const now = new Date();
+    const ruleTrainings = await prisma.training.findMany({
+      where: { id: { in: trainingIds } },
+      select: {
+        id: true,
+        requiresRetrainingOnRevision: true,
+        revisions: { select: { id: true, effectiveDate: true, createdAt: true, overrideRequiresRetraining: true } },
+      },
     });
+    const ruleMap = new Map<number, TrainingLite>(ruleTrainings.map((t) => [t.id, t]));
+
+    // Group records by (employee, training) pair for revision-aware compliance check
+    const recsByPair = new Map<string, { revisionId: number | null }[]>();
+    for (const r of allTrainingRecords) {
+      const key = `${r.employeeId}:${r.trainingId}`;
+      const list = recsByPair.get(key) ?? [];
+      list.push(r);
+      recsByPair.set(key, list);
+    }
+    const completedMap = new Map<number, Set<number>>();
+    for (const [key, recs] of recsByPair) {
+      const [empIdStr, trainingIdStr] = key.split(":");
+      const empId = Number(empIdStr);
+      const tId = Number(trainingIdStr);
+      const t = ruleMap.get(tId);
+      if (!(t ? isTrainingSatisfied(recs, t, now) : recs.length > 0)) continue;
+      if (!completedMap.has(empId)) completedMap.set(empId, new Set());
+      completedMap.get(empId)!.add(tId);
+    }
 
     const exemptionMap = new Map<number, Set<number>>();
     allExemptions.forEach((exemption) => {
@@ -508,8 +583,8 @@ export class RequirementService {
 
     const rows: {
       employeeId: number;
-      firstName: string;
-      lastName: string;
+      legalFirstName: string;
+      legalLastName: string;
       department: (typeof allEmployees)[0]["department"];
       location: (typeof allEmployees)[0]["location"];
       trainingName: string | undefined;
@@ -543,8 +618,8 @@ export class RequirementService {
         const requirement = requirementByTrainingId.get(trainingId);
         rows.push({
           employeeId: employee.id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
+          legalFirstName: employee.legalFirstName,
+          legalLastName: employee.legalLastName,
           department: employee.department,
           location: employee.location,
           trainingName: requirement?.training.title,
@@ -594,8 +669,10 @@ export class RequirementService {
       }),
     ]);
 
+    const now = new Date();
     const completedMap = new Map<number, Set<number>>();
     allTicketRecords.forEach((record) => {
+      if (!isTicketRecordValid(record, now)) return; // expired records don't satisfy (spec §5.2)
       if (!completedMap.has(record.employeeId)) {
         completedMap.set(record.employeeId, new Set());
       }
@@ -619,8 +696,8 @@ export class RequirementService {
 
     const rows: {
       employeeId: number;
-      firstName: string;
-      lastName: string;
+      legalFirstName: string;
+      legalLastName: string;
       department: (typeof allEmployees)[0]["department"];
       location: (typeof allEmployees)[0]["location"];
       ticketName: string | undefined;
@@ -654,8 +731,8 @@ export class RequirementService {
         const requirement = requirementByTicketId.get(ticketId);
         rows.push({
           employeeId: employee.id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
+          legalFirstName: employee.legalFirstName,
+          legalLastName: employee.legalLastName,
           department: employee.department,
           location: employee.location,
           ticketName: requirement?.ticket.ticketName,
@@ -668,6 +745,159 @@ export class RequirementService {
       totalRows: rows.length,
       uniqueEmployees: new Set(rows.map((r) => r.employeeId)).size,
     };
+  }
+
+  async getDeliveredTrainingTracker(userId: string, userRole: string) {
+    const setting = await prisma.appSetting.findUnique({
+      where: { key: "internallyDeliveredTrainingIds" },
+    });
+    const curatedIds: number[] = setting?.value ? JSON.parse(setting.value) : [];
+
+    if (curatedIds.length === 0) {
+      return { courses: [], rows: [] };
+    }
+
+    const courses = await prisma.training.findMany({
+      where: { id: { in: curatedIds }, isActive: true },
+      select: { id: true, title: true },
+    });
+
+    if (courses.length === 0) {
+      return { courses: [], rows: [] };
+    }
+
+    const activeCuratedIds = courses.map((c) => c.id);
+    const accessibleIds = await this.getAccessibleEmployeeIds(userId, userRole);
+
+    const [
+      allEmployees,
+      allRequirements,
+      allTrainingRecords,
+      allExemptions,
+      allOnboardingRequests,
+    ] = await Promise.all([
+      prisma.employee.findMany({
+        where: {
+          isActive: true,
+          ...(accessibleIds !== null && { id: { in: accessibleIds } }),
+        },
+        select: {
+          id: true,
+          legalFirstName: true,
+          legalLastName: true,
+          departmentId: true,
+          locationId: true,
+        },
+      }),
+      prisma.trainingRequirement.findMany({
+        where: { trainingId: { in: activeCuratedIds } },
+      }),
+      prisma.trainingRecords.findMany({
+        where: { trainingId: { in: activeCuratedIds } },
+        select: { employeeId: true, trainingId: true, revisionId: true },
+      }),
+      prisma.trainingTicketExemption.findMany({
+        where: { trainingId: { in: activeCuratedIds }, status: "Active" },
+        select: { employeeId: true, trainingId: true },
+      }),
+      prisma.onboardingRequest.findMany({
+        where: { status: "Approved", createdEmployeeId: { not: null } },
+        select: { createdEmployeeId: true },
+      }),
+    ]);
+
+    const now = new Date();
+    const ruleTrainings = await prisma.training.findMany({
+      where: { id: { in: activeCuratedIds } },
+      select: {
+        id: true,
+        requiresRetrainingOnRevision: true,
+        revisions: { select: { id: true, effectiveDate: true, createdAt: true, overrideRequiresRetraining: true } },
+      },
+    });
+    const ruleMap = new Map<number, TrainingLite>(ruleTrainings.map((t) => [t.id, t]));
+
+    const recsByPair = new Map<string, { revisionId: number | null }[]>();
+    for (const r of allTrainingRecords) {
+      const key = `${r.employeeId}:${r.trainingId}`;
+      const list = recsByPair.get(key) ?? [];
+      list.push(r);
+      recsByPair.set(key, list);
+    }
+    const completedMap = new Map<number, Set<number>>();
+    for (const [key, recs] of recsByPair) {
+      const [empIdStr, trainingIdStr] = key.split(":");
+      const empId = Number(empIdStr);
+      const tId = Number(trainingIdStr);
+      const t = ruleMap.get(tId);
+      if (!(t ? isTrainingSatisfied(recs, t, now) : recs.length > 0)) continue;
+      if (!completedMap.has(empId)) completedMap.set(empId, new Set());
+      completedMap.get(empId)!.add(tId);
+    }
+
+    const exemptionMap = new Map<number, Set<number>>();
+    allExemptions.forEach((e) => {
+      if (e.trainingId === null) return;
+      if (!exemptionMap.has(e.employeeId)) exemptionMap.set(e.employeeId, new Set());
+      exemptionMap.get(e.employeeId)!.add(e.trainingId);
+    });
+
+    const newStarterIds = new Set(
+      allOnboardingRequests
+        .map((r) => r.createdEmployeeId)
+        .filter((id): id is number => id !== null),
+    );
+
+    const rows: {
+      employee: { id: number; legalFirstName: string; legalLastName: string };
+      isNewStarter: boolean;
+      cells: { trainingId: number; status: "done" | "outstanding" | "na" }[];
+    }[] = [];
+
+    for (const employee of allEmployees) {
+      const cells = courses.map((course) => {
+        if (completedMap.get(employee.id)?.has(course.id)) {
+          return { trainingId: course.id, status: "done" as const };
+        }
+
+        const isRequired = allRequirements.some((req) => {
+          if (req.trainingId !== course.id) return false;
+          const deptMatch =
+            req.departmentId === -1 || req.departmentId === employee.departmentId;
+          const locMatch =
+            req.locationId === -1 || req.locationId === employee.locationId;
+          return deptMatch && locMatch;
+        });
+
+        if (!isRequired) return { trainingId: course.id, status: "na" as const };
+
+        const isExempt = exemptionMap.get(employee.id)?.has(course.id) ?? false;
+        if (isExempt) return { trainingId: course.id, status: "na" as const };
+
+        return { trainingId: course.id, status: "outstanding" as const };
+      });
+
+      if (!cells.some((c) => c.status === "outstanding")) continue;
+
+      rows.push({
+        employee: {
+          id: employee.id,
+          legalFirstName: employee.legalFirstName,
+          legalLastName: employee.legalLastName,
+        },
+        isNewStarter: newStarterIds.has(employee.id),
+        cells,
+      });
+    }
+
+    rows.sort((a, b) => {
+      if (a.isNewStarter !== b.isNewStarter) return a.isNewStarter ? -1 : 1;
+      const last = a.employee.legalLastName.localeCompare(b.employee.legalLastName);
+      if (last !== 0) return last;
+      return a.employee.legalFirstName.localeCompare(b.employee.legalFirstName);
+    });
+
+    return { courses, rows };
   }
 }
 

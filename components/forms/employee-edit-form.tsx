@@ -20,6 +20,7 @@ import api from "@/lib/axios";
 import {
   Department,
   EmployeeStatus,
+  JobFamily,
   Location,
 } from "@/generated/prisma_client/client";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,8 +37,10 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
 
   // Form state
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [legalFirstName, setLegalFirstName] = useState("");
+  const [legalLastName, setLegalLastName] = useState("");
+  const [preferredFirstName, setPreferredFirstName] = useState("");
+  const [preferredLastName, setPreferredLastName] = useState("");
   const [title, setTitle] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [locationId, setLocationId] = useState("");
@@ -47,17 +50,21 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const [usi, setUsi] = useState("");
   const [status, setStatus] = useState<EmployeeStatus>("Permanent");
   const [isActive, setIsActive] = useState(true);
+  const [jobFamilyId, setJobFamilyId] = useState("");
 
   // Options data
   const [departments, setDepartments] = useState<Department[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [jobFamilies, setJobFamilies] = useState<JobFamily[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
 
   // Initialize form with employee data
   useEffect(() => {
     if (employee) {
-      setFirstName(employee.firstName || "");
-      setLastName(employee.lastName || "");
+      setLegalFirstName(employee.legalFirstName || "");
+      setLegalLastName(employee.legalLastName || "");
+      setPreferredFirstName(employee.preferredFirstName || "");
+      setPreferredLastName(employee.preferredLastName || "");
       setTitle(employee.title || "");
       setDepartmentId(employee.departmentId?.toString() || "");
       setLocationId(employee.locationId?.toString() || "");
@@ -67,6 +74,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       setIsActive(employee.isActive ?? true);
       setStartDate(employee.startDate || new Date());
       setFinishDate(employee.finishDate || null);
+      setJobFamilyId((employee as any).jobFamilyId?.toString() || "");
     }
   }, [employee]);
 
@@ -75,13 +83,15 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
     const fetchOptions = async () => {
       try {
         setIsLoadingOptions(true);
-        const [deptResponse, locResponse] = await Promise.all([
+        const [deptResponse, locResponse, jobFamiliesRes] = await Promise.all([
           api.get<Department[]>("/api/departments?activeOnly=true"),
           api.get<Location[]>("/api/locations?isActive=true"),
+          api.get<JobFamily[]>("/api/job-families?activeOnly=true"),
         ]);
 
         setDepartments(deptResponse.data);
         setLocations(locResponse.data);
+        setJobFamilies(jobFamiliesRes.data);
       } catch (error) {
         console.error("Error fetching options:", error);
       } finally {
@@ -99,8 +109,11 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
     setIsLoading(true);
 
     const updateData = {
-      firstName,
-      lastName,
+      legalFirstName,
+      legalLastName,
+      // Fall back to legal names when preferred is left blank
+      preferredFirstName: preferredFirstName || legalFirstName,
+      preferredLastName: preferredLastName || legalLastName,
       title,
       departmentId: departmentId ? parseInt(departmentId) : null,
       locationId: locationId ? parseInt(locationId) : null,
@@ -110,6 +123,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       status,
       usi,
       isActive,
+      jobFamilyId: jobFamilyId ? parseInt(jobFamilyId) : null,
     };
 
     try {
@@ -138,23 +152,46 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6 pt-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="firstName">First Name</Label>
+          <Label htmlFor="legalFirstName">Legal First Name</Label>
           <Input
-            id="firstName"
-            name="firstName"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            id="legalFirstName"
+            name="legalFirstName"
+            value={legalFirstName}
+            onChange={(e) => setLegalFirstName(e.target.value)}
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="lastName">Last Name</Label>
+          <Label htmlFor="legalLastName">Legal Last Name</Label>
           <Input
-            id="lastName"
-            name="lastName"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            id="legalLastName"
+            name="legalLastName"
+            value={legalLastName}
+            onChange={(e) => setLegalLastName(e.target.value)}
             required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="preferredFirstName">Preferred First Name</Label>
+          <Input
+            id="preferredFirstName"
+            name="preferredFirstName"
+            value={preferredFirstName}
+            onChange={(e) => setPreferredFirstName(e.target.value)}
+            placeholder="Defaults to legal first name"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="preferredLastName">Preferred Last Name</Label>
+          <Input
+            id="preferredLastName"
+            name="preferredLastName"
+            value={preferredLastName}
+            onChange={(e) => setPreferredLastName(e.target.value)}
+            placeholder="Defaults to legal last name"
           />
         </div>
       </div>
@@ -254,6 +291,24 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
           </SelectContent>
         </Select>
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="jobFamily">Job Family</Label>
+        <Select value={jobFamilyId} onValueChange={(v) => setJobFamilyId(v === "none" ? "" : v)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select job family (optional)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">— None —</SelectItem>
+            {jobFamilies.map((jf) => (
+              <SelectItem key={jf.id} value={jf.id.toString()}>
+                {jf.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="startDate">Start Date</Label>

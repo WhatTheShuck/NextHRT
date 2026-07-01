@@ -50,7 +50,29 @@ export function CompletedTicketPage() {
   const [includeInactiveEmployees, setIncludeInactiveEmployees] =
     useState(false);
   const [includeLegacyTicket, setIncludeLegacyTicket] = useState(false);
+  const [includeExpiredTickets, setIncludeExpiredTickets] = useState(false);
   const [fetchingTickets, setFetchingTickets] = useState(false);
+
+  // Apply location and expiry filters to a set of records. Expired tickets are
+  // hidden unless explicitly requested; tickets with no expiry always show.
+  const visibleRecords = (
+    records: TicketRecordsWithRelations[],
+    location: string | null,
+    includeExpired: boolean,
+  ) =>
+    records.filter((rec) => {
+      if (location !== null && rec.ticketHolder?.location.name !== location) {
+        return false;
+      }
+      if (
+        !includeExpired &&
+        rec.expiryDate &&
+        new Date(rec.expiryDate) < new Date()
+      ) {
+        return false;
+      }
+      return true;
+    });
 
   // Fetch tickets based on legacy toggle
   const fetchTickets = async (includeLegacy: boolean = false) => {
@@ -81,7 +103,10 @@ export function CompletedTicketPage() {
       const records = data.ticketRecords || [];
       setTicketRecords(records);
       setSelectedTicketId(ticketID);
-      setFilteredTicketRecords(records);
+      setSelectedLocation(null);
+      setFilteredTicketRecords(
+        visibleRecords(records, null, includeExpiredTickets),
+      );
       // Extract unique locations
       const uniqueLocations = Array.from(
         new Set(
@@ -135,16 +160,17 @@ export function CompletedTicketPage() {
   // Filter records by location
   const filterByLocation = (location: string | null) => {
     setSelectedLocation(location);
+    setFilteredTicketRecords(
+      visibleRecords(ticketRecords, location, includeExpiredTickets),
+    );
+  };
 
-    if (location === null) {
-      setFilteredTicketRecords(ticketRecords);
-    } else {
-      setFilteredTicketRecords(
-        ticketRecords.filter(
-          (rec) => rec.ticketHolder?.location.name === location,
-        ),
-      );
-    }
+  // Handle expired ticket toggle
+  const handleExpiredToggle = (checked: boolean) => {
+    setIncludeExpiredTickets(checked);
+    setFilteredTicketRecords(
+      visibleRecords(ticketRecords, selectedLocation, checked),
+    );
   };
 
   // Initial effect to fetch tickets after component mounts (session ready)
@@ -181,6 +207,18 @@ export function CompletedTicketPage() {
             >
               <Users className="h-4 w-4" />
               Include inactive employees
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="expired-ticket"
+              checked={includeExpiredTickets}
+              onCheckedChange={handleExpiredToggle}
+            />
+            <Label htmlFor="expired-ticket" className="flex items-center gap-2">
+              <Archive className="h-4 w-4" />
+              Include expired tickets
             </Label>
           </div>
         </div>

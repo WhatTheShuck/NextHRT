@@ -83,8 +83,8 @@ export class DepartmentService {
         employees: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            legalFirstName: true,
+            legalLastName: true,
             title: true,
             location: {
               select: {
@@ -265,8 +265,8 @@ export class DepartmentService {
         employee: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            legalFirstName: true,
+            legalLastName: true,
           },
         },
       },

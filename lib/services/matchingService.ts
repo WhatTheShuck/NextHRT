@@ -4,8 +4,8 @@ import { appSettingService } from "./appSettingService";
 export interface UserMatchCandidate {
   employee: {
     id: number;
-    firstName: string;
-    lastName: string;
+    legalFirstName: string;
+    legalLastName: string;
     title: string;
     department: string;
     location: string;
@@ -98,11 +98,35 @@ function getTokenOrder(
 
 interface Employee {
   id: number;
-  firstName: string;
-  lastName: string;
+  legalFirstName: string;
+  legalLastName: string;
+  preferredFirstName?: string | null;
+  preferredLastName?: string | null;
   title: string;
   department: { name: string };
   location: { name: string };
+}
+
+// An employee may be known by their legal name and (optionally) a different
+// preferred name. Matching should consider both so a user is found by either.
+function nameVariants(
+  employee: Employee,
+): { first: string; last: string }[] {
+  const variants = [
+    { first: employee.legalFirstName, last: employee.legalLastName },
+  ];
+  if (
+    employee.preferredFirstName &&
+    employee.preferredLastName &&
+    (employee.preferredFirstName !== employee.legalFirstName ||
+      employee.preferredLastName !== employee.legalLastName)
+  ) {
+    variants.push({
+      first: employee.preferredFirstName,
+      last: employee.preferredLastName,
+    });
+  }
+  return variants;
 }
 
 function scoreEmail(
@@ -126,15 +150,15 @@ function scoreEmail(
 
   const capturedFirst = match[order.firstIndex]?.toLowerCase();
   const capturedLast = match[order.lastIndex]?.toLowerCase();
-  const empFirst = employee.firstName.toLowerCase();
-  const empLast = employee.lastName.toLowerCase();
 
-  const firstMatches = capturedFirst === empFirst;
-  const lastMatches = capturedLast === empLast;
-
-  if (firstMatches && lastMatches) return { score: 100 };
-  if (firstMatches || lastMatches) return { score: 50 };
-  return { score: 0 };
+  let best = 0;
+  for (const { first, last } of nameVariants(employee)) {
+    const firstMatches = capturedFirst === first.toLowerCase();
+    const lastMatches = capturedLast === last.toLowerCase();
+    if (firstMatches && lastMatches) return { score: 100 };
+    if (firstMatches || lastMatches) best = Math.max(best, 50);
+  }
+  return { score: best };
 }
 
 // Strip punctuation and collapse whitespace for exact name comparison.
@@ -153,18 +177,14 @@ function scoreNameExact(
 ): { score: number } {
   if (!userName) return { score: 0 };
   const normalizedUser = normalizeName(userName);
-  const forwardName = normalizeName(
-    `${employee.firstName} ${employee.lastName}`,
-  );
-  const reversedName = normalizeName(
-    `${employee.lastName} ${employee.firstName}`,
-  );
-  return {
-    score:
-      normalizedUser === forwardName || normalizedUser === reversedName
-        ? 100
-        : 0,
-  };
+  for (const { first, last } of nameVariants(employee)) {
+    const forwardName = normalizeName(`${first} ${last}`);
+    const reversedName = normalizeName(`${last} ${first}`);
+    if (normalizedUser === forwardName || normalizedUser === reversedName) {
+      return { score: 100 };
+    }
+  }
+  return { score: 0 };
 }
 
 function scoreNameFuzzy(
@@ -174,12 +194,16 @@ function scoreNameFuzzy(
 ): { score: number; similarity: number } {
   if (!userName) return { score: 0, similarity: 0 };
   const normalizedUser = normalizeName(userName);
-  const forwardName = normalizeName(`${employee.firstName} ${employee.lastName}`);
-  const reversedName = normalizeName(`${employee.lastName} ${employee.firstName}`);
-  const similarity = Math.max(
-    levenshteinSimilarity(normalizedUser, forwardName),
-    levenshteinSimilarity(normalizedUser, reversedName),
-  );
+  let similarity = 0;
+  for (const { first, last } of nameVariants(employee)) {
+    const forwardName = normalizeName(`${first} ${last}`);
+    const reversedName = normalizeName(`${last} ${first}`);
+    similarity = Math.max(
+      similarity,
+      levenshteinSimilarity(normalizedUser, forwardName),
+      levenshteinSimilarity(normalizedUser, reversedName),
+    );
+  }
   if (similarity >= threshold) {
     return { score: similarity * 100, similarity };
   }
@@ -225,8 +249,10 @@ export class MatchingService {
       },
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
+        legalFirstName: true,
+        legalLastName: true,
+        preferredFirstName: true,
+        preferredLastName: true,
         title: true,
         department: { select: { name: true } },
         location: { select: { name: true } },
@@ -267,8 +293,8 @@ export class MatchingService {
           candidates.push({
             employee: {
               id: emp.id,
-              firstName: emp.firstName,
-              lastName: emp.lastName,
+              legalFirstName: emp.legalFirstName,
+              legalLastName: emp.legalLastName,
               title: emp.title,
               department: emp.department.name,
               location: emp.location.name,
@@ -315,8 +341,10 @@ export class MatchingService {
       where: { id: employeeId },
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
+        legalFirstName: true,
+        legalLastName: true,
+        preferredFirstName: true,
+        preferredLastName: true,
         title: true,
         department: { select: { name: true } },
         location: { select: { name: true } },

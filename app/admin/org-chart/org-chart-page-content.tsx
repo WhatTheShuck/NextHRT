@@ -40,8 +40,10 @@ import {
 
 interface OrgEmployee {
   id: number;
-  firstName: string;
-  lastName: string;
+  legalFirstName: string;
+  legalLastName: string;
+  preferredFirstName: string | null;
+  preferredLastName: string | null;
   title: string;
   status: string;
   isActive: boolean;
@@ -151,7 +153,7 @@ function deptMatchesSearch(dept: OrgDepartment, q: string): boolean {
   if (dept.name.toLowerCase().includes(lower)) return true;
   if (dept.managers.some((m) => m.name?.toLowerCase().includes(lower) || m.email?.toLowerCase().includes(lower))) return true;
   if (dept.employees.some((e) =>
-    `${e.firstName} ${e.lastName}`.toLowerCase().includes(lower) ||
+    `${e.legalFirstName} ${e.legalLastName} ${e.preferredFirstName ?? ""} ${e.preferredLastName ?? ""}`.toLowerCase().includes(lower) ||
     e.title.toLowerCase().includes(lower) ||
     e.User?.name?.toLowerCase().includes(lower) ||
     e.User?.email?.toLowerCase().includes(lower)
@@ -186,7 +188,7 @@ function EmployeeRow({ emp, currentDeptId }: { emp: OrgEmployee; currentDeptId: 
           </Tooltip>
         </TooltipProvider>
         <div className="min-w-0">
-          <span className="font-medium text-sm">{emp.firstName} {emp.lastName}</span>
+          <span className="font-medium text-sm">{emp.legalFirstName} {emp.legalLastName}</span>
           <span className="text-xs text-muted-foreground ml-1.5">{emp.title}</span>
         </div>
       </div>
@@ -222,7 +224,7 @@ function EmployeeRow({ emp, currentDeptId }: { emp: OrgEmployee; currentDeptId: 
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         employeeId={emp.id}
-        employeeName={`${emp.firstName} ${emp.lastName}`}
+        employeeName={`${emp.legalFirstName} ${emp.legalLastName}`}
         currentDeptId={currentDeptId}
         departments={allDepartments}
         onMoved={onRefresh}

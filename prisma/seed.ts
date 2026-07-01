@@ -426,10 +426,14 @@ async function main() {
       const startDate = faker.date.past({ years: 8 });
       const isActive = faker.datatype.boolean({ probability: 0.92 });
 
+      const seedFirstName = faker.person.firstName();
+      const seedLastName = faker.person.lastName();
       const employee = await prisma.employee.create({
         data: {
-          firstName: faker.person.firstName(),
-          lastName: faker.person.lastName(),
+          legalFirstName: seedFirstName,
+          legalLastName: seedLastName,
+          preferredFirstName: seedFirstName,
+          preferredLastName: seedLastName,
           title: faker.helpers.arrayElement(titleOptions),
           departmentId: dept.id,
           locationId: faker.helpers.arrayElement(locations).id,
@@ -710,8 +714,8 @@ async function main() {
   const lastEmployee = employees[employees.length - 1];
   await prisma.user.create({
     data: {
-      name: `${lastEmployee.firstName} ${lastEmployee.lastName}`,
-      email: `${lastEmployee.firstName.toLowerCase()}.${lastEmployee.lastName.toLowerCase()}@demo.example.com`,
+      name: `${lastEmployee.legalFirstName} ${lastEmployee.legalLastName}`,
+      email: `${lastEmployee.legalFirstName.toLowerCase()}.${lastEmployee.legalLastName.toLowerCase()}@demo.example.com`,
       emailVerified: false,
       role: UserRole.User,
       employeeId: lastEmployee.id,

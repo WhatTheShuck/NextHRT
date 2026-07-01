@@ -14,6 +14,13 @@ export const FILE_UPLOAD_CONFIG = {
   // File type display names for user messages
   ALLOWED_TYPES_DISPLAY:
     process.env.ALLOWED_TYPES_DISPLAY || "JPEG, PNG, WebP, PDF",
+
+  // Max total size of a single outbound email, including all attachments
+  // (default 25MB). Most mail servers (Gmail, O365) reject messages larger
+  // than this once MIME-encoded, so we validate the *encoded* size.
+  MAX_EMAIL_SIZE: parseInt(process.env.MAX_EMAIL_SIZE || "26214400"), // 25 * 1024 * 1024
+
+  MAX_EMAIL_SIZE_DISPLAY: process.env.MAX_EMAIL_SIZE_DISPLAY || "25MB",
 } as const;
 
 // Helper function to validate file
@@ -35,3 +42,10 @@ export const formatFileSize = (bytes: number): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 };
+
+// Estimate the on-the-wire size of attachments once MIME-encoded. Attachments
+// are base64-encoded for transport, which inflates raw bytes by ~4/3. This is
+// what counts against a mail server's message-size limit, so size validation
+// compares this estimate (plus a small body allowance) against MAX_EMAIL_SIZE.
+export const estimateEncodedSize = (rawBytes: number): number =>
+  Math.ceil(rawBytes / 3) * 4;

@@ -83,8 +83,12 @@ const EmployeeDirectory = () => {
     // First filter by search term
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
-      employee.firstName.toLowerCase().includes(searchLower) ||
-      employee.lastName.toLowerCase().includes(searchLower) ||
+      employee.legalFirstName.toLowerCase().includes(searchLower) ||
+      employee.legalLastName.toLowerCase().includes(searchLower) ||
+      (employee.preferredFirstName?.toLowerCase().includes(searchLower) ??
+        false) ||
+      (employee.preferredLastName?.toLowerCase().includes(searchLower) ??
+        false) ||
       employee.title.toLowerCase().includes(searchLower) ||
       employee.department.name.toLowerCase().includes(searchLower) ||
       employee.location.name.toLowerCase().includes(searchLower);
@@ -208,7 +212,7 @@ const EmployeeDirectory = () => {
                     onClick={() => handleRowClick(employee.id)}
                   >
                     <TableCell>
-                      {employee.firstName} {employee.lastName}
+                      {employee.legalFirstName} {employee.legalLastName}
                     </TableCell>
                     <TableCell>{employee.title}</TableCell>
                     <TableCell>{employee.department.name}</TableCell>

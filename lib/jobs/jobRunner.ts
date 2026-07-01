@@ -54,24 +54,53 @@ async function tick(): Promise<void> {
       },
     });
   } catch (err) {
-    await prisma.backgroundJob.update({
-      where: { id: job.id },
-      data: {
-        status: "Failed",
-        errorMessage: err instanceof Error ? err.message : String(err),
-        completedAt: new Date(),
-      },
-    });
+    const attempts = job.attempts + 1;
+    const errorMessage = err instanceof Error ? err.message : String(err);
+
+    if (attempts <= maxRetries) {
+      // Re-queue with exponential backoff: base * 2^(attempts-1).
+      const delay = retryBackoffMs * Math.pow(2, attempts - 1);
+      await prisma.backgroundJob.update({
+        where: { id: job.id },
+        data: {
+          status: "Pending",
+          attempts,
+          errorMessage,
+          scheduledAt: new Date(Date.now() + delay),
+          startedAt: null,
+        },
+      });
+      console.warn(
+        `[JobRunner] Job ${job.id} (${job.type}) failed, retry ${attempts}/${maxRetries} in ${delay}ms: ${errorMessage}`,
+      );
+    } else {
+      await prisma.backgroundJob.update({
+        where: { id: job.id },
+        data: {
+          status: "Failed",
+          attempts,
+          errorMessage,
+          completedAt: new Date(),
+        },
+      });
+      console.error(
+        `[JobRunner] Job ${job.id} (${job.type}) failed permanently after ${attempts} attempts: ${errorMessage}`,
+      );
+    }
   }
 }
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
+let maxRetries = 3;
+let retryBackoffMs = 30000;
 
 export async function startRunner(): Promise<void> {
   if (intervalHandle) return; // already running
 
   const settings = await appSettingService.getSettings();
   const intervalMs = parseInt(settings["jobs.pollIntervalMs"] ?? "5000", 10);
+  maxRetries = parseInt(settings["jobs.maxRetries"] ?? "3", 10);
+  retryBackoffMs = parseInt(settings["jobs.retryBackoffMs"] ?? "30000", 10);
 
   intervalHandle = setInterval(() => {
     tick().catch((err) =>

@@ -12,6 +12,7 @@ import {
   IdCard,
   ShieldOff,
   Link,
+  ClipboardCheck,
 } from "lucide-react";
 import { useEmployee } from "./employee-context";
 import { useSession } from "@/lib/auth-client";
@@ -24,6 +25,7 @@ import { TicketTab } from "./tabs/tickets-tab";
 import { HistoryTab } from "./tabs/history-tab";
 import { ExemptionTab } from "./tabs/exemptions-tab";
 import { UserLinkTab } from "./tabs/user-link-tab";
+import { OnboardingTab } from "./tabs/onboarding-tab";
 
 const VALID_TABS = [
   "overview",
@@ -34,6 +36,7 @@ const VALID_TABS = [
   "history",
   "external",
   "user-link",
+  "onboarding",
 ] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
@@ -161,6 +164,15 @@ export function EmployeeTabs() {
             User Link
           </TabsTrigger>
         )}
+        {isAdmin && (
+          <TabsTrigger
+            value="onboarding"
+            className="w-full sm:w-auto justify-start"
+          >
+            <ClipboardCheck className="h-4 w-4 mr-2" />
+            Onboarding
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="overview">
@@ -187,6 +199,9 @@ export function EmployeeTabs() {
       </TabsContent>
       <TabsContent value="user-link">
         <UserLinkTab />
+      </TabsContent>
+      <TabsContent value="onboarding">
+        <OnboardingTab />
       </TabsContent>
     </Tabs>
   );

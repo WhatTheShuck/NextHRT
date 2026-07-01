@@ -10,7 +10,7 @@ export interface MyRequest {
   id: number;
   createdAt: string;
   employeeId: number;
-  employee: { id: number; firstName: string; lastName: string };
+  employee: { id: number; legalFirstName: string; legalLastName: string };
   training: { id: number; title: string } | null;
   trainingCourseRequest: { id: number; name: string } | null;
   approvalRequest: {
@@ -82,7 +82,7 @@ export const columns: ColumnDef<MyRequest>[] = [
       </Button>
     ),
     accessorFn: (row) =>
-      `${row.employee.firstName} ${row.employee.lastName}`,
+      `${row.employee.legalFirstName} ${row.employee.legalLastName}`,
     cell: ({ getValue }) => getValue<string>(),
     meta: { headerText: "For" },
   },

@@ -99,8 +99,8 @@ export class TicketService {
           ticketHolder: {
             select: {
               id: true,
-              firstName: true,
-              lastName: true,
+              legalFirstName: true,
+              legalLastName: true,
               title: true,
               department: {
                 select: {

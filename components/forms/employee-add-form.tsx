@@ -17,6 +17,7 @@ import {
 import {
   Department,
   EmployeeStatus,
+  JobFamily,
   Location,
 } from "@/generated/prisma_client/client";
 import { Plus } from "lucide-react";
@@ -51,10 +52,12 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
   const [status, setStatus] = useState<EmployeeStatus>("Permanent");
   const [isActive, setIsActive] = useState(true);
   const [startDate, setStartDate] = useState<Date>(new Date());
+  const [jobFamilyId, setJobFamilyId] = useState("");
 
   // Data state
   const [departments, setDepartments] = useState<Department[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [jobFamilies, setJobFamilies] = useState<JobFamily[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDepartmentDialogOpen, setIsDepartmentDialogOpen] = useState(false);
@@ -70,12 +73,14 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [departmentsRes, locationsRes] = await Promise.all([
+        const [departmentsRes, locationsRes, jobFamiliesRes] = await Promise.all([
           api.get<Department[]>("/api/departments?activeOnly=true"),
           api.get<Location[]>("/api/locations?activeOnly=true"),
+          api.get<JobFamily[]>("/api/job-families?activeOnly=true"),
         ]);
         setDepartments(departmentsRes.data);
         setLocations(locationsRes.data);
+        setJobFamilies(jobFamiliesRes.data);
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
@@ -86,8 +91,8 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
     fetchData();
   }, []);
   const createEmployeeData = (): EmployeeFormData => ({
-    firstName,
-    lastName,
+    legalFirstName: firstName,
+    legalLastName: lastName,
     title,
     departmentId: parseInt(departmentId),
     locationId: parseInt(locationId),
@@ -106,8 +111,8 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
     setIsSubmitting(true);
     try {
       const response = await api.post<EmployeeWithRelations>("/api/employees", {
-        firstName,
-        lastName,
+        legalFirstName: firstName,
+        legalLastName: lastName,
         title,
         departmentId: parseInt(departmentId),
         locationId: parseInt(locationId),
@@ -116,6 +121,7 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
         status: status || "Permanent",
         isActive,
         startDate: startDate?.toISOString() || null,
+        jobFamilyId: jobFamilyId ? parseInt(jobFamilyId) : null,
       });
 
       onSuccess?.(response.data);
@@ -249,6 +255,24 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
           </SelectContent>
         </Select>
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="jobFamily">Job Family</Label>
+        <Select value={jobFamilyId} onValueChange={(v) => setJobFamilyId(v === "none" ? "" : v)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select job family (optional)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">— None —</SelectItem>
+            {jobFamilies.map((jf) => (
+              <SelectItem key={jf.id} value={jf.id.toString()}>
+                {jf.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="startDate">Start Date</Label>
         <DateSelector selectedDate={startDate} onDateSelect={setStartDate} />

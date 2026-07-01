@@ -100,7 +100,7 @@ function DeleteForm({
             )}
             {employee && (
               <p className="text-sm text-muted-foreground">
-                Employee: {employee.firstName} {employee.lastName}
+                Employee: {employee.legalFirstName} {employee.legalLastName}
               </p>
             )}
           </div>
@@ -155,7 +155,7 @@ export function DeleteTrainingRecordDialog({
               delete the training record &quot;
               {trainingRecord?.training?.title}&quot;
               {employee
-                ? ` for ${employee.firstName} ${employee.lastName}`
+                ? ` for ${employee.legalFirstName} ${employee.legalLastName}`
                 : ""}
               ?
             </DialogDescription>
@@ -187,7 +187,7 @@ export function DeleteTrainingRecordDialog({
             This action cannot be undone. Are you sure you want to permanently
             delete the training record &quot;{trainingRecord?.training?.title}
             &quot;
-            {employee ? ` for ${employee.firstName} ${employee.lastName}` : ""}?
+            {employee ? ` for ${employee.legalFirstName} ${employee.legalLastName}` : ""}?
           </DrawerDescription>
         </DrawerHeader>
         <DeleteForm

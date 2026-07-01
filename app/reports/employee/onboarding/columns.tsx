@@ -17,7 +17,7 @@ export const columns: ColumnDef<Employee>[] = [
         </Button>
       );
     },
-    accessorKey: "firstName",
+    accessorKey: "legalFirstName",
     meta: {
       headerText: "First Name",
     },
@@ -33,7 +33,7 @@ export const columns: ColumnDef<Employee>[] = [
         </Button>
       );
     },
-    accessorKey: "lastName",
+    accessorKey: "legalLastName",
     meta: {
       headerText: "Last Name",
     },

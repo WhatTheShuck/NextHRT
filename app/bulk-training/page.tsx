@@ -10,12 +10,28 @@ import { AlertBox } from "@/components/ui/alert-box";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { TrainingCombobox } from "@/components/combobox/training-combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { currentRevision } from "@/lib/services/trainingCompliance";
+
+interface TrainingRevisionOption {
+  id: number;
+  revisionLabel: string;
+  effectiveDate: string;
+}
 
 export default function BulkTrainingPage() {
   // Form state
   const [trainingId, setTrainingId] = useState("");
   const [provider, setProvider] = useState("");
   const [selectedEmployees, setSelectedEmployees] = useState<Employee[]>([]);
+  const [revisions, setRevisions] = useState<TrainingRevisionOption[]>([]);
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string>("");
 
   // Data fetching state
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -47,6 +63,33 @@ export default function BulkTrainingPage() {
 
     fetchData();
   }, []);
+
+  // Fetch revisions when training selection changes
+  useEffect(() => {
+    if (!trainingId) {
+      setRevisions([]);
+      setSelectedRevisionId("");
+      return;
+    }
+    api.get<TrainingRevisionOption[]>(`/api/training/${trainingId}/revisions`)
+      .then(({ data }) => {
+        setRevisions(data);
+        const cur = currentRevision(
+          data.map((r) => ({
+            id: r.id,
+            effectiveDate: new Date(r.effectiveDate),
+            createdAt: new Date(r.effectiveDate),
+            overrideRequiresRetraining: null,
+          })),
+          new Date(),
+        );
+        setSelectedRevisionId(cur ? cur.id.toString() : "");
+      })
+      .catch(() => {
+        setRevisions([]);
+        setSelectedRevisionId("");
+      });
+  }, [trainingId]);
 
   // Add a new training to the list
   const addTraining = (newTraining: Training | Training[]) => {
@@ -83,6 +126,9 @@ export default function BulkTrainingPage() {
           employeeId: employee.id,
           trainingId: parseInt(trainingId),
           trainer: provider,
+          ...(revisions.length > 0 && selectedRevisionId
+            ? { revisionId: parseInt(selectedRevisionId) }
+            : {}),
         }),
       );
 
@@ -97,6 +143,8 @@ export default function BulkTrainingPage() {
       setTrainingId("");
       setProvider("");
       setSelectedEmployees([]);
+      setRevisions([]);
+      setSelectedRevisionId("");
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
         // Access Axios-specific error properties
@@ -143,6 +191,24 @@ export default function BulkTrainingPage() {
             label="Training Course"
             onNewTraining={addTraining}
           />
+
+          {revisions.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="revision-select-bulk">Revision</Label>
+              <Select value={selectedRevisionId} onValueChange={setSelectedRevisionId}>
+                <SelectTrigger id="revision-select-bulk">
+                  <SelectValue placeholder="Select revision..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {revisions.map((r) => (
+                    <SelectItem key={r.id} value={r.id.toString()}>
+                      {r.revisionLabel} ({new Date(r.effectiveDate).getFullYear()})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Training Provider */}
           <div className="space-y-2">

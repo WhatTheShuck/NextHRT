@@ -118,6 +118,11 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
   "/approvals": { label: "Approvals" },
   "/admin/logs": { label: "Admin Logs" },
   "/admin/org-chart": { label: "Org Chart" },
+  "/admin/onboarding": { label: "Onboarding Requests" },
+  "/admin/onboarding/[id]": {
+    label: "Request Detail",
+    parent: "/admin/onboarding",
+  },
 };
 
 export interface Breadcrumb {

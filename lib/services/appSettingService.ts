@@ -2,7 +2,9 @@ import prisma from "@/lib/prisma";
 
 interface SettingDefault {
   key: string;
-  envVar: string;
+  // Optional: when present, the env var seeds the initial value. Some settings
+  // (e.g. uploaded-attachment paths) are only ever set at runtime, no env var.
+  envVar?: string;
   defaultValue: string;
   description: string;
 }
@@ -62,6 +64,20 @@ const SETTING_DEFAULTS: SettingDefault[] = [
       "How often the job runner polls for pending work (milliseconds)",
   },
   {
+    key: "jobs.maxRetries",
+    envVar: "JOBS_MAX_RETRIES",
+    defaultValue: "3",
+    description:
+      "How many times a failed job is retried before being marked Failed",
+  },
+  {
+    key: "jobs.retryBackoffMs",
+    envVar: "JOBS_RETRY_BACKOFF_MS",
+    defaultValue: "30000",
+    description:
+      "Base delay before retrying a failed job; grows exponentially per attempt (milliseconds)",
+  },
+  {
     key: "theme.default",
     envVar: "DEFAULT_THEME",
     defaultValue: "default",
@@ -73,12 +89,108 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     defaultValue: "false",
     description: "When true, prevents users from overriding the org theme",
   },
+  // --- Onboarding config (§6.7). The email domain is intentionally NOT here —
+  // it is sourced from companyDetails.domain_extension (NEXT_PUBLIC_COMPANY_DOMAIN_EXTENSION). ---
+  {
+    key: "onboarding.itTicketBaseUrl",
+    envVar: "ONBOARDING_IT_TICKET_BASE_URL",
+    defaultValue: "https://itsp.intern.ksb.com/assystnet/#serviceOfferings/",
+    description:
+      "Base URL for IT service-offering tickets; a program's ticket number is appended to it.",
+  },
+  {
+    key: "onboarding.hardwareEndpoint",
+    envVar: "ONBOARDING_HARDWARE_ENDPOINT",
+    defaultValue: "https://checkout.ksb.com.au/",
+    description: "Endpoint for the hardware-request platform (placeholder).",
+  },
+  {
+    key: "onboarding.recipient.it",
+    envVar: "ONBOARDING_RECIPIENT_IT",
+    defaultValue: "",
+    description: "Email address that receives consolidated IT software-access requests.",
+  },
+  {
+    key: "onboarding.recipient.hr",
+    envVar: "ONBOARDING_RECIPIENT_HR",
+    defaultValue: "",
+    description: "Email address that receives HR department notes.",
+  },
+  {
+    key: "onboarding.recipient.payroll",
+    envVar: "ONBOARDING_RECIPIENT_PAYROLL",
+    defaultValue: "",
+    description: "Email address that receives Payroll department notes.",
+  },
+  {
+    key: "onboarding.recipient.marketing",
+    envVar: "ONBOARDING_RECIPIENT_MARKETING",
+    defaultValue: "",
+    description:
+      "Email address that receives marketing-induction booking requests.",
+  },
+  {
+    key: "onboarding.recipient.licence",
+    envVar: "ONBOARDING_RECIPIENT_LICENCE",
+    defaultValue: "",
+    description:
+      "Recipient for driver-licence copies (currently 'Vicki'); configurable.",
+  },
+  {
+    key: "onboarding.attachment.employmentForms",
+    defaultValue: "",
+    description:
+      "JSON array of employment-forms compliance attachments (set via upload); supports multiple files.",
+  },
+  {
+    key: "onboarding.attachment.policeCheck",
+    defaultValue: "",
+    description:
+      "JSON array (single file) of the police-check compliance attachment (set via upload).",
+  },
+  // Job Family prefill rules (spec §6.5). Store the Job Family ID as a string.
+  // When the matching job family is selected in the onboarding form, the
+  // corresponding hardware/software/compliance fields are pre-filled.
+  {
+    key: "onboarding.jobFamily.serviceTechnician",
+    envVar: "ONBOARDING_JOB_FAMILY_SERVICE_TECHNICIAN",
+    defaultValue: "",
+    description:
+      "Comma-separated Job Family IDs that trigger Service Technician prefills: laptop unchecked, iPad checked, E3 licence unchecked.",
+  },
+  {
+    key: "onboarding.jobFamily.engineering",
+    envVar: "ONBOARDING_JOB_FAMILY_ENGINEERING",
+    defaultValue: "",
+    description:
+      "Comma-separated Job Family IDs that trigger Engineering prefills: non-standard laptop checked.",
+  },
+  {
+    key: "onboarding.jobFamily.salesMarketing",
+    envVar: "ONBOARDING_JOB_FAMILY_SALES_MARKETING",
+    defaultValue: "",
+    description:
+      "Comma-separated Job Family IDs that trigger Sales/Marketing prefills: marketing induction checked.",
+  },
+  {
+    key: "internallyDeliveredTrainingIds",
+    defaultValue: "[]",
+    description:
+      "JSON array of Training IDs personally delivered by the admin. Used by the Training I Deliver tracker.",
+  },
+  {
+    key: "tickets.expiryWarningDays",
+    envVar: "TICKET_EXPIRY_WARNING_DAYS",
+    defaultValue: "30",
+    description:
+      "Days before a ticket's expiry to send a renewal-reminder email.",
+  },
 ];
 
 export class AppSettingService {
   async ensureDefaults(): Promise<void> {
     const upserts = SETTING_DEFAULTS.map((s) => {
-      const value = process.env[s.envVar] ?? s.defaultValue;
+      const value = (s.envVar ? process.env[s.envVar] : undefined) ?? s.defaultValue;
       return prisma.appSetting.upsert({
         where: { key: s.key },
         create: { key: s.key, value, description: s.description },

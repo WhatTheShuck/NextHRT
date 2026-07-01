@@ -49,11 +49,11 @@ interface UserForApprover {
   id: string;
   name: string | null;
   employeeId: number | null;
-  employee?: { id: number; firstName: string; lastName: string } | null;
+  employee?: { id: number; legalFirstName: string; legalLastName: string } | null;
 }
 
 function approverDisplayName(u: UserForApprover): string {
-  if (u.employee) return `${u.employee.firstName} ${u.employee.lastName}`;
+  if (u.employee) return `${u.employee.legalFirstName} ${u.employee.legalLastName}`;
   return u.name ?? u.id;
 }
 

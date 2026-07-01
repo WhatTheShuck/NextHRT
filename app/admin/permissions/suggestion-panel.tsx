@@ -248,7 +248,7 @@ export function SuggestionPanel() {
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">
-                        {top.employee.firstName} {top.employee.lastName}
+                        {top.employee.legalFirstName} {top.employee.legalLastName}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {top.employee.department} · {top.employee.location}
@@ -286,8 +286,8 @@ export function SuggestionPanel() {
                         <TableCell />
                         <TableCell>
                           <div className="font-medium">
-                            {candidate.employee.firstName}{" "}
-                            {candidate.employee.lastName}
+                            {candidate.employee.legalFirstName}{" "}
+                            {candidate.employee.legalLastName}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {candidate.employee.department} ·{" "}

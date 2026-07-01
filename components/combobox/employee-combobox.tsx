@@ -61,7 +61,7 @@ export function EmployeeCombobox({
             {selectedEmployee ? (
               <span className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
-                {selectedEmployee.firstName} {selectedEmployee.lastName}
+                {selectedEmployee.legalFirstName} {selectedEmployee.legalLastName}
               </span>
             ) : (
               <span className="text-muted-foreground flex items-center gap-2">
@@ -101,7 +101,7 @@ export function EmployeeCombobox({
           {selectedEmployee ? (
             <span className="flex items-center gap-2">
               <Search className="h-4 w-4 text-muted-foreground" />
-              {selectedEmployee.firstName} {selectedEmployee.lastName}
+              {selectedEmployee.legalFirstName} {selectedEmployee.legalLastName}
             </span>
           ) : (
             <span className="text-muted-foreground flex items-center gap-2">
@@ -146,7 +146,15 @@ function EmployeeList({
           {employees.map((employee) => (
             <CommandItem
               key={employee.id}
-              value={employee.firstName + " " + employee.lastName}
+              value={
+                employee.legalFirstName +
+                " " +
+                employee.legalLastName +
+                " " +
+                (employee.preferredFirstName ?? "") +
+                " " +
+                (employee.preferredLastName ?? "")
+              }
               onSelect={() => {
                 onSelect(employee.id.toString());
                 setOpen(false);
@@ -162,7 +170,7 @@ function EmployeeList({
               />
               <div className="flex flex-col">
                 <span className="font-medium">
-                  {employee.firstName} {employee.lastName}
+                  {employee.legalFirstName} {employee.legalLastName}
                 </span>
               </div>
             </CommandItem>

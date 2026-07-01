@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Activity,
   FileText,
+  User,
 } from "lucide-react";
 import { format } from "date-fns";
 import NotesEditor from "@/components/notes-editor";
@@ -39,6 +40,27 @@ export function OverviewTab() {
             <CardTitle>Employment Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Legal Name</span>
+              <span className="ml-auto">
+                {employee.legalFirstName} {employee.legalLastName}
+              </span>
+            </div>
+
+            {(employee.preferredFirstName || employee.preferredLastName) && (
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Preferred Name
+                </span>
+                <span className="ml-auto">
+                  {employee.preferredFirstName || employee.legalFirstName}{" "}
+                  {employee.preferredLastName || employee.legalLastName}
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <Briefcase className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Title</span>

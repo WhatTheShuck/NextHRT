@@ -1,0 +1,102 @@
+[section for HRT] -> this data is used to populate a new employee, which will be added after approval by an admin (mainly for data integrity purposes. The amount of misspelled names I've come across is INSANE)
+Legal First Name: String (text box)
+Legal Last Name: String (text box)
+Is this the same as their preferred name: Boolean (Checkbox)
+(if no to above)
+Spawn preferred first and last name boxes, same as legal. -> We need to tell them there is an extra step in the Workday process to change to their preferred name. We'll send as an email with other details.
+[example of their email address listed by firstname.lastname@companydetail.domain_extension] will be their email, does this look right? -> checkbox (make sure they tick it)
+Employee Manager: Employee selector -> prefill with the person submitting the form, but people can put in on behalf of someone else
+Title: String (text box)
+Department: String (dropdown) + add
+Location: String (dropdown) + add
+Employment Status: Enum (dropdown) -> Used to figure out if the employee is external or internal which we should present to the user. An alert box saying "you've select X this means that they are [Internal/External]. This means they [are/are not] paid by KSB. This is an important distinction for making sure your requests go to the correct location"
+Start Date: Date (date picker)
+
+[Forms stuff]
+Letter of offer signed: Boolean (checkbox)
+Are Employment forms required: Boolean (checkbox) -> prefill the checkbox (if internal:tick yes. if external: no)
+is a police check required: Boolean (cehckbox) -> prefill the checkbox (if internal: tick yes. If external: no)
+Do they require a marketing induction: Boolean (checkbox) -> if department is sales, prefill yes, otherwise no
+What level of Pre-Employment medical is required: Enum (dropdown)
+Will they receive a KSB Vehicle: Boolean (checkbox)
+Will they be required to drive a KSB vehicle: Boolean (checkbox) -> tick yes if they receive a ksb vehicle
+
+
+[Program Section] -> we will have a record of links to IT Tickets that are required for each of the options here. Then we send local IT an email with ticket links and what info to put in those tickets
+(these could be a single multi-selection section (just select required programs from list), just doing single questions for ease of explanation)
+Do they need SAP: Boolean (checkbox) -> if yes, need reference user. If no, reference user does not show up
+SAP Reference user: employee selector box -> Ideally we can prefill if someone else has the same Title.
+Do they need C4C Sales: Boolean (checkbox)
+Do they need C4C Service: Boolean (checkbox) -> if yes, need reference user. If no, reference user does not show up
+C4C Service Reference user: employee selector box -> Ideally we can prefill if someone else has the same Title.
+Do they need Easy Select: Boolean (checkbox)
+Do they need KSBase: Boolean (checkbox)
+Do they need Webshop/E2E: Boolean (checkbox)
+Do they require a full Microsoft E3 licence -> prefill no if title is service technician or similar (we might have a job role field which can alleviate this a bit) -> Otherwise tick yes
+
+[Hardware Section] -> We will send an API request to the hardware request platform, which will ping for approval. We just need to format a payload for each request type and make a request
+Do they require a laptop: Boolean (checkbox) ->  prefill no if title is service technician or similar (we might have a job role field which can alleviate this a bit) -> Otherwise tick yes
+Is this a non standard laptop: Boolean (checkbox) -> only available if laptop is yes -> opens a free form textbox for justification on why. -> we can prefill yes on the non-standard if they are engineering
+Do they require an iPad: Boolean (checkbox) -> prefill yes if title is service technician or similar (we might have a job role field which can alleviate this a bit) -> Otherwise tick no
+Do they require a phone: Boolean (checkbox)
+Is this a non-standard phone -> only available if phone is yes -> opens a free form textbox for justification on why
+
+[Freeform text box at the end]
+Is there anything else you want to tell us that wasn't covered here (people like to give us random info about the employee sometimes) -> Make this 3 separate fields, one for sending email to IT, one for HR and one for Payroll. Whatever goes in there gets sent as an email to the respective departments.
+
+Form Finished
+
+Jobs for the data to do
+[The main email to the manager of the employee]
+Thank them for filling in our form. Here are your next steps:
+(if internal)
+
+(end if internal)
+(if external)
+You can go through and fill in the KSB IAM contractor form. link to https://iam.ksb.com/workitemdlg.aspx?ACTTEMP=1001819&RURLID=062e87d9-6494-49fa-852b-f9e50fef0e8d -> this will automatically log you in with your ksb.com account. This should take you to the contractor request page. In case it doesn't, visit https://iam.ksb.com navigate to "Services" on the lefthand bar -> then request contractor identity from the services page.
+Fill in as follows:
+First name: [Preferred first name]
+Last name: [Preferred Lastname ]
+Valid from: [start date]
+Valid to: [start date + 1 year] (note this is because external employees have a maximum of one year of validity at a time. You will be reminded to extend their access close to the expiration date)
+KSB Responsible: [name of the person we are emailing]
+Ext. Company: By convention we will typically just select "AIGroup", however, you can put the actual company we have hired them through
+Field of activity/ Job title: [title]
+Preferred Language: English
+KSB Company: "KSB Australia Pty Ltd. [5055]"
+Country: Australia
+Cost center: the cost center for their department
+Location: [Location]
+
+Do not need to fill in external contact information
+Select Submit
+
+Because you have filled this in, as his manager, it will auto approve. Now, you can request access for the employee to get them an email address by visiting
+(end if external)
+
+[HRT Create user]
+Create a user for HRT -> they are not actually in the db until approved by an admin -> we prefill the info for the admin, they tick yes or they edit the data and then tick yes. They can tick no though, usually this is because the person was not hired.
+Basically, all the sections in the HRT section of the form is what we need.
+
+[Forms jobs]
+- If they didn't tick the letter of offer signed, send a reminder email to the manager to get that done. send on commencement date
+- If employee forms and/or police check form required is ticked, we have those forms and we send them in an email to the manager (for giving to the employee before they employee has an email address)
+- If marketing induction -> send email to marketing to book a time with the employee for induction
+- If they need a medical -> send email to manager on day of commencement + a few days later to the employee (need to wait for email to populate) with details on how to do that
+- If they tick either of the vehicle checkboxes we need a copy of their Driver license for HRT. We need to email them to give it Vicki -> have a job for admin to put a license in for them (prefill details similar to employee creation)
+
+[Program jobs]
+- For each item they select, we need to alert IT (by email currently, but will plug into their system eventually) to let them know what needs to be created for the user. We will have a list of links to tickets and what information is required. We will need to present details such as the reference user and whatnot, for the types that require it.
+
+[Hardware jobs]
+- Pretty easy here, we just bum off the job to an API - one request per and the other platform handles the rest.
+
+# Extra Notes
+We will need to do some DB migrations
+- First and Last names -> Legal first and Last names
+- Preferred Names == Legal names -> then we can change on case by case.
+-
+Employee searches need to index on BOTH preferred and Legal
+Maybe bring in the concept of a Job Family. This brings down the ambiguity of trying to guess stuff off of the job title (can vary wildly), while not pinning it to a broad concept like a department which could have multiple different job types within it
+I feel like a reference user at the top of the form may give us a lot of power to essentially fill in the form for the user and just present it to them for review; we have a ton of users that either replacing a previous colleague or expanding the team in a role very similar to a current user. Genuinely unique roles are far between. However, we will not really have enough data for this form to begin with. We should obviously store the form attributes on a user - for future reference and whatnot, which would eventually build this up. Ideally, I can backfill this data into users ad hoc as well
+I am still not sure on adding manager into the database itself. There a lot of benefits, but it is also a record in another place that needs to be kept up to date. I have done a lot of work to skirt this property on a user throughout and not sure if it is finally time to give up or not. The manager property for this form specifically is basically just the "who do we send the emails to" and also need to be in the hardware form for it to handle approvals.

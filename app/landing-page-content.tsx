@@ -14,6 +14,7 @@ export function LandingPageContent() {
   >([]);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [pendingOnboardingCount, setPendingOnboardingCount] = useState(0);
 
   useEffect(() => {
     async function checkPermissions() {
@@ -75,10 +76,14 @@ export function LandingPageContent() {
       setVisibleItems(itemsWithPermission);
       setIsCheckingPermissions(false);
 
-      // Fetch pending approval count for the badge (best-effort, no error shown)
+      // Fetch pending counts for badges (best-effort, no error shown)
       api
         .get<{ count: number }>("/api/approvals/pending/count")
         .then((res) => setPendingApprovalCount(res.data.count))
+        .catch(() => {});
+      api
+        .get<{ count: number }>("/api/onboarding/pending/count")
+        .then((res) => setPendingOnboardingCount(res.data.count))
         .catch(() => {});
     }
 
@@ -162,7 +167,15 @@ export function LandingPageContent() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {adminItems.map((item) => (
-                <NavigationCard key={item.href} {...item} />
+                <NavigationCard
+                  key={item.href}
+                  {...item}
+                  badge={
+                    item.href === "/admin/onboarding"
+                      ? pendingOnboardingCount
+                      : undefined
+                  }
+                />
               ))}
             </div>
           </div>

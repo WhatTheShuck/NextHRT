@@ -8,7 +8,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash, Users, MapPin, Search } from "lucide-react";
+import { Plus, Edit, Trash, Users, MapPin, Search, Layers } from "lucide-react";
 import { SortableColumnHeader } from "@/components/sortable-column-header";
 import {
   Table,
@@ -110,7 +110,7 @@ const ExemptionsCell = ({
       const expiryText = exemption.endDate
         ? ` (expires ${new Date(exemption.endDate).toLocaleDateString()})`
         : " (permanent)";
-      return `${exemption.employee?.firstName} ${exemption.employee?.lastName}: ${exemption.reason}${expiryText}`;
+      return `${exemption.employee?.legalFirstName} ${exemption.employee?.legalLastName}: ${exemption.reason}${expiryText}`;
     })
     .join("\n");
 
@@ -237,6 +237,28 @@ const TrainingDirectory = () => {
         enableGlobalFilter: false,
       },
       {
+        id: "revisions",
+        header: ({ column }) => (
+          <SortableColumnHeader column={column} label="Revisions" />
+        ),
+        accessorFn: (row) => row._count?.revisions ?? 0,
+        cell: ({ getValue }) => {
+          const count = getValue() as number;
+          if (count === 0) {
+            return <span className="text-muted-foreground">None</span>;
+          }
+          return (
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              <span>
+                {count} revision{count !== 1 ? "s" : ""}
+              </span>
+            </div>
+          );
+        },
+        enableGlobalFilter: false,
+      },
+      {
         id: "exemptions",
         header: "Exemptions",
         enableSorting: false,
@@ -340,6 +362,7 @@ const TrainingDirectory = () => {
   const mobileHiddenCols = new Set([
     "requirements",
     "trainingRecords",
+    "revisions",
     "exemptions",
     "compliance",
   ]);

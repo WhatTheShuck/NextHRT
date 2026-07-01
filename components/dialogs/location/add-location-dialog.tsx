@@ -21,51 +21,93 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Location } from "@/generated/prisma_client/client";
+import { Location, UserRole } from "@/generated/prisma_client/client";
+
+export interface PendingLocation {
+  id: string; // "pending-{orgRequestId}"
+  orgRequestId: number;
+  name: string;
+  state: string;
+  isPending: true;
+}
 
 interface AddLocationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onLocationAdded?: (location: Location) => void;
+  onLocationRequested?: (pending: PendingLocation) => void;
+  userRole?: UserRole | null;
 }
 
 interface LocationFormProps {
   onLocationAdded?: (location: Location) => void;
+  onLocationRequested?: (pending: PendingLocation) => void;
   onClose: () => void;
+  isRequestMode: boolean;
   className?: string;
 }
 
-function LocationForm({ onLocationAdded, onClose, className }: LocationFormProps) {
+function LocationForm({
+  onLocationAdded,
+  onLocationRequested,
+  onClose,
+  isRequestMode,
+  className,
+}: LocationFormProps) {
   const [locationName, setLocationName] = useState("");
   const [locationState, setLocationState] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const resetForm = () => {
     setLocationName("");
     setLocationState("");
+    setError(null);
   };
 
-  const handleCreate = async () => {
+  const handleSubmit = async () => {
     if (!locationName.trim() || !locationState.trim()) {
-      alert("Please enter both location name and state");
+      setError("Please enter both location name and state");
       return;
     }
 
-    setIsCreating(true);
-    try {
-      const response = await api.post<Location>("/api/locations", {
-        name: locationName,
-        state: locationState,
-      });
+    setIsSubmitting(true);
+    setError(null);
 
-      onLocationAdded?.(response.data);
-      onClose();
-      resetForm();
-    } catch (err: any) {
-      console.error("Error creating location:", err);
-      alert(err.response?.data?.error || "Failed to create location");
-    } finally {
-      setIsCreating(false);
+    if (isRequestMode) {
+      try {
+        const response = await api.post<{ id: number }>("/api/org-requests", {
+          type: "Location",
+          requestedData: { name: locationName.trim(), state: locationState.trim() },
+        });
+        onLocationRequested?.({
+          id: `pending-${response.data.id}`,
+          orgRequestId: response.data.id,
+          name: locationName.trim(),
+          state: locationState.trim(),
+          isPending: true,
+        });
+        onClose();
+        resetForm();
+      } catch (err: any) {
+        setError(err.response?.data?.error || "Failed to submit request");
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      try {
+        const response = await api.post<Location>("/api/locations", {
+          name: locationName.trim(),
+          state: locationState.trim(),
+        });
+        onLocationAdded?.(response.data);
+        onClose();
+        resetForm();
+      } catch (err: any) {
+        setError(err.response?.data?.error || "Failed to create location");
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -76,14 +118,22 @@ function LocationForm({ onLocationAdded, onClose, className }: LocationFormProps
 
   return (
     <div className={cn("space-y-4", className)}>
+      {isRequestMode && (
+        <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-800 border border-blue-200">
+          This location doesn't exist yet. Submitting a request will notify an admin who can approve it. You can continue filling out the form in the meantime.
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="locationName">Location Name</Label>
         <Input
           id="locationName"
           value={locationName}
-          onChange={(e) => setLocationName(e.target.value)}
+          onChange={(e) => {
+            setLocationName(e.target.value);
+            if (error) setError(null);
+          }}
           placeholder="e.g., Sydney"
-          disabled={isCreating}
+          disabled={isSubmitting}
         />
       </div>
       <div className="space-y-2">
@@ -91,27 +141,32 @@ function LocationForm({ onLocationAdded, onClose, className }: LocationFormProps
         <Input
           id="locationState"
           value={locationState}
-          onChange={(e) => setLocationState(e.target.value)}
+          onChange={(e) => {
+            setLocationState(e.target.value);
+            if (error) setError(null);
+          }}
           placeholder="e.g., NSW"
-          disabled={isCreating}
+          disabled={isSubmitting}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              handleCreate();
+              handleSubmit();
             }
           }}
         />
       </div>
+      {error && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 border border-red-200">
+          {error}
+        </div>
+      )}
       <div className="flex flex-col space-y-2 w-full md:flex-row-reverse pb-2 md:gap-2 md:space-y-0 md:justify-start">
-        <Button type="button" onClick={handleCreate} disabled={isCreating}>
-          {isCreating ? "Creating..." : "Create Location"}
+        <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+          {isSubmitting
+            ? isRequestMode ? "Submitting..." : "Creating..."
+            : isRequestMode ? "Submit Request" : "Create Location"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleClose}
-          disabled={isCreating}
-        >
+        <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
           Cancel
         </Button>
       </div>
@@ -123,24 +178,38 @@ export function AddLocationDialog({
   open,
   onOpenChange,
   onLocationAdded,
+  onLocationRequested,
+  userRole,
 }: AddLocationDialogProps) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isRequestMode = userRole !== "Admin";
+
+  const title = isRequestMode ? "Request New Location" : "Add New Location";
+  const description = isRequestMode
+    ? "Request a new location for admin approval."
+    : "Create a new location that will be available for selection.";
 
   const handleClose = () => onOpenChange(false);
+
+  const form = (className?: string) => (
+    <LocationForm
+      onLocationAdded={onLocationAdded}
+      onLocationRequested={onLocationRequested}
+      onClose={handleClose}
+      isRequestMode={isRequestMode}
+      className={className}
+    />
+  );
 
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Location</DialogTitle>
-            <DialogDescription>
-              Create a new location that will be available for selection.
-            </DialogDescription>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <LocationForm onLocationAdded={onLocationAdded} onClose={handleClose} />
-          </div>
+          <div className="py-4">{form()}</div>
         </DialogContent>
       </Dialog>
     );
@@ -150,16 +219,10 @@ export function AddLocationDialog({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="text-left">
-          <DrawerTitle>Add New Location</DrawerTitle>
-          <DrawerDescription>
-            Create a new location that will be available for selection.
-          </DrawerDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
-        <LocationForm
-          className="px-4"
-          onLocationAdded={onLocationAdded}
-          onClose={handleClose}
-        />
+        {form("px-4")}
       </DrawerContent>
     </Drawer>
   );

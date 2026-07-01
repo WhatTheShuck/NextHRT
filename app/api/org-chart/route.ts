@@ -32,12 +32,12 @@ export async function GET(request: NextRequest) {
       where: { parentDepartmentId: null, id: { not: -1 } },
       orderBy: { name: "asc" },
       include: {
-        employees: { include: employeeInclude, orderBy: { lastName: "asc" } },
+        employees: { include: employeeInclude, orderBy: { legalLastName: "asc" } },
         managers: { select: managerSelect },
         childDepartments: {
           orderBy: { name: "asc" },
           include: {
-            employees: { include: employeeInclude, orderBy: { lastName: "asc" } },
+            employees: { include: employeeInclude, orderBy: { legalLastName: "asc" } },
             managers: { select: managerSelect },
           },
         },

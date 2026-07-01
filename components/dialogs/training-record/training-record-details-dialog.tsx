@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { TrainingRecordsWithRelations } from "@/lib/types";
+import { isRevisionOutOfDate } from "@/app/reports/training/revision-column";
 import Image from "next/image";
 
 interface TrainingRecordDetailsDialogProps {
@@ -109,6 +110,15 @@ function RecordContent({ record, className }: RecordContentProps) {
               </div>
               <div>
                 <span className="font-medium">Trainer:</span> {record.trainer}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium">Revision:</span>{" "}
+                {record.revision?.revisionLabel ?? "—"}
+                {isRevisionOutOfDate(record) && (
+                  <Badge variant="destructive" className="text-xs">
+                    Update Needed
+                  </Badge>
+                )}
               </div>
             </div>
           </div>

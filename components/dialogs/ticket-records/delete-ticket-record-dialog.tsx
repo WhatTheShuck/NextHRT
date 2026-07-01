@@ -98,7 +98,7 @@ function DeleteForm({
               Date Issued: {format(new Date(ticketRecord.dateIssued), "PP")}
             </p>
             <p className="text-sm text-muted-foreground">
-              Employee: {employee?.firstName} {employee?.lastName}
+              Employee: {employee?.legalFirstName} {employee?.legalLastName}
             </p>
           </div>
         </div>
@@ -151,7 +151,7 @@ export function DeleteTicketRecordDialog({
               This action cannot be undone. Are you sure you want to permanently
               delete the ticket record &quot;
               {ticketRecord?.ticket?.ticketName}&quot; for{" "}
-              {employee?.firstName} {employee?.lastName}?
+              {employee?.legalFirstName} {employee?.legalLastName}?
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -180,7 +180,7 @@ export function DeleteTicketRecordDialog({
           <DrawerDescription className="pt-2">
             This action cannot be undone. Are you sure you want to permanently
             delete the ticket record &quot;{ticketRecord?.ticket?.ticketName}
-            &quot; for {employee?.firstName} {employee?.lastName}?
+            &quot; for {employee?.legalFirstName} {employee?.legalLastName}?
           </DrawerDescription>
         </DrawerHeader>
         <DeleteForm

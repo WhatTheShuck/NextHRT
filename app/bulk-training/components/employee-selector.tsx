@@ -67,7 +67,7 @@ export function EmployeeSelector({
     for (let i = 0; i < selectedEmployees.length; i++) {
       const employee = selectedEmployees[i];
       // Estimate badge width based on text content
-      tempDiv.textContent = `${employee.firstName} ${employee.lastName}`;
+      tempDiv.textContent = `${employee.legalFirstName} ${employee.legalLastName}`;
       const badgeWidth = tempDiv.offsetWidth + 40; // Add padding and close button width
 
       if (
@@ -161,7 +161,7 @@ export function EmployeeSelector({
     return employees.filter((employee) => {
       const searchTermLower = debouncedSearchTerm.toLowerCase();
       const fullName =
-        `${employee.firstName} ${employee.lastName} ${employee.title}`.toLowerCase();
+        `${employee.legalFirstName} ${employee.legalLastName} ${employee.preferredFirstName ?? ""} ${employee.preferredLastName ?? ""} ${employee.title}`.toLowerCase();
 
       return fullName.includes(searchTermLower);
     });
@@ -213,7 +213,7 @@ export function EmployeeSelector({
                       variant="secondary"
                       className="flex items-center gap-1"
                     >
-                      {employee.firstName} {employee.lastName}
+                      {employee.legalFirstName} {employee.legalLastName}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -319,7 +319,7 @@ export function EmployeeSelector({
                     )}
                   </div>
                   <span className="flex-1 text-sm">
-                    {employee.firstName} {employee.lastName} - {employee.title}
+                    {employee.legalFirstName} {employee.legalLastName} - {employee.title}
                   </span>
                 </div>
               ))}

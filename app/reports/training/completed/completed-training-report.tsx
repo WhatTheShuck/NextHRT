@@ -75,7 +75,19 @@ export function CompletedTrainingClient() {
         `/api/training/${trainingID}?activeOnly=${!includeInactive}&records=true`,
       );
       const data = response.data;
-      const records = data.trainingRecords || [];
+      // Records come nested under the training, so they don't carry their own
+      // `training` relation. Attach the training-level revision metadata so the
+      // Revision column can flag completions on superseded revisions.
+      const trainingMeta = {
+        revisions: data.revisions ?? [],
+        requiresRetrainingOnRevision: data.requiresRetrainingOnRevision,
+      };
+      const records = (data.trainingRecords || []).map(
+        (record: TrainingRecordsWithRelations) => ({
+          ...record,
+          training: { ...trainingMeta, ...record.training },
+        }),
+      );
       setTrainingRecords(records);
       setSelectedTrainingId(trainingID);
       setFilteredTrainingRecords(records);

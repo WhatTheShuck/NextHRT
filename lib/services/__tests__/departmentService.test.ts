@@ -34,7 +34,7 @@ describe("getDepartmentManagers", () => {
         name: "Alice Smith",
         email: "alice@example.com",
         employeeId: 42,
-        employee: { id: 42, firstName: "Alice", lastName: "Smith" },
+        employee: { id: 42, legalFirstName: "Alice", legalLastName: "Smith" },
       },
     ]);
 
@@ -48,7 +48,7 @@ describe("getDepartmentManagers", () => {
     );
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("user-1");
-    expect(result[0].employee?.firstName).toBe("Alice");
+    expect(result[0].employee?.legalFirstName).toBe("Alice");
   });
 
   it("throws DEPARTMENT_NOT_FOUND when department does not exist", async () => {

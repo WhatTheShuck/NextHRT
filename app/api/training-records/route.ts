@@ -71,11 +71,13 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
 
+    const revisionRaw = formData.get("revisionId");
     const data = {
       employeeId: parseInt(formData.get("employeeId") as string),
       trainingId: parseInt(formData.get("trainingId") as string),
       dateCompleted: formData.get("dateCompleted") as string,
       trainer: formData.get("trainer") as string,
+      revisionId: revisionRaw != null ? parseInt(revisionRaw as string) : undefined,
     };
     const imageFiles = formData.getAll("images") as File[];
 
@@ -122,6 +124,11 @@ export async function POST(request: NextRequest) {
             {
               error: `File too large. Maximum size is ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY}`,
             },
+            { status: 400 },
+          );
+        case "INVALID_REVISION":
+          return NextResponse.json(
+            { error: "The selected revision does not belong to this training course" },
             { status: 400 },
           );
         case "FILE_SAVE_ERROR":

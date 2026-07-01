@@ -4,6 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { TrainingRecords } from "@/generated/prisma_client/client";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { revisionColumn } from "../revision-column";
 
 export const columns: ColumnDef<TrainingRecords>[] = [
   {
@@ -17,7 +18,7 @@ export const columns: ColumnDef<TrainingRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "personTrained.firstName",
+    accessorKey: "personTrained.legalFirstName",
     meta: {
       headerText: "First Name",
     },
@@ -33,7 +34,7 @@ export const columns: ColumnDef<TrainingRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "personTrained.lastName",
+    accessorKey: "personTrained.legalLastName",
     meta: {
       headerText: "Last Name",
     },
@@ -112,4 +113,5 @@ export const columns: ColumnDef<TrainingRecords>[] = [
       headerText: "Trainer",
     },
   },
+  revisionColumn,
 ];

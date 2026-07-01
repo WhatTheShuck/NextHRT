@@ -17,7 +17,7 @@ export const columns: ColumnDef<TicketRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "ticketHolder.firstName",
+    accessorKey: "ticketHolder.legalFirstName",
     meta: {
       headerText: "First Name",
     },
@@ -33,7 +33,7 @@ export const columns: ColumnDef<TicketRecords>[] = [
         </Button>
       );
     },
-    accessorKey: "ticketHolder.lastName",
+    accessorKey: "ticketHolder.legalLastName",
     meta: {
       headerText: "Last Name",
     },

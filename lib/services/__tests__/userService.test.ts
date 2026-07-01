@@ -27,7 +27,7 @@ describe("getUsers", () => {
       email: "admin@example.com",
       role: "Admin",
       employeeId: 1,
-      employee: { id: 1, firstName: "Admin", lastName: "User", department: {}, location: {} },
+      employee: { id: 1, legalFirstName: "Admin", legalLastName: "User", department: {}, location: {} },
       managedDepartments: [],
     };
     mockPrisma.user.findMany.mockResolvedValue([fullUser]);

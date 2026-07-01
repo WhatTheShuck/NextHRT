@@ -7,7 +7,7 @@ import { EmployeeAccessInfo } from "@/lib/services/accessCheckService";
 
 export const columns: ColumnDef<EmployeeAccessInfo>[] = [
   {
-    accessorKey: "firstName",
+    accessorKey: "legalFirstName",
     header: ({ column }) => (
       <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
         First Name <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -16,7 +16,7 @@ export const columns: ColumnDef<EmployeeAccessInfo>[] = [
     meta: { headerText: "First Name" },
   },
   {
-    accessorKey: "lastName",
+    accessorKey: "legalLastName",
     header: ({ column }) => (
       <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
         Last Name <ArrowUpDown className="ml-2 h-4 w-4" />

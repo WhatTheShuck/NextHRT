@@ -21,8 +21,8 @@ export class UserService {
           employee: {
             select: {
               id: true,
-              firstName: true,
-              lastName: true,
+              legalFirstName: true,
+              legalLastName: true,
             },
           },
         },
