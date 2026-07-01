@@ -16,6 +16,20 @@ import {
 } from "@/lib/file-config";
 import { TrainingCombobox } from "../combobox/training-combobox";
 import { TrainingRecordsWithRelations } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { currentRevision } from "@/lib/services/trainingCompliance";
+
+interface TrainingRevisionOption {
+  id: number;
+  revisionLabel: string;
+  effectiveDate: string;
+}
 
 interface TrainingAddFormProps {
   onSuccess?: (record: TrainingRecordsWithRelations) => void;
@@ -34,6 +48,8 @@ export function TrainingAddForm({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [completionDate, setCompletionDate] = useState<Date>(new Date());
+  const [revisions, setRevisions] = useState<TrainingRevisionOption[]>([]);
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string>("");
 
   // Data fetching state
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -60,6 +76,48 @@ export function TrainingAddForm({
 
     fetchData();
   }, []);
+
+  // Fetch revisions when training selection changes
+  useEffect(() => {
+    if (!trainingId) {
+      setRevisions([]);
+      setSelectedRevisionId("");
+      return;
+    }
+    api.get<TrainingRevisionOption[]>(`/api/training/${trainingId}/revisions`)
+      .then(({ data }) => {
+        setRevisions(data);
+        const cur = currentRevision(
+          data.map((r) => ({
+            id: r.id,
+            effectiveDate: new Date(r.effectiveDate),
+            createdAt: new Date(r.effectiveDate),
+            overrideRequiresRetraining: null,
+          })),
+          completionDate,
+        );
+        setSelectedRevisionId(cur ? cur.id.toString() : "");
+      })
+      .catch(() => {
+        setRevisions([]);
+        setSelectedRevisionId("");
+      });
+  }, [trainingId]);
+
+  // Re-default revision when completion date changes
+  useEffect(() => {
+    if (revisions.length === 0) return;
+    const cur = currentRevision(
+      revisions.map((r) => ({
+        id: r.id,
+        effectiveDate: new Date(r.effectiveDate),
+        createdAt: new Date(r.effectiveDate),
+        overrideRequiresRetraining: null,
+      })),
+      completionDate,
+    );
+    setSelectedRevisionId(cur ? cur.id.toString() : "");
+  }, [completionDate]);
 
   const addTraining = (newTraining: Training | Training[]) => {
     if (Array.isArray(newTraining)) {
@@ -122,6 +180,9 @@ export function TrainingAddForm({
       formData.append("trainingId", trainingId);
       formData.append("trainer", provider);
       formData.append("dateCompleted", completionDate.toISOString());
+      if (revisions.length > 0 && selectedRevisionId) {
+        formData.append("revisionId", selectedRevisionId);
+      }
 
       selectedFiles.forEach((file) => {
         formData.append("images", file);
@@ -143,6 +204,8 @@ export function TrainingAddForm({
       setCompletionDate(new Date());
       setSelectedFiles([]);
       setFileErrors([]);
+      setRevisions([]);
+      setSelectedRevisionId("");
 
       onSuccess?.(response.data);
     } catch (err: any) {
@@ -199,6 +262,24 @@ export function TrainingAddForm({
           categoryHint={categoryHint}
         />
       </div>
+
+      {revisions.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="revision-select">Revision</Label>
+          <Select value={selectedRevisionId} onValueChange={setSelectedRevisionId}>
+            <SelectTrigger id="revision-select">
+              <SelectValue placeholder="Select revision..." />
+            </SelectTrigger>
+            <SelectContent>
+              {revisions.map((r) => (
+                <SelectItem key={r.id} value={r.id.toString()}>
+                  {r.revisionLabel} ({new Date(r.effectiveDate).getFullYear()})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="provider">Training Provider</Label>

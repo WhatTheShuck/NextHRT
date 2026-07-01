@@ -16,6 +16,20 @@ import { TrainingRecordsWithRelations } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 import { DateSelector } from "@/components/date-selector";
 import { TrainingCombobox } from "../combobox/training-combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { currentRevision } from "@/lib/services/trainingCompliance";
+
+interface TrainingRevisionOption {
+  id: number;
+  revisionLabel: string;
+  effectiveDate: string;
+}
 
 interface TrainingEditFormProps {
   trainingRecord: TrainingRecordsWithRelations;
@@ -33,6 +47,8 @@ export function TrainingEditForm({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
+  const [revisions, setRevisions] = useState<TrainingRevisionOption[]>([]);
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string>("");
 
   // Data fetching state
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -45,6 +61,8 @@ export function TrainingEditForm({
       setTrainingId(trainingRecord.trainingId.toString());
       setProvider(trainingRecord.trainer);
       setCompletionDate(new Date(trainingRecord.dateCompleted));
+      // Pre-select existing revisionId if present
+      setSelectedRevisionId(trainingRecord.revisionId?.toString() ?? "");
     }
   }, [trainingRecord]);
 
@@ -66,6 +84,59 @@ export function TrainingEditForm({
 
     fetchData();
   }, []);
+
+  // Fetch revisions when training selection changes
+  useEffect(() => {
+    if (!trainingId) {
+      setRevisions([]);
+      return;
+    }
+    api.get<TrainingRevisionOption[]>(`/api/training/${trainingId}/revisions`)
+      .then(({ data }) => {
+        setRevisions(data);
+        // If the record already has a revisionId for this training, keep it; otherwise default to as-of-date
+        const keepExisting =
+          trainingRecord.trainingId.toString() === trainingId &&
+          trainingRecord.revisionId != null &&
+          data.some((r) => r.id === trainingRecord.revisionId);
+        if (!keepExisting) {
+          const cur = currentRevision(
+            data.map((r) => ({
+              id: r.id,
+              effectiveDate: new Date(r.effectiveDate),
+              createdAt: new Date(r.effectiveDate),
+              overrideRequiresRetraining: null,
+            })),
+            completionDate,
+          );
+          setSelectedRevisionId(cur ? cur.id.toString() : "");
+        }
+      })
+      .catch(() => {
+        setRevisions([]);
+      });
+  }, [trainingId]);
+
+  // Re-default revision when completion date changes (only when training changed from original)
+  useEffect(() => {
+    if (revisions.length === 0) return;
+    if (
+      trainingId === trainingRecord.trainingId.toString() &&
+      trainingRecord.revisionId != null
+    ) {
+      return; // preserve admin's existing stamp unless they actively change it
+    }
+    const cur = currentRevision(
+      revisions.map((r) => ({
+        id: r.id,
+        effectiveDate: new Date(r.effectiveDate),
+        createdAt: new Date(r.effectiveDate),
+        overrideRequiresRetraining: null,
+      })),
+      completionDate,
+    );
+    setSelectedRevisionId(cur ? cur.id.toString() : "");
+  }, [completionDate]);
 
   const addTraining = (newTraining: Training | Training[]) => {
     if (Array.isArray(newTraining)) {
@@ -150,6 +221,10 @@ export function TrainingEditForm({
       formData.append("dateCompleted", completionDate.toISOString());
       formData.append("trainer", provider);
 
+      if (revisions.length > 0 && selectedRevisionId) {
+        formData.append("revisionId", selectedRevisionId);
+      }
+
       if (removedImageIds.length > 0) {
         formData.append("removedImageIds", JSON.stringify(removedImageIds));
       }
@@ -202,6 +277,24 @@ export function TrainingEditForm({
           label="Training Course"
         />
       </div>
+
+      {revisions.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="revision-select-edit">Revision</Label>
+          <Select value={selectedRevisionId} onValueChange={setSelectedRevisionId}>
+            <SelectTrigger id="revision-select-edit">
+              <SelectValue placeholder="Select revision..." />
+            </SelectTrigger>
+            <SelectContent>
+              {revisions.map((r) => (
+                <SelectItem key={r.id} value={r.id.toString()}>
+                  {r.revisionLabel} ({new Date(r.effectiveDate).getFullYear()})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="provider-edit">Training Provider</Label>
