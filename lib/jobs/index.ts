@@ -11,12 +11,14 @@ import { historyArchivalHandler } from "@/lib/jobs/handlers/historyArchival";
 import { reevaluatePendingApprovalsHandler } from "@/lib/jobs/handlers/reevaluatePendingApprovals";
 import { sendEmailHandler } from "@/lib/jobs/handlers/sendEmail";
 import { hardwareRequestHandler } from "@/lib/jobs/handlers/hardwareRequest";
+import { trainingRevisionCrossingHandler } from "@/lib/jobs/handlers/trainingRevisionCrossing";
 
 export async function start(): Promise<void> {
   registerHandler("EXEMPTION_EXPIRY", exemptionExpiryHandler);
   registerHandler("TICKET_EXPIRY", ticketExpiryHandler);
   registerHandler("REQUIREMENTS_CACHE_REBUILD", requirementsCacheRebuildHandler);
   registerHandler("REQUIREMENTS_CACHE_INVALIDATE", requirementsCacheInvalidateHandler);
+  registerHandler("TRAINING_REVISION_CROSSING", trainingRevisionCrossingHandler);
   registerHandler("INACTIVE_EMPLOYEE_CHECK", inactiveEmployeeCheckHandler);
   registerHandler("ORPHANED_IMAGE_CLEANUP", orphanedImageCleanupHandler);
   registerHandler("HISTORY_ARCHIVAL", historyArchivalHandler);

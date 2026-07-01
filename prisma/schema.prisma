@@ -244,21 +244,39 @@ model Training {
   category           Category
   title              String
   isActive           Boolean                   @default(true)
+  requiresRetrainingOnRevision Boolean            @default(false) // type-level default; per-revision override on TrainingRevision
   trainingRecords         TrainingRecords[]
   requirements            TrainingRequirement[]
   trainingExemptions      TrainingTicketExemption[]
   trainingRequestLinks    TrainingRequest[]          @relation("TrainingRequestTraining")
   resolvedCourseRequests  TrainingCourseRequest[]    @relation("ResolvedTraining")
+  revisions               TrainingRevision[]
+}
+
+model TrainingRevision {
+  id                         Int               @id @default(autoincrement())
+  training                   Training          @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  trainingId                 Int
+  revisionLabel              String            // historical name / edition, e.g. "2013 Edition"
+  effectiveDate              DateTime          // newest on-or-before today = current
+  description                String?           // what changed in this revision
+  overrideRequiresRetraining Boolean?          // null = inherit Training.requiresRetrainingOnRevision
+  createdAt                  DateTime          @default(now())
+  records                    TrainingRecords[]
+
+  @@index([trainingId])
 }
 
 model TrainingRecords {
-  id            Int             @id @default(autoincrement())
-  personTrained Employee        @relation(fields: [employeeId], references: [id])
+  id            Int               @id @default(autoincrement())
+  personTrained Employee          @relation(fields: [employeeId], references: [id])
   employeeId    Int
   dateCompleted DateTime
-  training      Training        @relation(fields: [trainingId], references: [id])
+  training      Training          @relation(fields: [trainingId], references: [id])
   trainingId    Int
   trainer       String
+  revision      TrainingRevision? @relation(fields: [revisionId], references: [id])
+  revisionId    Int?              // stamped at completion or migration; null = pre-feature record (still counts)
   images        TrainingImage[]
 
   @@unique([employeeId, trainingId, dateCompleted])
@@ -537,6 +555,7 @@ enum JobType {
   TICKET_EXPIRY
   REQUIREMENTS_CACHE_REBUILD
   REQUIREMENTS_CACHE_INVALIDATE
+  TRAINING_REVISION_CROSSING
   INACTIVE_EMPLOYEE_CHECK
   ORPHANED_IMAGE_CLEANUP
   HISTORY_ARCHIVAL

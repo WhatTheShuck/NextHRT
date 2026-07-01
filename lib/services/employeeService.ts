@@ -280,7 +280,19 @@ export class EmployeeService {
       location: true,
       trainingRecords: {
         include: {
-          training: true,
+          revision: true,
+          training: {
+            include: {
+              revisions: {
+                select: {
+                  id: true,
+                  effectiveDate: true,
+                  createdAt: true,
+                  overrideRequiresRetraining: true,
+                },
+              },
+            },
+          },
         },
       },
       ticketRecords: {

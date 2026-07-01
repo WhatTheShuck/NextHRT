@@ -86,6 +86,7 @@ export async function PUT(
     const formData = await request.formData();
 
     const removedImageIdsRaw = formData.get("removedImageIds");
+    const revisionRaw = formData.get("revisionId");
     const data = {
       employeeId: parseInt(formData.get("employeeId") as string),
       trainingId: parseInt(formData.get("trainingId") as string),
@@ -94,6 +95,7 @@ export async function PUT(
       removedImageIds: removedImageIdsRaw
         ? (JSON.parse(removedImageIdsRaw as string) as number[])
         : [],
+      revisionId: revisionRaw != null ? parseInt(revisionRaw as string) : undefined,
     };
     const imageFiles = formData.getAll("images") as File[];
 
@@ -134,6 +136,11 @@ export async function PUT(
                 "A training record with the same employee, training course, and completion date already exists.",
             },
             { status: 409 },
+          );
+        case "INVALID_REVISION":
+          return NextResponse.json(
+            { error: "The selected revision does not belong to this training course" },
+            { status: 400 },
           );
         case "INVALID_FILE_TYPE":
           return NextResponse.json(
