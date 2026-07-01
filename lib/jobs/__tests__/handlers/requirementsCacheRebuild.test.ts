@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
     employee: { findMany: vi.fn() },
+    training: { findMany: vi.fn() },
     trainingRequirement: { findMany: vi.fn() },
     ticketRequirement: { findMany: vi.fn() },
     trainingRecords: { findMany: vi.fn() },
@@ -44,6 +45,7 @@ const ticketReq = (ticketId: number, departmentId: number, locationId: number) =
 
 beforeEach(() => {
   mockPrisma.employee.findMany.mockResolvedValue([]);
+  mockPrisma.training.findMany.mockResolvedValue([]);
   mockPrisma.trainingRequirement.findMany.mockResolvedValue([]);
   mockPrisma.ticketRequirement.findMany.mockResolvedValue([]);
   mockPrisma.trainingRecords.findMany.mockResolvedValue([]);
@@ -169,11 +171,28 @@ describe("requirementsCacheRebuildHandler — ticket requirements", () => {
   it("does not create an entry for a ticket the employee already holds", async () => {
     mockPrisma.employee.findMany.mockResolvedValue([emp(1, 10, 20)]);
     mockPrisma.ticketRequirement.findMany.mockResolvedValue([ticketReq(201, 10, 20)]);
-    mockPrisma.ticketRecords.findMany.mockResolvedValue([{ employeeId: 1, ticketId: 201 }]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([
+      { employeeId: 1, ticketId: 201, expiryDate: new Date("2099-01-01") },
+    ]);
 
     const result = await requirementsCacheRebuildHandler({});
 
     expect(result.totalEntries).toBe(0);
+  });
+
+  it("creates an entry when the employee's only ticket record is expired (spec §5.2)", async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([emp(1, 10, 20)]);
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([ticketReq(201, 10, 20)]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([
+      { employeeId: 1, ticketId: 201, expiryDate: new Date("2020-01-01") },
+    ]);
+
+    const result = await requirementsCacheRebuildHandler({});
+
+    expect(result.totalEntries).toBe(1);
+    expect(mockPrisma.requirementsCacheEntry.createMany).toHaveBeenCalledWith({
+      data: [{ employeeId: 1, itemType: "Ticket", itemId: 201 }],
+    });
   });
 
   it("does not create an entry for a ticket the employee is exempted from", async () => {
@@ -215,5 +234,66 @@ describe("requirementsCacheRebuildHandler — multi-employee", () => {
     expect(result.employeesProcessed).toBe(2);
     const { data } = mockPrisma.requirementsCacheEntry.createMany.mock.calls[0][0];
     expect(data).toEqual([{ employeeId: 1, itemType: "Training", itemId: 101 }]);
+  });
+});
+
+describe("requirementsCacheRebuildHandler — training revisions", () => {
+  const twoRevisions = [
+    {
+      id: 1,
+      effectiveDate: new Date("2020-01-01"),
+      createdAt: new Date("2020-01-01"),
+      overrideRequiresRetraining: null,
+    },
+    {
+      id: 2,
+      effectiveDate: new Date("2024-01-01"),
+      createdAt: new Date("2024-01-01"),
+      overrideRequiresRetraining: null,
+    },
+  ];
+
+  beforeEach(() => {
+    mockPrisma.employee.findMany.mockResolvedValue([emp(1, 10, 20)]);
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([trainingReq(101, 10, 20)]);
+  });
+
+  it("creates an entry when revision requires retraining and record has the wrong revisionId", async () => {
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([
+      { employeeId: 1, trainingId: 101, revisionId: 1 },
+    ]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 101, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+
+    const result = await requirementsCacheRebuildHandler({});
+
+    expect(result.totalEntries).toBe(1);
+  });
+
+  it("does not create an entry when record has the current revisionId", async () => {
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([
+      { employeeId: 1, trainingId: 101, revisionId: 2 },
+    ]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 101, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+
+    const result = await requirementsCacheRebuildHandler({});
+
+    expect(result.totalEntries).toBe(0);
+  });
+
+  it("does not create an entry when revisionId is null (safe default)", async () => {
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([
+      { employeeId: 1, trainingId: 101, revisionId: null },
+    ]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 101, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+
+    const result = await requirementsCacheRebuildHandler({});
+
+    expect(result.totalEntries).toBe(0);
   });
 });

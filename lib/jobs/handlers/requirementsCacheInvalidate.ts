@@ -1,4 +1,6 @@
 import prisma from "@/lib/prisma";
+import { isTicketRecordValid } from "@/lib/services/ticketCompliance";
+import { isTrainingSatisfied, type TrainingLite } from "@/lib/services/trainingCompliance";
 
 export async function requirementsCacheInvalidateHandler(
   payload: Record<string, unknown>,
@@ -56,11 +58,11 @@ export async function requirementsCacheInvalidateHandler(
     }),
     prisma.trainingRecords.findMany({
       where: { employeeId },
-      select: { trainingId: true },
+      select: { trainingId: true, revisionId: true },
     }),
     prisma.ticketRecords.findMany({
       where: { employeeId },
-      select: { ticketId: true },
+      select: { ticketId: true, expiryDate: true },
     }),
     prisma.trainingTicketExemption.findMany({
       where: { employeeId, status: "Active" },
@@ -68,8 +70,54 @@ export async function requirementsCacheInvalidateHandler(
     }),
   ]);
 
-  const completedTrainingIds = new Set(trainingRecords.map((r) => r.trainingId));
-  const completedTicketIds = new Set(ticketRecords.map((r) => r.ticketId));
+  const now = new Date();
+
+  // Group training records by trainingId for revision-aware compliance check
+  const recordsByTraining = new Map<number, { revisionId: number | null }[]>();
+  for (const r of trainingRecords) {
+    const existing = recordsByTraining.get(r.trainingId) ?? [];
+    existing.push({ revisionId: r.revisionId });
+    recordsByTraining.set(r.trainingId, existing);
+  }
+
+  // Fetch revision data only for trainings that have records (others can never be satisfied)
+  const trainingIdsWithRecords = [...recordsByTraining.keys()];
+  const trainingsWithRevisions =
+    trainingIdsWithRecords.length > 0
+      ? await prisma.training.findMany({
+          where: { id: { in: trainingIdsWithRecords } },
+          select: {
+            id: true,
+            requiresRetrainingOnRevision: true,
+            revisions: {
+              select: {
+                id: true,
+                effectiveDate: true,
+                createdAt: true,
+                overrideRequiresRetraining: true,
+              },
+            },
+          },
+        })
+      : [];
+  const trainingMap = new Map<number, TrainingLite>(
+    trainingsWithRevisions.map((t) => [t.id, t]),
+  );
+
+  const completedTrainingIds = new Set<number>();
+  for (const [trainingId, recs] of recordsByTraining) {
+    const t = trainingMap.get(trainingId) ?? {
+      requiresRetrainingOnRevision: false,
+      revisions: [],
+    };
+    if (isTrainingSatisfied(recs, t, now)) completedTrainingIds.add(trainingId);
+  }
+
+  const completedTicketIds = new Set(
+    ticketRecords
+      .filter((r) => isTicketRecordValid(r, now))
+      .map((r) => r.ticketId),
+  );
   const exemptTrainingIds = new Set(
     exemptions
       .filter((e) => e.type === "Training" && e.trainingId != null)
