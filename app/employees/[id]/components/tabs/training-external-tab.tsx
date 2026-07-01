@@ -34,6 +34,23 @@ import { TrainingRecordsWithRelations } from "@/lib/types";
 import { useState } from "react";
 import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
 import { authClient } from "@/lib/auth-client";
+import { currentRevision } from "@/lib/services/trainingCompliance";
+
+function isRevisionOutOfDate(record: TrainingRecordsWithRelations): boolean {
+  const t = record.training;
+  if (!t?.revisions?.length) return false;
+  const revLites = t.revisions.map((r) => ({
+    id: r.id,
+    effectiveDate: new Date(r.effectiveDate as unknown as string),
+    createdAt: new Date(r.createdAt as unknown as string),
+    overrideRequiresRetraining: r.overrideRequiresRetraining,
+  }));
+  const cur = currentRevision(revLites, new Date());
+  if (!cur) return false;
+  const requiresRetraining = cur.overrideRequiresRetraining ?? t.requiresRetrainingOnRevision;
+  if (!requiresRetraining) return false;
+  return record.revisionId !== null && record.revisionId !== cur.id;
+}
 
 export function ExternalTrainingTab() {
   const { employee, addTrainingRecord, updateTrainingRecord, deleteTrainingRecord } = useEmployee();
@@ -132,9 +149,12 @@ export function ExternalTrainingTab() {
                       <p className="font-medium leading-tight">
                         {record.training?.title}
                       </p>
-                      <Badge variant="outline" className="shrink-0">
-                        {record.training?.category}
-                      </Badge>
+                      <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                        {isRevisionOutOfDate(record) && (
+                          <Badge variant="destructive" className="text-xs">Update Needed</Badge>
+                        )}
+                        <Badge variant="outline">{record.training?.category}</Badge>
+                      </div>
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1">
                       <p>
@@ -213,7 +233,12 @@ export function ExternalTrainingTab() {
                       (record: TrainingRecordsWithRelations) => (
                         <TableRow key={record.id}>
                           <TableCell className="font-medium">
-                            {record.training?.title}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {record.training?.title}
+                              {isRevisionOutOfDate(record) && (
+                                <Badge variant="destructive" className="text-xs">Update Needed</Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>{record.training?.category}</TableCell>
                           <TableCell>

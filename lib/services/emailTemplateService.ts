@@ -30,6 +30,11 @@ export const EMAIL_TEMPLATE_TOKENS = [
   "willReceiveVehicle", // "Yes" or "No"
   "willDriveVehicle",   // "Yes" or "No"
   "iamValidTo",         // startDate + 1 year (external hires only)
+  // Ticket-expiry notification tokens (ticket.expiryWarning / ticket.expired).
+  "employeeName",     // the ticket holder's name
+  "ticketName",       // the ticket / credential name
+  "expiryDate",       // the record's expiry date (YYYY-MM-DD)
+  "daysUntilExpiry",  // whole days from now until expiry (0 once expired)
 ] as const;
 
 const PLACEHOLDER_BODY =
@@ -151,6 +156,18 @@ const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
     name: "Employment forms / police check",
     subject: "Employment forms for {preferredFirstName} {preferredLastName}",
     body: PLACEHOLDER_BODY,
+  },
+  {
+    key: "ticket.expiryWarning",
+    name: "Ticket expiring soon",
+    subject: "Ticket expiring soon: {ticketName} for {employeeName}",
+    body: "{employeeName}'s {ticketName} expires on {expiryDate} ({daysUntilExpiry} days). Please arrange renewal.",
+  },
+  {
+    key: "ticket.expired",
+    name: "Ticket expired",
+    subject: "Ticket EXPIRED: {ticketName} for {employeeName}",
+    body: "{employeeName}'s {ticketName} expired on {expiryDate}. They are now non-compliant until it is renewed.",
   },
 ];
 

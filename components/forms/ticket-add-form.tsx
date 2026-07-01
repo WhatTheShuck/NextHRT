@@ -28,14 +28,23 @@ import { TicketRecordsWithRelations } from "@/lib/types";
 
 interface TicketAddFormProps {
   onSuccess?: (record: TicketRecordsWithRelations) => void;
+  /**
+   * When provided, the form acts as a "Renew" flow (spec §5.4): the ticket is
+   * locked to the source record's ticket, the licence number is carried over,
+   * and the issue date defaults to today (so the new expiry recalculates).
+   * Submission is still a plain create — there is no dedicated renewal endpoint.
+   */
+  renewFrom?: TicketRecordsWithRelations;
 }
 
-export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
+export function TicketAddForm({ onSuccess, renewFrom }: TicketAddFormProps) {
   const { employee } = useEmployee();
 
   // Form state
-  const [ticketId, setTicketId] = useState("");
-  const [licenceNum, setLicenceNum] = useState("");
+  const [ticketId, setTicketId] = useState(
+    renewFrom ? renewFrom.ticketId.toString() : "",
+  );
+  const [licenceNum, setLicenceNum] = useState(renewFrom?.licenseNumber ?? "");
   const [dateIssued, setDateIssued] = useState<Date>(new Date());
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
@@ -268,8 +277,9 @@ export function TicketAddForm({ onSuccess }: TicketAddFormProps) {
           selectedTicketId={ticketId}
           onSelect={handleTicketChange}
           onNewTicket={addTicket}
-          showAddButton={true}
-          label="Ticket Course"
+          showAddButton={!renewFrom}
+          disabled={!!renewFrom}
+          label={renewFrom ? "Renewing Ticket" : "Ticket Course"}
         />
         {currentTicket && (
           <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">

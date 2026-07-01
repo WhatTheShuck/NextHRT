@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
     employee: { findUnique: vi.fn() },
+    training: { findMany: vi.fn() },
     trainingRequirement: { findMany: vi.fn() },
     ticketRequirement: { findMany: vi.fn() },
     trainingRecords: { findMany: vi.fn() },
@@ -31,6 +32,7 @@ const activeEmployee = {
 
 beforeEach(() => {
   mockPrisma.employee.findUnique.mockResolvedValue(activeEmployee);
+  mockPrisma.training.findMany.mockResolvedValue([]);
   mockPrisma.trainingRequirement.findMany.mockResolvedValue([]);
   mockPrisma.ticketRequirement.findMany.mockResolvedValue([]);
   mockPrisma.trainingRecords.findMany.mockResolvedValue([]);
@@ -140,11 +142,28 @@ describe("requirementsCacheInvalidateHandler — ticket requirements", () => {
     mockPrisma.ticketRequirement.findMany.mockResolvedValue([
       { ticketId: 201, departmentId: 10, locationId: 20, ticket: { isActive: true } },
     ]);
-    mockPrisma.ticketRecords.findMany.mockResolvedValue([{ ticketId: 201 }]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([
+      { ticketId: 201, expiryDate: new Date("2099-01-01") },
+    ]);
 
     const result = await requirementsCacheInvalidateHandler({ employeeId: EMPLOYEE_ID });
 
     expect(result).toEqual({ employeeId: EMPLOYEE_ID, entries: 0 });
+  });
+
+  it("creates an entry when the only ticket record is expired (spec §5.2)", async () => {
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([
+      { ticketId: 201, departmentId: 10, locationId: 20, ticket: { isActive: true } },
+    ]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([
+      { ticketId: 201, expiryDate: new Date("2020-01-01") },
+    ]);
+
+    await requirementsCacheInvalidateHandler({ employeeId: EMPLOYEE_ID });
+
+    expect(mockPrisma.requirementsCacheEntry.createMany).toHaveBeenCalledWith({
+      data: [{ employeeId: EMPLOYEE_ID, itemType: "Ticket", itemId: 201 }],
+    });
   });
 
   it("does not create an entry for a ticket the employee is exempted from", async () => {
@@ -179,5 +198,61 @@ describe("requirementsCacheInvalidateHandler — transaction", () => {
     expect(mockPrisma.requirementsCacheEntry.deleteMany).toHaveBeenCalledWith({
       where: { employeeId: EMPLOYEE_ID },
     });
+  });
+});
+
+describe("requirementsCacheInvalidateHandler — training revisions", () => {
+  const twoRevisions = [
+    {
+      id: 1,
+      effectiveDate: new Date("2020-01-01"),
+      createdAt: new Date("2020-01-01"),
+      overrideRequiresRetraining: null,
+    },
+    {
+      id: 2,
+      effectiveDate: new Date("2024-01-01"),
+      createdAt: new Date("2024-01-01"),
+      overrideRequiresRetraining: null,
+    },
+  ];
+
+  beforeEach(() => {
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([
+      { trainingId: 101, departmentId: 10, locationId: 20, training: { isActive: true } },
+    ]);
+  });
+
+  it("creates an entry when revision requires retraining and record has the wrong revisionId", async () => {
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([{ trainingId: 101, revisionId: 1 }]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 101, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+
+    const result = await requirementsCacheInvalidateHandler({ employeeId: EMPLOYEE_ID });
+
+    expect(result).toEqual({ employeeId: EMPLOYEE_ID, entries: 1 });
+  });
+
+  it("does not create an entry when record has the current revisionId", async () => {
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([{ trainingId: 101, revisionId: 2 }]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 101, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+
+    const result = await requirementsCacheInvalidateHandler({ employeeId: EMPLOYEE_ID });
+
+    expect(result).toEqual({ employeeId: EMPLOYEE_ID, entries: 0 });
+  });
+
+  it("does not create an entry when revisionId is null (safe default)", async () => {
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([{ trainingId: 101, revisionId: null }]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 101, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+
+    const result = await requirementsCacheInvalidateHandler({ employeeId: EMPLOYEE_ID });
+
+    expect(result).toEqual({ employeeId: EMPLOYEE_ID, entries: 0 });
   });
 });

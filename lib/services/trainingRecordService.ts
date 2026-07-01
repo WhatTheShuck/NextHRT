@@ -4,6 +4,7 @@ import { fileUploadService } from "./fileUploadService";
 import { auth } from "../auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { enqueue } from "@/lib/jobs/jobQueue";
+import { currentRevision } from "@/lib/services/trainingCompliance";
 
 export interface GetTrainingRecordsOptions {
   activeOnly?: boolean;
@@ -29,8 +30,13 @@ export class TrainingRecordService {
           location: true,
         },
       },
-      training: true,
+      training: {
+        include: {
+          revisions: true,
+        },
+      },
       images: true,
+      revision: true,
     };
 
     const canViewAll = await auth.api.userHasPermission({
@@ -137,6 +143,7 @@ export class TrainingRecordService {
       trainingId: number;
       dateCompleted: string;
       trainer: string;
+      revisionId?: number | null;
     },
     images: File[],
     userId: string,
@@ -166,10 +173,23 @@ export class TrainingRecordService {
 
     const training = await prisma.training.findUnique({
       where: { id: data.trainingId },
+      include: {
+        revisions: { select: { id: true, effectiveDate: true, createdAt: true, overrideRequiresRetraining: true } },
+      },
     });
 
     if (!training) {
       throw new Error("TRAINING_NOT_FOUND");
+    }
+
+    let revisionId: number | null;
+    if (data.revisionId !== undefined) {
+      if (data.revisionId !== null && !training.revisions.some((r) => r.id === data.revisionId)) {
+        throw new Error("INVALID_REVISION");
+      }
+      revisionId = data.revisionId;
+    } else {
+      revisionId = currentRevision(training.revisions, completedDate)?.id ?? null;
     }
 
     const savedImages = await fileUploadService.saveFiles(images, "training");
@@ -180,6 +200,7 @@ export class TrainingRecordService {
         trainingId: data.trainingId,
         dateCompleted: completedDate,
         trainer: data.trainer,
+        revisionId,
         images: {
           create: savedImages.map((img) => ({
             imagePath: img.imagePath,
@@ -223,6 +244,7 @@ export class TrainingRecordService {
       dateCompleted: string;
       trainer: string;
       removedImageIds?: number[];
+      revisionId?: number | null;
     },
     images: File[],
     userId: string,
@@ -249,10 +271,23 @@ export class TrainingRecordService {
 
     const training = await prisma.training.findUnique({
       where: { id: data.trainingId },
+      include: {
+        revisions: { select: { id: true, effectiveDate: true, createdAt: true, overrideRequiresRetraining: true } },
+      },
     });
 
     if (!training) {
       throw new Error("TRAINING_NOT_FOUND");
+    }
+
+    let revisionId: number | null;
+    if (data.revisionId !== undefined) {
+      if (data.revisionId !== null && !training.revisions.some((r) => r.id === data.revisionId)) {
+        throw new Error("INVALID_REVISION");
+      }
+      revisionId = data.revisionId;
+    } else {
+      revisionId = currentRevision(training.revisions, completedDate)?.id ?? null;
     }
 
     const existingRecord = await prisma.trainingRecords.findFirst({
@@ -284,6 +319,7 @@ export class TrainingRecordService {
         trainingId: data.trainingId,
         dateCompleted: completedDate,
         trainer: data.trainer,
+        revisionId,
         images: {
           deleteMany: removedIds.length > 0 ? { id: { in: removedIds } } : undefined,
           create: savedImages.map((img) => ({

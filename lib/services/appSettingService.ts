@@ -178,6 +178,13 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     description:
       "JSON array of Training IDs personally delivered by the admin. Used by the Training I Deliver tracker.",
   },
+  {
+    key: "tickets.expiryWarningDays",
+    envVar: "TICKET_EXPIRY_WARNING_DAYS",
+    defaultValue: "30",
+    description:
+      "Days before a ticket's expiry to send a renewal-reminder email.",
+  },
 ];
 
 export class AppSettingService {

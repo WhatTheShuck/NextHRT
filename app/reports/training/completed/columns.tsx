@@ -4,6 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { TrainingRecords } from "@/generated/prisma_client/client";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { revisionColumn } from "../revision-column";
 
 export const columns: ColumnDef<TrainingRecords>[] = [
   {
@@ -112,4 +113,5 @@ export const columns: ColumnDef<TrainingRecords>[] = [
       headerText: "Trainer",
     },
   },
+  revisionColumn,
 ];

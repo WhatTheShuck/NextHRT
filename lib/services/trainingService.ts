@@ -45,7 +45,7 @@ export class TrainingService {
 
     const includeClause: any = {
       _count: {
-        select: { trainingRecords: true },
+        select: { trainingRecords: true, revisions: true },
       },
     };
 
@@ -96,11 +96,13 @@ export class TrainingService {
               location: true,
             },
           },
+          revision: true,
         },
         orderBy: {
           dateCompleted: "desc",
         },
       },
+      revisions: true,
       _count: {
         select: { trainingRecords: true },
       },
@@ -242,6 +244,7 @@ export class TrainingService {
       category: Category;
       title: string;
       isActive?: boolean;
+      requiresRetrainingOnRevision?: boolean;
       requirements?: Array<{ departmentId: number; locationId: number }>;
     },
     userId: string,
@@ -265,6 +268,7 @@ export class TrainingService {
           category: data.category,
           title: data.title + " - Task Sheet",
           isActive: data.isActive,
+          requiresRetrainingOnRevision: data.requiresRetrainingOnRevision,
         },
         include: trainingWithRelationsInclude,
       });
@@ -274,6 +278,7 @@ export class TrainingService {
           category: data.category,
           title: data.title + " - Practical",
           isActive: data.isActive,
+          requiresRetrainingOnRevision: data.requiresRetrainingOnRevision,
         },
         include: trainingWithRelationsInclude,
       });
@@ -408,6 +413,7 @@ export class TrainingService {
           category: data.category,
           title: baseTitle,
           isActive: data.isActive,
+          requiresRetrainingOnRevision: data.requiresRetrainingOnRevision,
         },
       });
 
@@ -451,6 +457,7 @@ export class TrainingService {
           category: data.category,
           title: data.title,
           isActive: data.isActive,
+          requiresRetrainingOnRevision: data.requiresRetrainingOnRevision,
         },
       });
 

@@ -22,6 +22,20 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { currentRevision } from "@/lib/services/trainingCompliance";
+
+interface TrainingRevisionOption {
+  id: number;
+  revisionLabel: string;
+  effectiveDate: string;
+}
 
 export interface RecordCompletionDialogProps {
   open: boolean;
@@ -61,12 +75,48 @@ function CompletionForm({
   const [trainer, setTrainer] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [revisions, setRevisions] = useState<TrainingRevisionOption[]>([]);
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string>("");
 
   useEffect(() => {
     if (session?.user?.name && !trainer) {
       setTrainer(session.user.name);
     }
   }, [session?.user?.name]);
+
+  // Fetch revisions for this training on mount
+  useEffect(() => {
+    api.get<TrainingRevisionOption[]>(`/api/training/${trainingId}/revisions`)
+      .then(({ data }) => {
+        setRevisions(data);
+        const cur = currentRevision(
+          data.map((r) => ({
+            id: r.id,
+            effectiveDate: new Date(r.effectiveDate),
+            createdAt: new Date(r.effectiveDate),
+            overrideRequiresRetraining: null,
+          })),
+          new Date(dateCompleted),
+        );
+        setSelectedRevisionId(cur ? cur.id.toString() : "");
+      })
+      .catch(() => setRevisions([]));
+  }, [trainingId]);
+
+  // Re-default revision when date changes
+  useEffect(() => {
+    if (revisions.length === 0) return;
+    const cur = currentRevision(
+      revisions.map((r) => ({
+        id: r.id,
+        effectiveDate: new Date(r.effectiveDate),
+        createdAt: new Date(r.effectiveDate),
+        overrideRequiresRetraining: null,
+      })),
+      new Date(dateCompleted),
+    );
+    setSelectedRevisionId(cur ? cur.id.toString() : "");
+  }, [dateCompleted]);
 
   const handleSave = async () => {
     if (!dateCompleted || !trainer.trim()) {
@@ -83,6 +133,9 @@ function CompletionForm({
       formData.append("trainingId", String(trainingId));
       formData.append("dateCompleted", dateCompleted);
       formData.append("trainer", trainer.trim());
+      if (revisions.length > 0 && selectedRevisionId) {
+        formData.append("revisionId", selectedRevisionId);
+      }
 
       await api.post("/api/training-records", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -131,6 +184,28 @@ function CompletionForm({
           disabled={saving}
         />
       </div>
+
+      {revisions.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="revision-select-dialog">Revision</Label>
+          <Select
+            value={selectedRevisionId}
+            onValueChange={setSelectedRevisionId}
+            disabled={saving}
+          >
+            <SelectTrigger id="revision-select-dialog">
+              <SelectValue placeholder="Select revision..." />
+            </SelectTrigger>
+            <SelectContent>
+              {revisions.map((r) => (
+                <SelectItem key={r.id} value={r.id.toString()}>
+                  {r.revisionLabel} ({new Date(r.effectiveDate).getFullYear()})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="trainer-name">Trainer</Label>

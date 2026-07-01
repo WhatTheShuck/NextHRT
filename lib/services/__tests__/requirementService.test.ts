@@ -3,10 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
     appSetting: { findUnique: vi.fn() },
-    training: { findMany: vi.fn() },
-    employee: { findMany: vi.fn() },
+    training: { findMany: vi.fn(), findUnique: vi.fn() },
+    ticket: { findUnique: vi.fn() },
+    employee: { findMany: vi.fn(), findUnique: vi.fn() },
     trainingRequirement: { findMany: vi.fn() },
+    ticketRequirement: { findMany: vi.fn() },
     trainingRecords: { findMany: vi.fn() },
+    ticketRecords: { findMany: vi.fn() },
     trainingTicketExemption: { findMany: vi.fn() },
     onboardingRequest: { findMany: vi.fn() },
   };
@@ -20,7 +23,11 @@ vi.mock("@/lib/apiRBAC", () => ({ getChildDepartmentIds: vi.fn() }));
 import { requirementService } from "@/lib/services/requirementService";
 import { auth } from "../../auth";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Default: no revisions — preserves backward-compat behaviour in all existing tests.
+  mockPrisma.training.findMany.mockResolvedValue([]);
+});
 
 function mockAdminViewAll() {
   vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: true } as any);
@@ -33,7 +40,8 @@ function mockCuratedIds(ids: number[]) {
 }
 
 function mockTrainings(trainings: { id: number; title: string }[]) {
-  mockPrisma.training.findMany.mockResolvedValue(trainings);
+  // Once for the curated-courses fetch; the revision fetch falls through to the beforeEach default ([]).
+  mockPrisma.training.findMany.mockResolvedValueOnce(trainings);
 }
 
 function mockStandardEmptyRelations() {
@@ -245,5 +253,191 @@ describe("requirementService.getDeliveredTrainingTracker", () => {
     expect(result.rows[0].employee.id).toBe(1); // new starter first
     expect(result.rows[1].employee.id).toBe(3); // Anderson before Brown
     expect(result.rows[2].employee.id).toBe(2);
+  });
+});
+
+describe("requirementService.getEmployeeRequirements ticket expiry", () => {
+  it("counts an expired ticket record as NOT completed", async () => {
+    mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5, locationId: 7 });
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([]);
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([
+      { ticketId: 100, departmentId: 5, locationId: 7, ticket: { ticketName: "WHS" }, department: {}, location: {} },
+    ]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([
+      { ticketId: 100, expiryDate: new Date("2020-01-01") },
+    ]);
+
+    const result = await requirementService.getEmployeeRequirements(1);
+
+    expect(result.ticketRequired.map((r: any) => r.ticketId)).toContain(100);
+  });
+
+  it("counts a future-dated ticket record as completed", async () => {
+    mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5, locationId: 7 });
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([]);
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([
+      { ticketId: 100, departmentId: 5, locationId: 7, ticket: { ticketName: "WHS" }, department: {}, location: {} },
+    ]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([
+      { ticketId: 100, expiryDate: new Date("2099-01-01") },
+    ]);
+
+    const result = await requirementService.getEmployeeRequirements(1);
+
+    expect(result.ticketRequired.map((r: any) => r.ticketId)).not.toContain(100);
+  });
+});
+
+describe("requirementService.getTicketRequirements ticket expiry", () => {
+  it("marks an employee with only an expired record as Required, not Completed", async () => {
+    mockAdminViewAll();
+    mockPrisma.ticket.findUnique.mockResolvedValue({ id: 100, ticketName: "WHS" });
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([
+      { ticketId: 100, departmentId: -1, locationId: -1, department: {}, location: {} },
+    ]);
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, legalFirstName: "A", legalLastName: "B", departmentId: 5, locationId: 7, department: {}, location: {} },
+    ]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([
+      { employeeId: 1, ticketId: 100, expiryDate: new Date("2020-01-01") },
+    ]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+
+    const result = await requirementService.getTicketRequirements(100, "u1", "Admin");
+
+    expect(result.employees[0].requirementStatus).toBe("Required");
+  });
+});
+
+describe("requirementService.getAllIncompleteTicketRequirements ticket expiry", () => {
+  it("lists an employee whose required ticket has only an expired record", async () => {
+    mockAdminViewAll();
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([
+      { ticketId: 100, departmentId: -1, locationId: -1, ticket: { ticketName: "WHS" }, department: {}, location: {} },
+    ]);
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, legalFirstName: "A", legalLastName: "B", departmentId: 5, locationId: 7, department: {}, location: {} },
+    ]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([
+      { employeeId: 1, ticketId: 100, expiryDate: new Date("2020-01-01") },
+    ]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+
+    const result = await requirementService.getAllIncompleteTicketRequirements("u1", "Admin");
+
+    expect(result.uniqueEmployees).toBe(1);
+  });
+});
+
+// ─── Training revision compliance ─────────────────────────────────────────
+
+const twoRevisions = [
+  { id: 1, effectiveDate: new Date("2020-01-01"), createdAt: new Date("2020-01-01"), overrideRequiresRetraining: null },
+  { id: 2, effectiveDate: new Date("2024-01-01"), createdAt: new Date("2024-01-01"), overrideRequiresRetraining: null },
+];
+
+describe("requirementService.getEmployeeRequirements training revisions", () => {
+  it("treats an old-revision record as NOT completed when the current revision requires retraining", async () => {
+    mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5, locationId: 7 });
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([
+      { trainingId: 100, departmentId: 5, locationId: 7, training: { title: "Handbook" }, department: {}, location: {} },
+    ]);
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([]);
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([
+      { trainingId: 100, revisionId: 1 }, // holds OLD revision
+    ]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 100, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+
+    const result = await requirementService.getEmployeeRequirements(1);
+    expect(result.trainingRequired.map((r: any) => r.trainingId)).toContain(100);
+  });
+
+  it("treats a null-revisionId record as satisfied even when retraining is required (safe default)", async () => {
+    mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5, locationId: 7 });
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([
+      { trainingId: 100, departmentId: 5, locationId: 7, training: { title: "Handbook" }, department: {}, location: {} },
+    ]);
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([]);
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([
+      { trainingId: 100, revisionId: null }, // pre-feature record
+    ]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 100, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+
+    const result = await requirementService.getEmployeeRequirements(1);
+    expect(result.trainingRequired.map((r: any) => r.trainingId)).not.toContain(100);
+  });
+
+  it("training with no revisions: any record satisfies (backward compat)", async () => {
+    mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5, locationId: 7 });
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([
+      { trainingId: 100, departmentId: 5, locationId: 7, training: { title: "Handbook" }, department: {}, location: {} },
+    ]);
+    mockPrisma.ticketRequirement.findMany.mockResolvedValue([]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([]);
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([
+      { trainingId: 100, revisionId: null },
+    ]);
+    // training.findMany returns [] via beforeEach default — no revisions → any record satisfies
+
+    const result = await requirementService.getEmployeeRequirements(1);
+    expect(result.trainingRequired.map((r: any) => r.trainingId)).not.toContain(100);
+  });
+});
+
+describe("requirementService.getTrainingRequirements training revisions", () => {
+  it("marks an employee holding only the old revision as Required when current requires retraining", async () => {
+    mockAdminViewAll();
+    mockPrisma.training.findUnique.mockResolvedValue({ id: 100, title: "Handbook" });
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([
+      { trainingId: 100, departmentId: -1, locationId: -1, department: {}, location: {} },
+    ]);
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, legalFirstName: "A", legalLastName: "B", departmentId: 5, locationId: 7, department: {}, location: {} },
+    ]);
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([
+      { employeeId: 1, trainingId: 100, revisionId: 1 }, // old revision
+    ]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 100, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+
+    const result = await requirementService.getTrainingRequirements(100, "u1", "Admin");
+    expect(result.employees[0].requirementStatus).toBe("Required");
+  });
+});
+
+describe("requirementService.getAllIncompleteTrainingRequirements training revisions", () => {
+  it("lists an employee whose only record is an outdated retraining-flagged revision", async () => {
+    mockAdminViewAll();
+    mockPrisma.trainingRequirement.findMany.mockResolvedValue([
+      { trainingId: 100, departmentId: -1, locationId: -1, training: { title: "Handbook" }, department: {}, location: {} },
+    ]);
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, legalFirstName: "A", legalLastName: "B", departmentId: 5, locationId: 7, department: {}, location: {} },
+    ]);
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([
+      { employeeId: 1, trainingId: 100, revisionId: 1 },
+    ]);
+    mockPrisma.training.findMany.mockResolvedValue([
+      { id: 100, requiresRetrainingOnRevision: true, revisions: twoRevisions },
+    ]);
+    mockPrisma.trainingTicketExemption.findMany.mockResolvedValue([]);
+
+    const result = await requirementService.getAllIncompleteTrainingRequirements("u1", "Admin");
+    expect(result.uniqueEmployees).toBe(1);
   });
 });

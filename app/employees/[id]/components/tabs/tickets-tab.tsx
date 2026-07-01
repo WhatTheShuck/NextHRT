@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, FileImage, Edit, Trash, Archive } from "lucide-react";
+import { Plus, Eye, FileImage, Edit, Trash, Archive, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,6 +51,9 @@ export function TicketTab() {
     : allTicketRecords.filter((record) => !isExpired(record));
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+  const [isRenewSheetOpen, setIsRenewSheetOpen] = useState(false);
+  const [renewingRecord, setRenewingRecord] =
+    useState<TicketRecordsWithRelations | null>(null);
   const [selectedRecord, setSelectedRecord] =
     useState<TicketRecordsWithRelations | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -81,6 +84,19 @@ export function TicketTab() {
       setEditingRecord(record);
       setIsEditSheetOpen(true);
     }
+  };
+
+  const handleRenewRecord = (record: TicketRecordsWithRelations) => {
+    if (isAdmin) {
+      setRenewingRecord(record);
+      setIsRenewSheetOpen(true);
+    }
+  };
+
+  const handleRenewSuccess = (record: TicketRecordsWithRelations) => {
+    setIsRenewSheetOpen(false);
+    setRenewingRecord(null);
+    addTicketRecord(record);
   };
   const handleDeleteRecord = (record: TicketRecordsWithRelations) => {
     if (isAdmin) {
@@ -250,6 +266,14 @@ export function TicketTab() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => handleRenewRecord(record)}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-1" />
+                              Renew
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleEditRecord(record)}
                             >
                               <Edit className="h-4 w-4 mr-1" />
@@ -337,6 +361,15 @@ export function TicketTab() {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={() => handleRenewRecord(record)}
+                                disabled={!isAdmin}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-1" />
+                                Renew
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleEditRecord(record)}
                                 disabled={!isAdmin}
                               >
@@ -364,6 +397,21 @@ export function TicketTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Renew Ticket Sheet */}
+      <Sheet open={isRenewSheetOpen} onOpenChange={setIsRenewSheetOpen}>
+        <SheetContent className="overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Renew Ticket</SheetTitle>
+          </SheetHeader>
+          {renewingRecord && (
+            <TicketAddForm
+              renewFrom={renewingRecord}
+              onSuccess={handleRenewSuccess}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Ticket Sheet */}
       <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>

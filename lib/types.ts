@@ -6,6 +6,7 @@ import {
   TrainingRecords,
   TicketRecords,
   Training,
+  TrainingRevision,
   Ticket,
   User,
   History,
@@ -61,9 +62,10 @@ export type EmployeeWithRequirementStatus = Employee & {
 };
 
 export interface TrainingRecordsWithRelations extends TrainingRecords {
-  training?: Training;
+  training?: TrainingWithRelations;
   personTrained?: EmployeeWithRelations;
   images?: TrainingImage[];
+  revision?: TrainingRevision | null;
 }
 
 export interface TrainingRequirementWithRelations extends TrainingRequirement {
@@ -76,9 +78,11 @@ export interface TrainingWithRelations extends Training {
   requirements?: TrainingRequirementWithRelations[];
   _count?: {
     trainingRecords: number;
+    revisions?: number;
   };
   trainingExemptions?: TrainingTicketExemptionWithRelations[];
   trainingRecords?: TrainingRecordsWithRelations[];
+  revisions?: TrainingRevision[];
 }
 export interface TicketRecordsWithRelations extends TicketRecords {
   ticket?: Ticket;
