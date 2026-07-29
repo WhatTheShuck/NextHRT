@@ -1,7 +1,7 @@
-import { copyFile, mkdir } from "fs/promises";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
+import { createHash } from "crypto";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
 import { fileUploadService } from "@/lib/services/fileUploadService";
 import { currentRevision } from "@/lib/services/trainingCompliance";
@@ -179,23 +179,72 @@ class SopService {
     }
 
     if (sourceRevision.documentPath) {
-      const copiedPath = await this.duplicateStoredFile(sourceRevision.documentPath);
+      const sharedPath = await this.shareStoredFile(sourceRevision.documentPath);
       await prisma.trainingRevision.update({
         where: { id: newRevisionId },
-        data: { documentPath: copiedPath },
+        data: { documentPath: sharedPath },
       });
     }
   }
 
-  private async duplicateStoredFile(relativePath: string): Promise<string> {
-    const uploadsRoot = path.join(process.cwd(), "uploads");
-    const targetDir = path.join(uploadsRoot, "sop-documents");
+  /**
+   * Store bytes under their own SHA-256 digest, so identical content always
+   * resolves to one file. The filename *is* the hash, so an existing file is
+   * by definition already the right bytes and is left alone.
+   *
+   * Anything stored this way may end up referenced by more than one revision —
+   * delete only via releaseStoredFile().
+   */
+  private async writeContentAddressed(
+    bytes: Buffer,
+    extension: string,
+  ): Promise<string> {
+    const targetDir = path.join(process.cwd(), "uploads", "sop-documents");
     if (!existsSync(targetDir)) {
       await mkdir(targetDir, { recursive: true });
     }
-    const targetName = `${uuidv4()}${path.extname(relativePath)}`;
-    await copyFile(path.join(uploadsRoot, relativePath), path.join(targetDir, targetName));
+    const digest = createHash("sha256").update(bytes).digest("hex");
+    const targetName = `${digest}${extension}`;
+    const targetPath = path.join(targetDir, targetName);
+    if (!existsSync(targetPath)) {
+      await writeFile(targetPath, bytes);
+    }
     return `sop-documents/${targetName}`;
+  }
+
+  /**
+   * Carry a procedure document onto a new revision. The document is unchanged
+   * by definition here, so the new revision points at the *same* stored file
+   * rather than getting a byte-identical copy — an SOP with 20 revisions costs
+   * one file, not 20.
+   *
+   * Legacy uploads are UUID-named; the first carry-forward rewrites those under
+   * their hash, after which every further revision reuses that one file.
+   */
+  private async shareStoredFile(relativePath: string): Promise<string> {
+    const bytes = await readFile(path.join(process.cwd(), "uploads", relativePath));
+    const stored = await this.writeContentAddressed(
+      bytes,
+      path.extname(relativePath),
+    );
+    return stored;
+  }
+
+  /**
+   * Drop one revision's claim on a stored document. Because revisions share
+   * content-addressed files, the bytes survive until no revision references
+   * them — otherwise replacing the document on one revision would blank it on
+   * every other revision carrying the same procedure.
+   */
+  private async releaseStoredFile(
+    documentPath: string,
+    exceptRevisionId: number,
+  ): Promise<void> {
+    const stillReferenced = await prisma.trainingRevision.count({
+      where: { documentPath, id: { not: exceptRevisionId } },
+    });
+    if (stillReferenced > 0) return;
+    await fileUploadService.deleteFile(documentPath);
   }
 
   // ---- Procedure document ----
@@ -209,13 +258,21 @@ class SopService {
     const { revision } = await this.assertTaskSheetRevision(trainingId, revisionId);
     if (file.type !== "application/pdf") throw new Error("INVALID_FILE_TYPE");
 
-    const saved = await fileUploadService.saveFile(file, "sop-documents");
+    fileUploadService.validateFile(file);
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const savedPath = await this.writeContentAddressed(
+      bytes,
+      path.extname(file.name) || ".pdf",
+    );
+
     await prisma.trainingRevision.update({
       where: { id: revisionId },
-      data: { documentPath: saved.imagePath },
+      data: { documentPath: savedPath },
     });
-    if (revision.documentPath) {
-      await fileUploadService.deleteFile(revision.documentPath);
+    // Re-uploading the same bytes resolves to the same path — releasing it here
+    // would delete the file this revision now points at.
+    if (revision.documentPath && revision.documentPath !== savedPath) {
+      await this.releaseStoredFile(revision.documentPath, revisionId);
     }
 
     await prisma.history.create({
@@ -224,12 +281,12 @@ class SopService {
         recordId: revisionId.toString(),
         action: "UPDATE",
         oldValues: JSON.stringify({ documentPath: revision.documentPath }),
-        newValues: JSON.stringify({ documentPath: saved.imagePath }),
+        newValues: JSON.stringify({ documentPath: savedPath }),
         userId,
       },
     });
 
-    return { documentPath: saved.imagePath };
+    return { documentPath: savedPath };
   }
 
   async deleteDocument(trainingId: number, revisionId: number, userId: string) {
@@ -240,7 +297,7 @@ class SopService {
       where: { id: revisionId },
       data: { documentPath: null },
     });
-    await fileUploadService.deleteFile(revision.documentPath);
+    await this.releaseStoredFile(revision.documentPath, revisionId);
 
     await prisma.history.create({
       data: {

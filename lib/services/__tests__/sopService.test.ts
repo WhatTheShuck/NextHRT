@@ -3,7 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
     training: { findUnique: vi.fn(), update: vi.fn() },
-    trainingRevision: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    trainingRevision: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+      count: vi.fn(),
+    },
     sopQuestion: {
       findMany: vi.fn(),
       update: vi.fn(),
@@ -13,6 +18,8 @@ const { mockPrisma } = vi.hoisted(() => {
     },
     sopAnswer: { count: vi.fn() },
     sopAssessment: { count: vi.fn() },
+    // Guards the shared-file delete: how many *other* revisions still point at
+    // a documentPath. Defaults to 0 (nothing else references it) per test.
     sopTrainerAssignment: { findMany: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn() },
     history: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -23,14 +30,39 @@ const { mockPrisma } = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 vi.mock("@/lib/services/fileUploadService", () => ({
-  fileUploadService: { saveFile: vi.fn(), deleteFile: vi.fn() },
+  fileUploadService: {
+    saveFile: vi.fn(),
+    deleteFile: vi.fn(),
+    validateFile: vi.fn(),
+  },
 }));
 
+// SOP documents are content-addressed on disk, so these tests drive real
+// storage calls. Mock the filesystem rather than writing into uploads/.
+vi.mock("fs/promises", () => ({
+  mkdir: vi.fn(),
+  readFile: vi.fn(),
+  writeFile: vi.fn(),
+}));
+vi.mock("fs", () => ({ existsSync: vi.fn(() => true) }));
+
+import { createHash } from "crypto";
+import { readFile, writeFile } from "fs/promises";
+import { existsSync } from "fs";
 import { sopService } from "@/lib/services/sopService";
+
+/** The path the service will store `content` under. */
+function hashedPath(content: string, extension = ".pdf") {
+  const digest = createHash("sha256").update(Buffer.from(content)).digest("hex");
+  return `sop-documents/${digest}${extension}`;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
+  // No other revision shares the file unless a test says otherwise.
+  mockPrisma.trainingRevision.count.mockResolvedValue(0);
+  vi.mocked(existsSync).mockReturnValue(true);
 });
 
 function mockPairFromTaskSheet(taskSheetId = 1, practicalId = 2) {
@@ -183,7 +215,7 @@ describe("uploadDocument", () => {
     ).rejects.toThrow("NOT_A_TASK_SHEET");
   });
 
-  it("saves the file, updates the revision, deletes the old file, and logs history", async () => {
+  it("stores the file under its hash, updates the revision, releases the old file, and logs history", async () => {
     mockPairFromTaskSheet();
     mockPrisma.trainingRevision.findUnique.mockResolvedValue({
       id: 10,
@@ -191,22 +223,57 @@ describe("uploadDocument", () => {
       documentPath: "sop-documents/old.pdf",
     });
     const { fileUploadService } = await import("@/lib/services/fileUploadService");
-    vi.mocked(fileUploadService.saveFile).mockResolvedValue({
-      imagePath: "sop-documents/new.pdf",
-      imageType: "application/pdf",
-    } as any);
+    vi.mocked(existsSync).mockImplementation((p) => !String(p).includes("new"));
 
-    const file = new File(["%PDF"], "new.pdf", { type: "application/pdf" });
+    const file = new File(["%PDF-new"], "new.pdf", { type: "application/pdf" });
     const result = await sopService.uploadDocument(1, 10, file, "u1");
 
-    expect(fileUploadService.saveFile).toHaveBeenCalledWith(file, "sop-documents");
+    const expected = hashedPath("%PDF-new");
     expect(mockPrisma.trainingRevision.update).toHaveBeenCalledWith({
       where: { id: 10 },
-      data: { documentPath: "sop-documents/new.pdf" },
+      data: { documentPath: expected },
     });
     expect(fileUploadService.deleteFile).toHaveBeenCalledWith("sop-documents/old.pdf");
     expect(mockPrisma.history.create).toHaveBeenCalled();
-    expect(result).toEqual({ documentPath: "sop-documents/new.pdf" });
+    expect(result).toEqual({ documentPath: expected });
+  });
+
+  it("keeps the old file when another revision still references it", async () => {
+    mockPairFromTaskSheet();
+    mockPrisma.trainingRevision.findUnique.mockResolvedValue({
+      id: 10,
+      trainingId: 1,
+      documentPath: "sop-documents/shared.pdf",
+    });
+    mockPrisma.trainingRevision.count.mockResolvedValue(2);
+    const { fileUploadService } = await import("@/lib/services/fileUploadService");
+
+    const file = new File(["%PDF-new"], "new.pdf", { type: "application/pdf" });
+    await sopService.uploadDocument(1, 10, file, "u1");
+
+    expect(mockPrisma.trainingRevision.count).toHaveBeenCalledWith({
+      where: { documentPath: "sop-documents/shared.pdf", id: { not: 10 } },
+    });
+    expect(fileUploadService.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it("does not rewrite or delete anything when the same bytes are re-uploaded", async () => {
+    mockPairFromTaskSheet();
+    const existing = hashedPath("%PDF-same");
+    mockPrisma.trainingRevision.findUnique.mockResolvedValue({
+      id: 10,
+      trainingId: 1,
+      documentPath: existing,
+    });
+    const { fileUploadService } = await import("@/lib/services/fileUploadService");
+
+    const file = new File(["%PDF-same"], "same.pdf", { type: "application/pdf" });
+    const result = await sopService.uploadDocument(1, 10, file, "u1");
+
+    expect(result).toEqual({ documentPath: existing });
+    // The hash-named file is already on disk, and it is still this revision's.
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(fileUploadService.deleteFile).not.toHaveBeenCalled();
   });
 
   it("rejects a non-PDF file with INVALID_FILE_TYPE and does not save it", async () => {
@@ -216,13 +283,12 @@ describe("uploadDocument", () => {
       trainingId: 1,
       documentPath: null,
     });
-    const { fileUploadService } = await import("@/lib/services/fileUploadService");
 
     const file = new File(["notpdf"], "x.png", { type: "image/png" });
     await expect(sopService.uploadDocument(1, 10, file, "u1")).rejects.toThrow(
       "INVALID_FILE_TYPE",
     );
-    expect(fileUploadService.saveFile).not.toHaveBeenCalled();
+    expect(writeFile).not.toHaveBeenCalled();
   });
 });
 
@@ -244,6 +310,25 @@ describe("deleteDocument", () => {
     });
     expect(fileUploadService.deleteFile).toHaveBeenCalledWith("sop-documents/old.pdf");
     expect(mockPrisma.history.create).toHaveBeenCalled();
+  });
+
+  it("clears the documentPath but keeps the file when another revision shares it", async () => {
+    mockPairFromTaskSheet();
+    mockPrisma.trainingRevision.findUnique.mockResolvedValue({
+      id: 10,
+      trainingId: 1,
+      documentPath: "sop-documents/shared.pdf",
+    });
+    mockPrisma.trainingRevision.count.mockResolvedValue(1);
+    const { fileUploadService } = await import("@/lib/services/fileUploadService");
+
+    await sopService.deleteDocument(1, 10, "u1");
+
+    expect(mockPrisma.trainingRevision.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { documentPath: null },
+    });
+    expect(fileUploadService.deleteFile).not.toHaveBeenCalled();
   });
 
   it("does nothing when there is no documentPath set", async () => {
@@ -305,6 +390,51 @@ describe("copyForward", () => {
         { revisionId: 20, order: 1, questionText: "Q1", markerNotes: "look for X" },
         { revisionId: 20, order: 2, questionText: "Q2", markerNotes: null },
       ],
+    });
+  });
+
+  it("carries an already content-addressed document forward without writing a copy", async () => {
+    mockPairFromTaskSheet();
+    const old = new Date("2025-01-01");
+    const shared = hashedPath("%PDF-body");
+    mockPrisma.trainingRevision.findMany.mockResolvedValue([
+      { id: 10, effectiveDate: old, createdAt: old, overrideRequiresRetraining: null },
+    ]);
+    mockPrisma.trainingRevision.findUnique.mockResolvedValue({
+      documentPath: shared,
+      sopQuestions: [],
+    });
+    vi.mocked(readFile).mockResolvedValue(Buffer.from("%PDF-body") as any);
+
+    await sopService.copyForward(1, 20);
+
+    // Both revisions end up on the one file — no second copy on disk.
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(mockPrisma.trainingRevision.update).toHaveBeenCalledWith({
+      where: { id: 20 },
+      data: { documentPath: shared },
+    });
+  });
+
+  it("rewrites a legacy UUID-named document under its hash on first carry-forward", async () => {
+    mockPairFromTaskSheet();
+    const old = new Date("2025-01-01");
+    mockPrisma.trainingRevision.findMany.mockResolvedValue([
+      { id: 10, effectiveDate: old, createdAt: old, overrideRequiresRetraining: null },
+    ]);
+    mockPrisma.trainingRevision.findUnique.mockResolvedValue({
+      documentPath: "sop-documents/3076db75-fa04-4693-b16d-58eb39a99e46.pdf",
+      sopQuestions: [],
+    });
+    vi.mocked(readFile).mockResolvedValue(Buffer.from("%PDF-legacy") as any);
+    vi.mocked(existsSync).mockImplementation((p) => !String(p).includes(".pdf"));
+
+    await sopService.copyForward(1, 20);
+
+    expect(writeFile).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.trainingRevision.update).toHaveBeenCalledWith({
+      where: { id: 20 },
+      data: { documentPath: hashedPath("%PDF-legacy") },
     });
   });
 
