@@ -16,6 +16,8 @@ import {
   UserCheck,
   SlidersHorizontal,
   Eye,
+  BookOpenCheck,
+  ClipboardCheck,
   Cpu,
   ListCheck,
   CheckSquare,
@@ -101,6 +103,36 @@ export const landingPageNavigationItems: NavigationItem[] = [
     icon: Eye,
     href: "/access-check",
     minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    title: "My SOPs",
+    description: "Read SOPs and complete assessments",
+    icon: BookOpenCheck,
+    href: "/my-sops",
+    minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    // Static permissions can't express "is a designated trainer" — the
+    // queue page itself gates (non-trainers just see the empty state).
+    title: "SOP Reviews",
+    description: "Mark submitted SOP assessments",
+    icon: ClipboardCheck,
+    href: "/sop-reviews",
+    minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    title: "My Questionnaires",
+    description: "Complete assigned interactive questionnaires",
+    icon: ClipboardList,
+    href: "/quiz",
+    minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    title: "Quiz Results",
+    description: "Review IT induction questionnaire responses",
+    icon: ListCheck,
+    href: "/admin/quiz-results",
+    minimumAllowedPermission: "user:impersonate",
   },
   {
     title: "Background Jobs",
