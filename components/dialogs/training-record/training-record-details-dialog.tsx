@@ -40,7 +40,7 @@ interface RecordContentProps {
   className?: string;
 }
 
-function RecordContent({ record, className }: RecordContentProps) {
+export function RecordContent({ record, className }: RecordContentProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const isPDF = (filename: string) => filename.toLowerCase().endsWith(".pdf");

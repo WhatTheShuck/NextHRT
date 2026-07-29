@@ -14,6 +14,7 @@ import {
   Plus,
   Eye,
   FileImage,
+  FileDown,
   Edit,
   Trash,
   CheckCircle,
@@ -45,12 +46,17 @@ import {
 } from "@/components/ui/sheet";
 import { TrainingAddForm } from "@/components/forms/training-add-form";
 import { TrainingEditForm } from "@/components/forms/training-edit-form";
-import { TrainingRecordDetailsDialog } from "@/components/dialogs/training-record/training-record-details-dialog";
+import {
+  SopDetailsDialog,
+  downloadCompletionRecord,
+} from "@/components/dialogs/training-record/sop-details-dialog";
 import { TrainingRecordsWithRelations } from "@/lib/types";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DeleteTrainingRecordDialog } from "@/components/dialogs/training-record/delete-training-record-dialog";
 import { authClient } from "@/lib/auth-client";
 import { currentRevision } from "@/lib/services/trainingCompliance";
+import api from "@/lib/axios";
+import { toast } from "sonner";
 
 function isRevisionOutOfDate(record: TrainingRecordsWithRelations | undefined): boolean {
   if (!record) return false;
@@ -76,7 +82,13 @@ interface SOPGroup {
 }
 
 export function SOPTrainingTab() {
-  const { employee, addTrainingRecord, updateTrainingRecord, deleteTrainingRecord } = useEmployee();
+  const {
+    employee,
+    employeeId,
+    addTrainingRecord,
+    updateTrainingRecord,
+    deleteTrainingRecord,
+  } = useEmployee();
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user.role === "Admin";
   const trainingRecords = useEmployeeTrainingRecords().filter(
@@ -84,9 +96,12 @@ export function SOPTrainingTab() {
   );
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] =
-    useState<TrainingRecordsWithRelations | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<SOPGroup | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  // Task Sheet training id → assessment id, for SOPs completed in HRT. Paper-era
+  // completions are absent, so they get no completion record.
+  const [completions, setCompletions] = useState<Map<number, number>>(new Map());
   const [editingRecord, setEditingRecord] =
     useState<TrainingRecordsWithRelations | null>(null);
   const [deletingRecord, setDeletingRecord] =
@@ -121,6 +136,49 @@ export function SOPTrainingTab() {
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
   }, [trainingRecords]);
 
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get(`/api/employees/${employeeId}/sop-completions`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setCompletions(
+          new Map(
+            (data as Array<{ assessmentId: number; taskSheetTrainingId: number }>).map(
+              (row) => [row.taskSheetTrainingId, row.assessmentId],
+            ),
+          ),
+        );
+      })
+      .catch(() => {
+        // Non-fatal: the tab still lists every SOP, just without the PDF action.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId]);
+
+  const completionIdFor = (group: SOPGroup): number | null => {
+    const taskSheetTrainingId = group.taskSheet?.training?.id;
+    if (!taskSheetTrainingId) return null;
+    return completions.get(taskSheetTrainingId) ?? null;
+  };
+
+  const handleDownload = async (group: SOPGroup) => {
+    const assessmentId = completionIdFor(group);
+    if (assessmentId === null) return;
+    setDownloadingId(assessmentId);
+    try {
+      await downloadCompletionRecord(assessmentId, group.name);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not download the record",
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const handleAddSuccess = (record: TrainingRecordsWithRelations) => {
     setIsAddSheetOpen(false);
     addTrainingRecord(record);
@@ -132,9 +190,9 @@ export function SOPTrainingTab() {
     updateTrainingRecord(record);
   };
 
-  const handleViewDetails = (record: TrainingRecordsWithRelations) => {
+  const handleViewDetails = (group: SOPGroup) => {
     setTimeout(() => {
-      setSelectedRecord(record);
+      setSelectedGroup(group);
       setIsDetailsOpen(true);
     }, 100);
   };
@@ -240,40 +298,35 @@ export function SOPTrainingTab() {
       (practical?.images && practical.images.length > 0)
     );
 
+  /** Both halves in one view — the SOP is a single thing to everyone but admins. */
+  const renderViewAction = (group: SOPGroup, variant: "outline" | "ghost") => (
+    <>
+      <Button
+        variant={variant}
+        size="sm"
+        onClick={() => handleViewDetails(group)}
+        disabled={!group.taskSheet && !group.practical}
+      >
+        <Eye className="h-4 w-4 mr-1" />
+        View
+      </Button>
+      {completionIdFor(group) !== null && (
+        <Button
+          variant={variant}
+          size="sm"
+          onClick={() => handleDownload(group)}
+          disabled={downloadingId !== null}
+        >
+          <FileDown className="h-4 w-4 mr-1" />
+          {downloadingId === completionIdFor(group) ? "Preparing…" : "PDF"}
+        </Button>
+      )}
+    </>
+  );
+
   const renderActionDropdowns = (group: SOPGroup) => (
     <div className="flex gap-2 flex-wrap">
-      {/* View Dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!group.taskSheet && !group.practical}
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            View
-            <ChevronDown className="h-3 w-3 ml-1" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {group.taskSheet && (
-            <DropdownMenuItem
-              onClick={() => handleViewDetails(group.taskSheet!)}
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Task Sheet
-            </DropdownMenuItem>
-          )}
-          {group.practical && (
-            <DropdownMenuItem
-              onClick={() => handleViewDetails(group.practical!)}
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Practical
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {renderViewAction(group, "outline")}
 
       {/* Edit Dropdown - Admins only */}
       {isAdmin && (
@@ -490,44 +543,7 @@ export function SOPTrainingTab() {
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-1">
-                            {/* View Dropdown */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={
-                                    !group.taskSheet && !group.practical
-                                  }
-                                >
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  View
-                                  <ChevronDown className="h-3 w-3 ml-1" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                {group.taskSheet && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleViewDetails(group.taskSheet!)
-                                    }
-                                  >
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    Task Sheet
-                                  </DropdownMenuItem>
-                                )}
-                                {group.practical && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleViewDetails(group.practical!)
-                                    }
-                                  >
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    Practical
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            {renderViewAction(group, "ghost")}
 
                             {/* Edit Dropdown - Admins only */}
                             {isAdmin && (
@@ -644,8 +660,9 @@ export function SOPTrainingTab() {
         </SheetContent>
       </Sheet>
 
-      <TrainingRecordDetailsDialog
-        record={selectedRecord}
+      <SopDetailsDialog
+        group={selectedGroup}
+        assessmentId={selectedGroup ? completionIdFor(selectedGroup) : null}
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
       />

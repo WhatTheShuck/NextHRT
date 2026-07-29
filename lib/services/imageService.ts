@@ -80,6 +80,16 @@ export class ImageService {
       if (!hasAccess) {
         throw new Error("NOT_AUTHORISED");
       }
+    } else if (filePath.startsWith("sop-documents/")) {
+      // SOP procedure PDFs are company-wide reading material: any
+      // authenticated user may view them (they live on SharePoint today).
+      const revision = await prisma.trainingRevision.findFirst({
+        where: { documentPath: filePath },
+        select: { id: true },
+      });
+      if (!revision) {
+        throw new Error("IMAGE_NOT_FOUND");
+      }
     } else {
       throw new Error("UNAUTHORISED_IMAGE_ACCESS");
     }

@@ -15,6 +15,12 @@ const { mockPrisma, mockEnqueue } = vi.hoisted(() => {
     history: {
       create: vi.fn(),
     },
+    sopAssessment: {
+      count: vi.fn(),
+    },
+    quizResponse: {
+      count: vi.fn(),
+    },
   };
   const mockEnqueue = vi.fn();
   return { mockPrisma, mockEnqueue };
@@ -22,8 +28,15 @@ const { mockPrisma, mockEnqueue } = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 vi.mock("@/lib/jobs/jobQueue", () => ({ enqueue: mockEnqueue }));
+vi.mock("@/lib/services/sopService", () => ({
+  sopService: { copyForward: vi.fn() },
+}));
+vi.mock("@/lib/services/quizService", () => ({
+  quizService: { copyForward: vi.fn() },
+}));
 
 import { trainingRevisionService } from "@/lib/services/trainingRevisionService";
+import { sopService } from "@/lib/services/sopService";
 
 const pastDate = new Date("2020-01-01T00:00:00Z");
 const futureDate = new Date("2099-01-01T00:00:00Z");
@@ -52,6 +65,8 @@ beforeEach(() => {
   mockPrisma.trainingRevision.update.mockResolvedValue(revisionRow(1, pastDate));
   mockPrisma.trainingRevision.delete.mockResolvedValue(revisionRow(1, pastDate));
   mockPrisma.history.create.mockResolvedValue({});
+  mockPrisma.sopAssessment.count.mockResolvedValue(0);
+  mockPrisma.quizResponse.count.mockResolvedValue(0);
 });
 
 describe("trainingRevisionService.listForTraining", () => {
@@ -85,6 +100,19 @@ describe("trainingRevisionService.createRevision", () => {
         data: expect.objectContaining({ tableName: "TrainingRevision", action: "CREATE" }),
       }),
     );
+  });
+
+  it("copies questions and the procedure PDF forward via sopService.copyForward", async () => {
+    mockPrisma.training.findUnique.mockResolvedValue(
+      trainingWithRevisions([revisionRow(1, pastDate)]),
+    );
+
+    await trainingRevisionService.createRevision(
+      { trainingId: 10, revisionLabel: "2024 Edition", effectiveDate: pastDate },
+      "u1",
+    );
+
+    expect(sopService.copyForward).toHaveBeenCalledWith(10, 1);
   });
 
   it("enqueues REQUIREMENTS_CACHE_REBUILD when the new revision is current and requires retraining", async () => {

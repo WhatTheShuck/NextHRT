@@ -159,6 +159,11 @@ export class TrainingService {
         },
       });
 
+      const linkedTraining1 = await prisma.training.update({
+        where: { id: training1.id },
+        data: { sopPartnerId: training2.id },
+      });
+
       if (data.requirements) {
         for (const req of data.requirements) {
           await prisma.trainingRequirement.create({
@@ -201,7 +206,7 @@ export class TrainingService {
 
       await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
-      return [training1, training2];
+      return [linkedTraining1, training2];
     } else {
       const training = await prisma.training.create({
         data: {
@@ -283,6 +288,12 @@ export class TrainingService {
         include: trainingWithRelationsInclude,
       });
 
+      const linkedTraining = await prisma.training.update({
+        where: { id },
+        data: { sopPartnerId: practicalTraining.id },
+        include: trainingWithRelationsInclude,
+      });
+
       if (data.requirements) {
         await prisma.trainingRequirement.deleteMany({
           where: { trainingId: id },
@@ -335,7 +346,7 @@ export class TrainingService {
           recordId: id.toString(),
           action: "UPDATE",
           oldValues: JSON.stringify(currentTraining),
-          newValues: JSON.stringify(updatedTraining),
+          newValues: JSON.stringify(linkedTraining),
           userId,
         },
       });
@@ -352,7 +363,7 @@ export class TrainingService {
 
       await enqueue("REQUIREMENTS_CACHE_REBUILD");
 
-      return [updatedTraining, practicalTraining];
+      return [linkedTraining, practicalTraining];
     } else if (currentTraining.category === "SOP" && data.category !== "SOP") {
       // SOP → non-SOP: strip suffix, delete sibling, update this record
 
@@ -514,6 +525,19 @@ export class TrainingService {
       throw new Error("TRAINING_HAS_RECORDS");
     }
 
+    // SOP assessments are evidence: they block deletion even before any
+    // TrainingRecords exist (started/submitted but not yet passed).
+    const assessmentCount = await prisma.sopAssessment.count({
+      where: { revision: { trainingId: id } },
+    });
+    if (assessmentCount > 0) throw new Error("TRAINING_HAS_SOP_ASSESSMENTS");
+
+    // Interactive-quiz responses are likewise evidence and block deletion.
+    const quizResponseCount = await prisma.quizResponse.count({
+      where: { revision: { trainingId: id } },
+    });
+    if (quizResponseCount > 0) throw new Error("TRAINING_HAS_QUIZ_RESPONSES");
+
     // Resolve sibling for SOP pair deletion
     let sibling: (typeof currentTraining) | null = null;
     if (deletePair && currentTraining.category === "SOP") {
@@ -540,6 +564,11 @@ export class TrainingService {
           if (siblingRecords > 0) {
             throw new Error("SOP_SIBLING_HAS_RECORDS");
           }
+
+          const siblingAssessments = await prisma.sopAssessment.count({
+            where: { revision: { trainingId: sibling.id } },
+          });
+          if (siblingAssessments > 0) throw new Error("TRAINING_HAS_SOP_ASSESSMENTS");
         }
       }
     }
