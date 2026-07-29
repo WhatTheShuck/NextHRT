@@ -14,6 +14,8 @@ import {
   Activity,
   FileText,
   History as HistoryIcon,
+  Phone,
+  Smartphone,
   User,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -102,6 +104,32 @@ export function OverviewTab() {
               <span className="text-sm text-muted-foreground">Location</span>
               <span className="ml-auto">{employee.location.name}</span>
             </div>
+            {employee.phone && (
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Phone</span>
+                <a
+                  href={`tel:${employee.phone}`}
+                  className="ml-auto hover:underline"
+                >
+                  {employee.phone}
+                </a>
+              </div>
+            )}
+
+            {employee.mobile && (
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Mobile</span>
+                <a
+                  href={`tel:${employee.mobile}`}
+                  className="ml-auto hover:underline"
+                >
+                  {employee.mobile}
+                </a>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">

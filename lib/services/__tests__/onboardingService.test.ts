@@ -122,6 +122,8 @@ describe("approveRequest", () => {
     startDate: new Date("2026-07-01"),
     jobFamilyId: null,
     medicalStandardId: null,
+    pendingDepartmentRequestId: null,
+    pendingLocationRequestId: null,
   };
 
   it("creates an Employee (no User), links it, and flips status to Approved", async () => {

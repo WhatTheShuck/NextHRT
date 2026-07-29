@@ -288,6 +288,7 @@ export function OnboardingTab() {
                 ["marketingInductionRequired", "Marketing Induction"],
                 ["willReceiveVehicle", "Will Receive KSB Vehicle"],
                 ["willDriveVehicle", "Will Drive KSB Vehicle"],
+                ["requiresLandline", "Requires Landline Number"],
               ] as [keyof OnboardingPayload["compliance"], string][]
             ).map(([key, label]) => (
               <div key={key} className="flex items-center gap-2">

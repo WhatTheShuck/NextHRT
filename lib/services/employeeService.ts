@@ -3,6 +3,7 @@ import { UserRole, Prisma, EmployeeStatus } from "@/generated/prisma_client/clie
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { auth } from "../auth";
 import { deriveEmploymentType, serializePriorStint } from "@/lib/employment";
+import { enqueue } from "@/lib/jobs/jobQueue";
 
 export interface GetEmployeesOptions {
   activeOnly?: boolean;
@@ -335,6 +336,28 @@ export class EmployeeService {
     return employee;
   }
 
+  /**
+   * When an update flips an employee from active to inactive, enqueue the
+   * ASSET_CHECKIN offboarding job (check their Snipe-IT assets back in via
+   * AssetCheckout). Never lets an enqueue failure break the update that
+   * already committed — the job can be raised manually if this ever fails.
+   */
+  private async enqueueOffboardingIfDeactivated(
+    wasActive: boolean,
+    isNowActive: boolean,
+    employeeId: number,
+  ): Promise<void> {
+    if (!wasActive || isNowActive) return;
+    try {
+      await enqueue("ASSET_CHECKIN", { employeeId });
+    } catch (err) {
+      console.error(
+        `Failed to enqueue ASSET_CHECKIN for employee ${employeeId}:`,
+        err,
+      );
+    }
+  }
+
   async updateEmployeePartial(
     employeeId: number,
     data: {
@@ -428,6 +451,12 @@ export class EmployeeService {
       },
     });
 
+    await this.enqueueOffboardingIfDeactivated(
+      currentEmployee.isActive,
+      updatedEmployee.isActive,
+      employeeId,
+    );
+
     return updatedEmployee;
   }
 
@@ -498,6 +527,12 @@ export class EmployeeService {
         userId: userId,
       },
     });
+
+    await this.enqueueOffboardingIfDeactivated(
+      currentEmployee.isActive,
+      updatedEmployee.isActive,
+      employeeId,
+    );
 
     return updatedEmployee;
   }

@@ -11,6 +11,8 @@ import { historyArchivalHandler } from "@/lib/jobs/handlers/historyArchival";
 import { reevaluatePendingApprovalsHandler } from "@/lib/jobs/handlers/reevaluatePendingApprovals";
 import { sendEmailHandler } from "@/lib/jobs/handlers/sendEmail";
 import { hardwareRequestHandler } from "@/lib/jobs/handlers/hardwareRequest";
+import { snipePhoneSyncHandler } from "@/lib/jobs/handlers/snipePhoneSync";
+import { assetCheckinHandler } from "@/lib/jobs/handlers/assetCheckin";
 import { trainingRevisionCrossingHandler } from "@/lib/jobs/handlers/trainingRevisionCrossing";
 
 export async function start(): Promise<void> {
@@ -25,6 +27,8 @@ export async function start(): Promise<void> {
   registerHandler("REEVALUATE_PENDING_APPROVALS", reevaluatePendingApprovalsHandler);
   registerHandler("SEND_EMAIL", sendEmailHandler);
   registerHandler("HARDWARE_REQUEST", hardwareRequestHandler);
+  registerHandler("ASSET_CHECKIN", assetCheckinHandler);
+  registerHandler("SNIPE_PHONE_SYNC", snipePhoneSyncHandler);
 
   // Warm the requirements cache on boot
   await enqueue("REQUIREMENTS_CACHE_REBUILD");
