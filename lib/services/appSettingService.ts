@@ -102,7 +102,8 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     key: "onboarding.hardwareEndpoint",
     envVar: "ONBOARDING_HARDWARE_ENDPOINT",
     defaultValue: "https://checkout.ksb.com.au/",
-    description: "Endpoint for the hardware-request platform (placeholder).",
+    description:
+      "Base URL of the AssetCheckout platform (hardware requests + Snipe-IT user lifecycle).",
   },
   {
     key: "onboarding.recipient.it",
@@ -179,11 +180,18 @@ const SETTING_DEFAULTS: SettingDefault[] = [
       "JSON array of Training IDs personally delivered by the admin. Used by the Training I Deliver tracker.",
   },
   {
-    key: "tickets.expiryWarningDays",
-    envVar: "TICKET_EXPIRY_WARNING_DAYS",
-    defaultValue: "30",
+    key: "tickets.expiryReminderDays",
+    envVar: "TICKET_EXPIRY_REMINDER_DAYS",
+    defaultValue: "365,180,90,30",
     description:
-      "Days before a ticket's expiry to send a renewal-reminder email.",
+      "Comma-separated day milestones before a ticket's expiry at which to send a renewal-reminder email (one reminder per milestone). The largest value also caps how far ahead expiries are considered.",
+  },
+  {
+    key: "it.quizSummaryEmail",
+    envVar: "IT_QUIZ_SUMMARY_EMAIL",
+    defaultValue: "",
+    description:
+      "Email address that receives IT-induction questionnaire summaries; falls back to admins when blank.",
   },
 ];
 

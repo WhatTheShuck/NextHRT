@@ -31,10 +31,16 @@ export const EMAIL_TEMPLATE_TOKENS = [
   "willDriveVehicle",   // "Yes" or "No"
   "iamValidTo",         // startDate + 1 year (external hires only)
   // Ticket-expiry notification tokens (ticket.expiryWarning / ticket.expired).
-  "employeeName",     // the ticket holder's name
-  "ticketName",       // the ticket / credential name
-  "expiryDate",       // the record's expiry date (YYYY-MM-DD)
-  "daysUntilExpiry",  // whole days from now until expiry (0 once expired)
+  // These emails are consolidated: one message per recipient lists every
+  // affected employee/ticket, so the copy references the list, not one holder.
+  "ticketList",       // HTML <ul> of affected tickets (holder — ticket: expiry)
+  "count",            // number of tickets listed in this email
+  "employeeName",     // (SOP templates) an individual employee's name
+  // SOP assessment tokens (sop.submitted / sop.changesRequested / sop.passed).
+  "sopTitle",         // the SOP assessment title
+  "trainerName",      // the designated trainer's name
+  // IT induction quiz summary token (it.quizSummary).
+  "summaryUrl",       // deep link to the response's results detail page
 ] as const;
 
 const PLACEHOLDER_BODY =
@@ -124,6 +130,16 @@ const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
 <p>If you have any questions, please reach out to their manager directly.</p>`,
   },
   {
+    key: "it.landline",
+    name: "IT landline-number request",
+    subject: "Landline number for {preferredFirstName} {preferredLastName}",
+    body: `<p>Hi,</p>
+
+<p>Please arrange a landline / desk phone number for <strong>{preferredFirstName} {preferredLastName}</strong> ({title}), who is joining {department} at {location} on {startDate}. Their manager is {managerName}.</p>
+
+<p>If you have any questions, please reach out to their manager directly.</p>`,
+  },
+  {
     key: "marketing.induction",
     name: "Marketing induction booking",
     subject:
@@ -159,15 +175,51 @@ const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
   },
   {
     key: "ticket.expiryWarning",
-    name: "Ticket expiring soon",
-    subject: "Ticket expiring soon: {ticketName} for {employeeName}",
-    body: "{employeeName}'s {ticketName} expires on {expiryDate} ({daysUntilExpiry} days). Please arrange renewal.",
+    name: "Tickets expiring soon",
+    subject: "Tickets expiring soon ({count})",
+    body: `<p>Hi,</p>
+<p>The following tickets/credentials are due to expire soon. Please arrange renewal:</p>
+{ticketList}`,
   },
   {
     key: "ticket.expired",
-    name: "Ticket expired",
-    subject: "Ticket EXPIRED: {ticketName} for {employeeName}",
-    body: "{employeeName}'s {ticketName} expired on {expiryDate}. They are now non-compliant until it is renewed.",
+    name: "Tickets expired",
+    subject: "Tickets expired ({count})",
+    body: `<p>Hi,</p>
+<p>The following tickets/credentials have expired. Their holders are now non-compliant until renewed:</p>
+{ticketList}`,
+  },
+  {
+    key: "sop.submitted",
+    name: "SOP assessment submitted — to designated trainers",
+    subject: "SOP assessment ready to mark: {sopTitle} — {employeeName}",
+    body: `<p>Hi,</p>
+<p>{employeeName} has submitted their answers for <strong>{sopTitle}</strong>.</p>
+<p>Please review and mark the assessment in HRT (SOP Reviews).</p>`,
+  },
+  {
+    key: "sop.changesRequested",
+    name: "SOP assessment — changes requested (to employee)",
+    subject: "Changes requested on your {sopTitle} assessment",
+    body: `<p>Hi {employeeName},</p>
+<p>{trainerName} has reviewed your <strong>{sopTitle}</strong> assessment and marked one or more answers as needing changes.</p>
+<p>Open My SOPs in HRT to see the comments and resubmit.</p>`,
+  },
+  {
+    key: "sop.passed",
+    name: "SOP assessment passed (to employee)",
+    subject: "You passed: {sopTitle}",
+    body: `<p>Hi {employeeName},</p>
+<p>{trainerName} has marked all your answers sufficient — <strong>{sopTitle}</strong> is complete and recorded in HRT.</p>`,
+  },
+  {
+    key: "it.quizSummary",
+    name: "IT induction questionnaire — summary to IT",
+    subject: "IT induction completed: {employeeName}",
+    body: `<p>Hi,</p>
+<p>{employeeName} has completed the IT induction questionnaire. Open their summary in HRT to tailor their introduction before the session:</p>
+<p><a href="{summaryUrl}">{summaryUrl}</a></p>
+<p>Nothing in the questionnaire is graded — the summary flags where a hand or a tip would help.</p>`,
   },
 ];
 
