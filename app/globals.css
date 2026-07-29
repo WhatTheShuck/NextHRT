@@ -144,4 +144,15 @@
   body {
     @apply bg-background text-foreground;
   }
+  /*
+    Tailwind v4's Preflight no longer sets `cursor: pointer` on buttons, so every
+    <button> and Radix trigger (dialog/sheet "X" close, select, tabs, dropdown
+    items, …) fell back to the default arrow cursor. Restore the pointer for
+    enabled interactive controls. Utilities like `disabled:cursor-not-allowed`
+    still win because they live in the later `utilities` layer.
+  */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
