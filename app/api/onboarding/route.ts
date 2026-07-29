@@ -3,6 +3,7 @@ import { getAuth } from "@/lib/api-auth";
 import { onboardingService } from "@/lib/services/onboardingService";
 import { OnboardingStatus } from "@/generated/prisma_client/client";
 import { mailService } from "@/lib/services/mailService";
+import { appLink } from "@/lib/appUrl";
 import prisma from "@/lib/prisma";
 
 const VALID_STATUSES: OnboardingStatus[] = [
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Notify all admins — best-effort, never blocks or fails the submission.
-    notifyAdmins(created, session.user.name ?? session.user.email, request.nextUrl.origin).catch(() => {});
+    notifyAdmins(created, session.user.name ?? session.user.email).catch(() => {});
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
@@ -88,7 +89,6 @@ export async function POST(request: NextRequest) {
 async function notifyAdmins(
   request: { id: number; legalFirstName: string; legalLastName: string },
   submittedBy: string,
-  origin: string,
 ) {
   const admins = await prisma.user.findMany({
     where: { role: "Admin" },
@@ -97,7 +97,7 @@ async function notifyAdmins(
   if (admins.length === 0) return;
 
   const candidateName = `${request.legalFirstName} ${request.legalLastName}`;
-  const reviewUrl = `${origin}/admin/onboarding/${request.id}`;
+  const reviewUrl = appLink(`/admin/onboarding/${request.id}`);
 
   await mailService.send({
     to: admins.map((a) => a.email).filter((e): e is string => e !== null),

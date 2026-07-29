@@ -159,3 +159,8 @@ tools.ksb.com.au {
 - The `?redirect=` parameter (both in the query string and derived from forwarded headers) is validated server-side: only `https://*.ksb.com.au` URLs are accepted.
 - Downstream apps must trust the `X-User-*` headers only when they arrive via Caddy on the internal network. Strip these headers from any requests that don't come through Caddy.
 - Downstream apps should not be directly accessible from the internet — they should only be reachable through Caddy.
+
+## Background notes
+
+- The app is deployed within the org via Docker (Docker Desktop for Windows is used in development).
+- The SQLite database was originally migrated from a legacy Microsoft Access database (one-off conversion tooling lives in `mdb-tools/`).

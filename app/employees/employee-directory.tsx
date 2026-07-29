@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,8 +25,22 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Plus, Search } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  Plus,
+  Search,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EmployeeAddForm } from "@/components/forms/employee-add-form";
+import { RowLink } from "@/components/ui/row-link";
 import { EmployeeWithRelations } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -36,14 +49,48 @@ import { AxiosError } from "axios";
 import { authClient } from "@/lib/auth-client";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type SortKey =
+  | "firstName"
+  | "lastName"
+  | "title"
+  | "department"
+  | "location"
+  | "status";
+type SortDir = "asc" | "desc";
+
+// Case-insensitive, locale-aware string comparison (reused across renders).
+const collator = new Intl.Collator(undefined, { sensitivity: "base" });
+
+const getSortValue = (
+  employee: EmployeeWithRelations,
+  key: SortKey,
+): string => {
+  switch (key) {
+    case "firstName":
+      return employee.legalFirstName;
+    case "lastName":
+      return employee.legalLastName;
+    case "title":
+      return employee.title;
+    case "department":
+      return employee.department.name;
+    case "location":
+      return employee.location.name;
+    case "status":
+      return employee.isActive ? "Active" : "Inactive";
+  }
+};
+
 const EmployeeDirectory = () => {
-  const router = useRouter();
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
+  // Default: alphabetical by first name (the most-requested ordering).
+  const [sortKey, setSortKey] = useState<SortKey>("firstName");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user.role === "Admin";
 
@@ -99,9 +146,46 @@ const EmployeeDirectory = () => {
     return matchesSearch && matchesActiveFilter;
   });
 
-  const handleRowClick = (employeeId: number) => {
-    router.push(`/employees/${employeeId}`);
+  const sortedEmployees = [...filteredEmployees].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const primary = collator.compare(
+      getSortValue(a, sortKey),
+      getSortValue(b, sortKey),
+    );
+    if (primary !== 0) return primary * dir;
+    // Stable tiebreak by full name (ascending) so equal keys stay predictable.
+    return (
+      collator.compare(a.legalFirstName, b.legalFirstName) ||
+      collator.compare(a.legalLastName, b.legalLastName)
+    );
+  });
+
+  // Simple columns cycle asc → desc on the same key; a new key starts ascending.
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   };
+
+  const setSort = (key: SortKey, dir: SortDir) => {
+    setSortKey(key);
+    setSortDir(dir);
+  };
+
+  const sortIcon = (key: SortKey) => {
+    if (sortKey !== key)
+      return <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />;
+    return sortDir === "asc" ? (
+      <ArrowUp className="ml-2 h-3.5 w-3.5" />
+    ) : (
+      <ArrowDown className="ml-2 h-3.5 w-3.5" />
+    );
+  };
+
+  const isNameSort = sortKey === "firstName" || sortKey === "lastName";
 
   const handleAddSuccess = (employee?: EmployeeWithRelations) => {
     setIsSheetOpen(false);
@@ -176,11 +260,96 @@ const EmployeeDirectory = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="-ml-3 h-8 data-[state=open]:bg-muted"
+                      >
+                        Name
+                        {isNameSort ? (
+                          sortDir === "asc" ? (
+                            <ArrowUp className="ml-2 h-3.5 w-3.5" />
+                          ) : (
+                            <ArrowDown className="ml-2 h-3.5 w-3.5" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {(
+                        [
+                          ["firstName", "asc", "First name (A–Z)"],
+                          ["firstName", "desc", "First name (Z–A)"],
+                          ["lastName", "asc", "Last name (A–Z)"],
+                          ["lastName", "desc", "Last name (Z–A)"],
+                        ] as [SortKey, SortDir, string][]
+                      ).map(([key, dir, label]) => (
+                        <DropdownMenuItem
+                          key={`${key}-${dir}`}
+                          onClick={() => setSort(key, dir)}
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${
+                              sortKey === key && sortDir === dir
+                                ? "opacity-100"
+                                : "opacity-0"
+                            }`}
+                          />
+                          {label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8"
+                    onClick={() => toggleSort("title")}
+                  >
+                    Title
+                    {sortIcon("title")}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8"
+                    onClick={() => toggleSort("department")}
+                  >
+                    Department
+                    {sortIcon("department")}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8"
+                    onClick={() => toggleSort("location")}
+                  >
+                    Location
+                    {sortIcon("location")}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8"
+                    onClick={() => toggleSort("status")}
+                  >
+                    Status
+                    {sortIcon("status")}
+                  </Button>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -194,7 +363,7 @@ const EmployeeDirectory = () => {
                     <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                   </TableRow>
                 ))
-              ) : filteredEmployees.length === 0 ? (
+              ) : sortedEmployees.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     {searchTerm
@@ -205,13 +374,16 @@ const EmployeeDirectory = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredEmployees.map((employee) => (
+                sortedEmployees.map((employee) => (
                   <TableRow
                     key={employee.id}
-                    className="cursor-pointer hover:bg-muted"
-                    onClick={() => handleRowClick(employee.id)}
+                    className="relative cursor-pointer hover:bg-muted"
                   >
                     <TableCell>
+                      <RowLink
+                        href={`/employees/${employee.id}`}
+                        label={`${employee.legalFirstName} ${employee.legalLastName}`}
+                      />
                       {employee.legalFirstName} {employee.legalLastName}
                     </TableCell>
                     <TableCell>{employee.title}</TableCell>

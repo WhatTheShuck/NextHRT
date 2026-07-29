@@ -25,7 +25,10 @@ model Employee {
   locationId               Int
   notes                    String?
   usi                      String? //Universal Student Identifier
+  phone                    String? // Landline/desk number, synced from Snipe-IT by SNIPE_PHONE_SYNC
+  mobile                   String? // Mobile/SIM number, synced from Snipe-IT by SNIPE_PHONE_SYNC; used for phone-number reuse on onboarding
   isActive                 Boolean                   @default(true)
+  hasPriorEmployment       Boolean                   @default(false)
   status                   EmployeeStatus            @default(Permanent)
   // Internal/External, derived from `status` via deriveEmploymentType() (§6.2). Nullable
   // so existing rows backfill gradually; kept in sync on every create/update.
@@ -39,6 +42,9 @@ model Employee {
   requirementsCacheEntries RequirementsCacheEntry[]
   nominatedApprovals       ApprovalRequest[]        @relation("NominatedApprover")
   trainingRequests         TrainingRequest[]         @relation("TrainingRequests")
+  sopTrainerAssignments    SopTrainerAssignment[]
+  sopAssessments           SopAssessment[]
+  quizResponses            QuizResponse[]
 }
 
 enum EmployeeStatus {
@@ -251,6 +257,13 @@ model Training {
   trainingRequestLinks    TrainingRequest[]          @relation("TrainingRequestTraining")
   resolvedCourseRequests  TrainingCourseRequest[]    @relation("ResolvedTraining")
   revisions               TrainingRevision[]
+  // SOP pair link — directional: set on the Task Sheet row only, pointing at
+  // the Practical twin. sopPartnerId != null ⇒ this row is the Task Sheet.
+  // Deleting the Practical twin auto-nulls this (optional relation ⇒ SetNull).
+  sopPartnerId          Int?                   @unique
+  sopPartner            Training?              @relation("SopPair", fields: [sopPartnerId], references: [id])
+  sopPartnerOf          Training?              @relation("SopPair")
+  sopTrainerAssignments SopTrainerAssignment[]
 }
 
 model TrainingRevision {
@@ -263,6 +276,11 @@ model TrainingRevision {
   overrideRequiresRetraining Boolean?          // null = inherit Training.requiresRetrainingOnRevision
   createdAt                  DateTime          @default(now())
   records                    TrainingRecords[]
+  documentPath   String?        // uploaded procedure PDF (Task Sheet training only)
+  sopQuestions   SopQuestion[]
+  sopAssessments SopAssessment[]
+  quizContent    String?         // JSON QuizDocument, zod-validated on write (interactive quiz trainings)
+  quizResponses  QuizResponse[]
 
   @@index([trainingId])
 }
@@ -278,6 +296,9 @@ model TrainingRecords {
   revision      TrainingRevision? @relation(fields: [revisionId], references: [id])
   revisionId    Int?              // stamped at completion or migration; null = pre-feature record (still counts)
   images        TrainingImage[]
+  sopTaskSheetAssessment SopAssessment? @relation("SopTaskSheetRecord")
+  sopPracticalAssessment SopAssessment? @relation("SopPracticalRecord")
+  quizResponse           QuizResponse?  @relation("QuizResponseRecord")
 
   @@unique([employeeId, trainingId, dateCompleted])
 }
@@ -307,6 +328,91 @@ model TrainingRequirement {
   @@index([locationId])
 }
 
+model SopQuestion {
+  id           Int              @id @default(autoincrement())
+  revision     TrainingRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  revisionId   Int
+  order        Int
+  questionText String
+  markerNotes  String?          // "what good looks like" — visible to trainers only
+  answers      SopAnswer[]      // Restrict on SopAnswer.question blocks deleting an answered question
+
+  @@index([revisionId])
+}
+
+model SopTrainerAssignment {
+  trainingId Int // Task Sheet training id (canonical key for the pair)
+  employeeId Int // designated trainer
+  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@id([trainingId, employeeId])
+  @@index([employeeId]) // reverse lookup: "SOPs this employee trains" (queue), per TrainingRequirement pattern
+}
+
+model SopAssessment {
+  id                Int              @id @default(autoincrement())
+  employeeId        Int
+  employee          Employee         @relation(fields: [employeeId], references: [id])
+  revisionId        Int              // Task Sheet revision pinned at start
+  // No onDelete: deliberately Restrict — assessments are evidence and block
+  // deleting the revision (and, via cascade, the training).
+  revision          TrainingRevision @relation(fields: [revisionId], references: [id])
+  status            String           // InProgress | Submitted | ChangesRequested | Passed | Superseded
+  submittedAt       DateTime?
+  markedAt          DateTime?
+  markedByUserId    String?
+  // Real FKs so a hand-deleted TrainingRecords row nulls the link instead of
+  // dangling. A Passed assessment with a null record is historical evidence
+  // only — current compliance always comes from TrainingRecords.
+  taskSheetRecord   TrainingRecords? @relation("SopTaskSheetRecord", fields: [taskSheetRecordId], references: [id], onDelete: SetNull)
+  taskSheetRecordId Int?             @unique // set on read-acknowledgement
+  practicalRecord   TrainingRecords? @relation("SopPracticalRecord", fields: [practicalRecordId], references: [id], onDelete: SetNull)
+  practicalRecordId Int?             @unique // set on pass
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  answers           SopAnswer[]
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+model QuizResponse {
+  id               Int              @id @default(autoincrement())
+  employeeId       Int
+  employee         Employee         @relation(fields: [employeeId], references: [id])
+  // No onDelete: deliberately Restrict — responses are evidence and block
+  // deleting the revision (and, via cascade, the training).
+  revisionId       Int              // pinned at start
+  revision         TrainingRevision @relation(fields: [revisionId], references: [id])
+  status           String           // InProgress | Completed | Superseded
+  answers          String           // JSON keyed by item id: { itemId: { value, wasCorrect? } }
+  startedAt        DateTime         @default(now())
+  completedAt      DateTime?
+  updatedAt        DateTime         @updatedAt
+  // Real FK so a hand-deleted TrainingRecords row nulls the link instead of
+  // dangling. A Completed response with a null record is historical evidence
+  // only — current compliance always comes from TrainingRecords.
+  trainingRecord   TrainingRecords? @relation("QuizResponseRecord", fields: [trainingRecordId], references: [id], onDelete: SetNull)
+  trainingRecordId Int?             @unique
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+model SopAnswer {
+  id             Int           @id @default(autoincrement())
+  assessment     SopAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  assessmentId   Int
+  question       SopQuestion   @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  questionId     Int
+  answerText     String
+  verdict        String?       // Sufficient | Insufficient | null (unmarked)
+  trainerComment String?
+
+  @@unique([assessmentId, questionId])
+}
+
 enum Category {
   Internal
   External
@@ -333,7 +439,7 @@ model TicketRecords {
   ticketId      Int
   licenseNumber String? // Optional unique number for the actual license instance
   expiryDate    DateTime?
-  expiryNotificationStage String? // null | "WarnSent" | "ExpiredSent" — idempotency anchor for the TICKET_EXPIRY job (spec §5.5). NOT compliance state.
+  expiryNotificationStage String? // null | "<milestoneDays>" (e.g. "365"/"90") | "ExpiredSent" — idempotency anchor for the TICKET_EXPIRY job: the last reminder milestone sent. NOT compliance state.
   images        TicketImage[]
 
   @@index([employeeId])
@@ -404,6 +510,8 @@ model History {
   userId        String? // Foreign key to User model
   user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   timestamp     DateTime @default(now()) // When the change occurred
+
+  @@index([tableName, recordId, action])
 }
 
 model User {
@@ -562,6 +670,8 @@ enum JobType {
   REEVALUATE_PENDING_APPROVALS
   SEND_EMAIL
   HARDWARE_REQUEST
+  ASSET_CHECKIN
+  SNIPE_PHONE_SYNC
 }
 
 enum JobStatus {

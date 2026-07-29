@@ -1,0 +1,336 @@
+{
+  "version": 1,
+  "sections": [
+    {
+      "id": "s0",
+      "title": "Welcome",
+      "items": [
+        {
+          "id": "s0_welcome",
+          "type": "info",
+          "prompt": "Before we start",
+          "body": "This isn't a test — there's no pass or fail and nothing here is marked.\nAnswer honestly so IT can give you a tailored introduction instead of a generic one, and skip the things you already know.\nIt takes about 10–15 minutes, and you'll pick up a few handy tips as you go."
+        },
+        {
+          "id": "s0_gate",
+          "type": "choice",
+          "prompt": "What best describes your main work setup at KSB?",
+          "options": [
+            { "id": "laptop", "label": "Company laptop / desktop" },
+            { "id": "ipad", "label": "iPad only (service technician)" },
+            { "id": "shared", "label": "Shared or other device" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s1",
+      "title": "Files, photos & everyday Microsoft 365",
+      "showIf": { "itemId": "s0_gate", "in": ["laptop", "shared"] },
+      "items": [
+        {
+          "id": "s1_onedrive",
+          "type": "scale",
+          "prompt": "How would you rate your experience with OneDrive?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s1_teams",
+          "type": "scale",
+          "prompt": "How would you rate your experience with Microsoft Teams?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s1_sharepoint",
+          "type": "scale",
+          "prompt": "How would you rate your experience with SharePoint?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s1_excel",
+          "type": "scale",
+          "prompt": "How would you rate your experience with Excel?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s1_photos",
+          "type": "choice",
+          "prompt": "You've taken some photos on your phone and need them in a report on your laptop. What's the best way to get them across?",
+          "options": [
+            { "id": "camupload", "label": "OneDrive camera upload", "correct": true, "coaching": "Turn on camera upload in the OneDrive app (Settings → Camera upload) and your photos land on your laptop automatically. If sync isn't on, use the phone's share sheet → OneDrive. No emailing yourself, no cables." },
+            { "id": "email", "label": "Email the photos to myself" },
+            { "id": "whatsapp", "label": "Send them via WhatsApp Web" },
+            { "id": "usb", "label": "Plug the phone in with a USB cable" }
+          ]
+        },
+        {
+          "id": "s1_sharedoc",
+          "type": "choice",
+          "prompt": "You and Sarah both need to review and edit a 30-page document. What's the best approach?",
+          "options": [
+            { "id": "sharelink", "label": "Share a OneDrive / SharePoint link", "correct": true, "coaching": "Share a link, not a copy — one live document you both edit at the same time. No emailed attachments and no final_v7_SARAH.docx to reconcile later." },
+            { "id": "emailcopy", "label": "Email her a copy to mark up" },
+            { "id": "print", "label": "Print it out and swap notes" }
+          ]
+        },
+        {
+          "id": "s1_files",
+          "type": "choice",
+          "prompt": "Where should your day-to-day work files live?",
+          "options": [
+            { "id": "onedrive_sp", "label": "OneDrive, or the team's SharePoint", "correct": true, "coaching": "Keep files in OneDrive (your own work) or the team's SharePoint (shared work) — both are backed up and survive a laptop reimage. Your Desktop and Documents folders count too: they sync into OneDrive automatically, so anything saved there is safe as well. The C: drive and USB sticks are not backed up — avoid those." },
+            { "id": "cdrive", "label": "In a folder on the C: drive" },
+            { "id": "usb", "label": "On a USB stick" }
+          ]
+        },
+        {
+          "id": "s1_quickanswer",
+          "type": "choice",
+          "prompt": "You need a quick answer from a colleague in another office. What's usually the fastest?",
+          "options": [
+            { "id": "teams", "label": "Message them on Teams", "correct": true, "coaching": "Teams chat is best for a quick back-and-forth — you can see if they're online, and they can reply as soon as they're free. Keep email for things you need a record of or for external contacts." },
+            { "id": "email", "label": "Send an email and wait for a reply" },
+            { "id": "landline", "label": "Call their desk phone and hope they're sitting at it" }
+          ]
+        },
+        {
+          "id": "s1_versionhistory",
+          "type": "choice",
+          "prompt": "You realise you deleted an important page from a document yesterday and already saved. What now?",
+          "options": [
+            { "id": "version", "label": "Restore it from version history", "correct": true, "coaching": "Right-click the file → Version history and restore yesterday's copy in seconds. No rebuilding from scratch and no IT backup ticket needed." },
+            { "id": "rebuild", "label": "Rebuild the page from memory" },
+            { "id": "itbackup", "label": "Ask IT to restore a backup" }
+          ]
+        },
+        {
+          "id": "s1_ksbcentral",
+          "type": "info",
+          "prompt": "KSB Central — your starting point",
+          "body": "In Edge, look at the top-left of the bookmarks bar for the managed KSB Central bookmark.\nIt has the global links — Workday, C4C, the IT Service Portal — plus a \"5055 - KSB Australia\" folder with Payslips (ESS), HRT, the Australian SharePoint page and the corporate-card expense system.\nWhen you can't find something, start here."
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "title": "Business systems",
+      "showIf": { "itemId": "s0_gate", "in": ["laptop", "shared"] },
+      "items": [
+        {
+          "id": "s2_sap",
+          "type": "scale",
+          "prompt": "How much have you used SAP?",
+          "scaleLabels": ["Never", "Seen it used", "Used SAP GUI regularly", "Used S/4HANA"]
+        },
+        {
+          "id": "s2_sap_info",
+          "type": "info",
+          "prompt": "About SAP here",
+          "body": "SAP is the big business system that runs the day-to-day operational side of the company — things like orders, inventory, purchasing and finance all live in it. If your role touches any of those, you'll end up using it.\nWe're part-way through moving from the classic \"SAP GUI\" to the newer \"S/4HANA\", so you may hear both names — it's the same underlying system.\nIt's installed on your laptop, and also available through the Citrix portal (see the next card) as a backup."
+        },
+        {
+          "id": "s2_citrix",
+          "type": "scale",
+          "prompt": "How familiar are you with Citrix?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s2_citrix_info",
+          "type": "info",
+          "prompt": "What is Citrix?",
+          "body": "Citrix is a way of running programs that don't live on your own computer. The app actually runs on a central server and just streams its screen to you — a bit like a video call with a program — so you can reach the same software from almost any device.\nOurs is hosted in Germany. Because of that distance, an app installed directly on your laptop will feel noticeably faster and smoother than the same app run over Citrix.\nSo: use the locally installed version first, and keep the Citrix portal as a backup — for when a local app isn't working, or you're on a device that doesn't have it installed."
+        },
+        {
+          "id": "s2_ess_info",
+          "type": "info",
+          "prompt": "Payslips & leave (ESS)",
+          "body": "Your payslips and leave live in ESS — you'll find it in the \"5055 - KSB Australia\" bookmarks folder under KSB Central.\nOne thing that catches people out: the payroll server only runs at set times, so ESS won't load outside them:\n• Monday to Friday: 6:00am – 10:00pm AEST\n• Sunday: 10:00am – 10:00pm AEST\n• Saturday: unavailable\nIf you try to view a payslip or enter leave outside those hours, it simply won't work — it's not broken, just come back inside the window."
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "Working away from the office",
+      "showIf": { "itemId": "s0_gate", "in": ["laptop", "shared"] },
+      "items": [
+        {
+          "id": "s3_vpn",
+          "type": "choice",
+          "prompt": "You're working from home and SAP won't connect. What's the first thing to check?",
+          "options": [
+            { "id": "globalprotect", "label": "That the GlobalProtect VPN is connected", "correct": true, "coaching": "Off-site, the locally-installed SAP needs the GlobalProtect VPN connected — check that first. Email, Teams and SharePoint work without it (which is why they still connected), and so does Citrix — so opening SAP through Citrix is a fair fallback, but connecting the VPN is the quicker fix and the first thing to check." },
+            { "id": "restart", "label": "Restart the laptop and try again" },
+            { "id": "helpdesk", "label": "Call the helpdesk straight away" },
+            { "id": "citrix", "label": "Try opening it through Citrix instead" }
+          ]
+        },
+        {
+          "id": "s3_vpnexp",
+          "type": "scale",
+          "prompt": "Have you used a work VPN before?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s3_vpn_info",
+          "type": "info",
+          "prompt": "Connecting the VPN (GlobalProtect)",
+          "body": "GlobalProtect is the VPN — it gives you a secure line back to the office network. Locally-installed internal apps like SAP need it whenever you're working away from an office. Email, Teams, SharePoint and Citrix all work without it.\nIt's already installed, so there's nothing to add. To connect, find the GlobalProtect icon — a small globe — in the application tray, the row of little icons next to the clock at the bottom-right of your screen. You may need to click the up-arrow (^) there to show hidden icons.\nClick the globe to open GlobalProtect, then click Connect. Sign in the same way you sign in to everything else, and once it says Connected you're on the network. Leave it connected while you're working off-site."
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "title": "Printing, software & your device",
+      "showIf": { "itemId": "s0_gate", "in": ["laptop", "shared"] },
+      "items": [
+        {
+          "id": "s4_safeq_info",
+          "type": "info",
+          "prompt": "Printing — signing in to SafeQ",
+          "body": "Printing here runs through a system called YSoft SafeQ, and it's already installed on your laptop — you don't need to add anything.\nFirst, find its icon. Look along the application tray, the row of small icons next to the clock at the bottom-right of your screen. You may need to click the little up-arrow (^) there to show hidden icons. The SafeQ one looks like a printer.\nIf that icon has a small yellow triangle on it, it just means you haven't signed in yet — that's normal on day one. Right-click the icon and choose Login. A browser window opens; choose Login via Entra ID and sign in the same way you sign in to everything else. Once that's done, all the printer queues you're allowed to use become available.\nFrom then on you can print in two ways:\n• Print straight to one specific printer you pick, or\n• Send it to secure print, where the job waits safely on the server until you walk up to a printer and release it yourself. (Some companies call this \"follow-you\" or \"pull\" printing — on SafeQ it's called secure print.) The next cards explain how to sign in at the printer and collect it."
+        },
+        {
+          "id": "s4_pin_info",
+          "type": "info",
+          "prompt": "Your PIN, card & scanning — and why",
+          "body": "When you walk up to a printer to release a secure print job (or to scan something), you need a quick way to prove it's you — without typing your full password on the printer's tiny screen. You've got two options: a short PIN you type, or a tap of your building access card. This card sets both up. You only have to do it once.\nStart at your laptop: right-click the SafeQ printer icon in the tray and choose My Profile. That opens a browser portal.\nTo set a PIN: on the right-hand side, choose Generate PIN. It creates a unique 4-digit number, and you can keep pressing it until you get one you'll remember. That number is what you'll type at any printer to sign in.\nTo use your access card instead (just a tap, nothing to type): open the Login with card tab and choose Generate a password — you'll get a unique 9-digit code. Now go to any printer and tap your card on the reader (there's a sticker showing where). The very first time, the printer will ask for your email address and that 9-digit code — enter them once, and from then on your card is linked and a single tap signs you in.\nTo scan a document: sign in at the printer (PIN or card), choose Scan to email, and it emails the scan straight to your own inbox."
+        },
+        {
+          "id": "s4_followyou",
+          "type": "choice",
+          "prompt": "You've sent a job to secure print. How do you get it?",
+          "options": [
+            { "id": "walktap", "label": "Walk to any printer, tap your card or enter your PIN, and release it", "correct": true, "coaching": "Secure print holds the job on the server until you go and collect it — walk up to any printer, tap your card or type your PIN, and release it there. Nothing prints on its own (that's the whole point — your documents don't sit in a tray waiting), and IT doesn't release it for you; the job just waits until you fetch it." },
+            { "id": "auto", "label": "It prints automatically at the nearest printer" },
+            { "id": "itrelease", "label": "IT releases it for you" }
+          ]
+        },
+        {
+          "id": "s4_portal_info",
+          "type": "info",
+          "prompt": "Installing extra software",
+          "body": "Extra software installs only through the Company Portal app — nothing else will install itself, and you can't just download installers from the web.\nTo open it on your laptop: click the Windows Start button (bottom-left) and start typing \"Company Portal\", then click it when it appears — it's already installed. Inside, you'll see the apps that are approved for you; click one and it installs itself.\nIf what you need isn't in the list, contact IT and we'll talk through adding it."
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "title": "Your iPad",
+      "showIf": { "itemId": "s0_gate", "in": ["ipad"] },
+      "items": [
+        {
+          "id": "s5_ipad",
+          "type": "scale",
+          "prompt": "How comfortable are you with iPad basics?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s5_mobileapps",
+          "type": "scale",
+          "prompt": "How comfortable are you with the Outlook and Teams mobile apps?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s5_onedriveapp",
+          "type": "scale",
+          "prompt": "How comfortable are you with the OneDrive app?",
+          "scaleLabels": ["Never heard of it", "Heard of it, never used", "Used it a bit", "Use it confidently", "Could teach it"]
+        },
+        {
+          "id": "s5_photos",
+          "type": "choice",
+          "prompt": "You've taken job-site photos on your iPad. How do you get them into the company system?",
+          "options": [
+            { "id": "onedrive_sp", "label": "Into OneDrive, then move them into your department's SharePoint folders", "correct": true, "coaching": "Get them into OneDrive, then move them into your department's SharePoint folders — the 2 GB OneDrive quota makes it a transfer stop, not the destination. Confirm the exact folders with your department, as the flow varies." },
+            { "id": "airdrop", "label": "AirDrop them to someone in the office" },
+            { "id": "email", "label": "Email them to myself" },
+            { "id": "cameraroll", "label": "Leave them in the camera roll" }
+          ]
+        },
+        {
+          "id": "s5_portal_info",
+          "type": "info",
+          "prompt": "Apps & security on your iPad",
+          "body": "Managed apps install only through the Company Portal app — not the normal App Store.\nTo open it on your iPad: look for the \"Comp Portal\" icon on your home screen and tap it (it's already installed). Inside, tap an approved app to install it.\nA passcode and auto-lock are enforced on the iPad — that's what keeps company data safe if it's ever lost or left unlocked, so please don't try to turn them off.\nMissing an app you need? Contact IT and we'll talk through adding it."
+        },
+        {
+          "id": "s5_help_info",
+          "type": "info",
+          "prompt": "Help in the field",
+          "body": "If you're stuck on site, call or Teams the local IT helpdesk — the contact details are on the next-to-last screen."
+        }
+      ]
+    },
+    {
+      "id": "s6",
+      "title": "Staying safe",
+      "items": [
+        {
+          "id": "s6_sosafe_info",
+          "type": "info",
+          "prompt": "Security training is coming",
+          "body": "Dedicated security training will arrive soon via SoSafe.\nThis is just the day-one essentials to keep you safe until then."
+        },
+        {
+          "id": "s6_phish",
+          "type": "choice",
+          "prompt": "You get an email saying \"revalidate your mailbox or lose access\". It looks a bit off. What do you do?",
+          "options": [
+            { "id": "sosafe", "label": "Use the SoSafe Report button in Outlook", "correct": true, "coaching": "Use the SoSafe Report button in Outlook — a dedicated team handles everything reported through it, and 'just unsure' reports are exactly what it's for. It's faster for you and for them than emailing to ask." },
+            { "id": "forwardit", "label": "Forward it to IT asking \"is this spam?\"" },
+            { "id": "delete", "label": "Just delete it" },
+            { "id": "click", "label": "Click the link to check if it's real" }
+          ]
+        },
+        {
+          "id": "s6_lock",
+          "type": "choice",
+          "prompt": "You're stepping away from your desk for a couple of minutes. What do you do?",
+          "options": [
+            { "id": "lock", "label": "Lock the screen", "correct": true, "coaching": "Lock it whenever you step away — Win+L on a laptop, or lean on the passcode and auto-lock on an iPad. Two seconds now protects everything you're signed in to." },
+            { "id": "leave", "label": "Leave it — you'll only be a minute" },
+            { "id": "screenoff", "label": "Turn the monitor off" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s7",
+      "title": "Getting help & wrap-up",
+      "items": [
+        {
+          "id": "s7_support_info",
+          "type": "info",
+          "prompt": "Two ways to get help",
+          "body": "There are two support lanes.\nThe local IT helpdesk — helpdesk_au@ksb.com, the \"IT Support requests\" channel in the KSB Australia Teams group, or +61 7 3436 8686 — handles local systems and hardware.\nThe global IT Service Portal (Assyst) handles global systems like SAP, Citrix and global line-of-business apps.\nNot sure which? Start local and we'll point you the right way."
+        },
+        {
+          "id": "s7_routing",
+          "type": "choice",
+          "prompt": "Which of these should go to the local IT helpdesk?",
+          "options": [
+            { "id": "cracked", "label": "A cracked laptop screen", "correct": true, "coaching": "Local hardware and local systems go to the local helpdesk — a cracked screen is theirs, and so is most day-to-day support (including Citrix session trouble). The two here that go to the global IT Service Portal (Assyst) are the SAP authorisation error and the missing app in the Citrix portal — both are global provisioning. Unsure? Start local and we'll point you the right way." },
+            { "id": "sap", "label": "A SAP authorisation error" },
+            { "id": "citrix_app", "label": "A required app is missing from the Citrix application portal" }
+          ]
+        },
+        {
+          "id": "s7_report",
+          "type": "choice",
+          "prompt": "Your laptop is doing something weird. Which report gets it fixed fastest?",
+          "options": [
+            { "id": "detailed", "label": "\"When I open X and click Y, I get this error\" — with a screenshot", "correct": true, "coaching": "Tell us what you did, what happened, and attach a screenshot — that gets it fixed fastest. 'My laptop is broken' or 'IT ASAP pls' just means we have to come back and ask before we can help." },
+            { "id": "broken", "label": "\"My laptop is broken\"" },
+            { "id": "asap", "label": "\"Need IT ASAP pls\"" }
+          ]
+        },
+        {
+          "id": "s7_frustration",
+          "type": "text",
+          "prompt": "Anything you'd like IT's help with, or anything about your tech setup that's already frustrating you?",
+          "optional": true
+        }
+      ]
+    }
+  ]
+}

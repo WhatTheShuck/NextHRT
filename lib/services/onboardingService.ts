@@ -23,6 +23,14 @@ export interface OnboardingHardwareSelection {
   hardwareItemId: number;
   nonStandard?: boolean;
   justification?: string | null;
+  /** Tablet option: call & text (cellular) capability required. */
+  callText?: boolean;
+  /** Tablet option: a data SIM is required (site-going employees). */
+  needsData?: boolean;
+  /** The number decision for a SIM-bearing item (null when no SIM). */
+  numberOption?: "NEW" | "REUSE" | "NONE" | null;
+  /** When numberOption is REUSE: the HRT employee whose number is inherited. */
+  reuseNumberFromEmployeeId?: number | null;
 }
 
 export interface OnboardingCompliance {
@@ -32,6 +40,7 @@ export interface OnboardingCompliance {
   marketingInductionRequired?: boolean;
   willReceiveVehicle?: boolean;
   willDriveVehicle?: boolean;
+  requiresLandline?: boolean;
 }
 
 export interface OnboardingNotes {
@@ -209,7 +218,7 @@ export class OnboardingService {
       if (request.status !== "Pending") {
         throw new Error("ONBOARDING_REQUEST_NOT_PENDING");
       }
-      if (request.pendingDepartmentRequestId !== null || request.pendingLocationRequestId !== null) {
+      if (request.pendingDepartmentRequestId != null || request.pendingLocationRequestId != null) {
         throw new Error("ONBOARDING_HAS_PENDING_ORG_REQUESTS");
       }
 

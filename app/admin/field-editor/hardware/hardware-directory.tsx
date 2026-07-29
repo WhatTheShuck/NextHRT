@@ -8,7 +8,15 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash, Search } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash,
+  Search,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 import { SortableColumnHeader } from "@/components/sortable-column-header";
 import {
   Table,
@@ -125,12 +133,14 @@ function HardwareForm({
           id="hardwarePayload"
           value={payloadTemplate}
           onChange={(e) => setPayloadTemplate(e.target.value)}
-          placeholder='e.g., {"type":"laptop","item":"Laptop"}'
+          placeholder='e.g., {"categoryId":12,"categoryName":"Laptops"}'
           rows={4}
           disabled={isSaving}
         />
         <p className="text-xs text-muted-foreground">
-          JSON/template sent to the hardware-request platform.
+          JSON mapping this item to a Snipe-IT / AssetCheckout category.
+          Requires a <code>categoryId</code> (number); <code>categoryName</code>{" "}
+          is optional and defaults to the item name.
         </p>
       </div>
       <div className="flex items-center space-x-2">
@@ -312,11 +322,325 @@ function DeleteHardwareDialog({
   );
 }
 
+// --- Sync from AssetCheckout ------------------------------------------------
+
+interface CategorySuggestion {
+  category: { id: number; name: string };
+  status: "linked" | "linkSuggested" | "createSuggested";
+  existingItem: { id: number; name: string } | null;
+  suggestedName: string;
+  suggestedPayloadTemplate: string;
+}
+
+type RowAction = "create" | "link" | "skip";
+
+interface SyncRow extends CategorySuggestion {
+  action: RowAction;
+  name: string;
+}
+
+interface ApplyResult {
+  created: { id: number; name: string }[];
+  linked: { id: number; name: string }[];
+  errors: { error: string }[];
+}
+
+function suggestionToRow(s: CategorySuggestion): SyncRow {
+  // Default the action to whatever we suggested; "linked" rows are already
+  // done so they default to skip and are shown read-only.
+  const action: RowAction =
+    s.status === "createSuggested"
+      ? "create"
+      : s.status === "linkSuggested"
+        ? "link"
+        : "skip";
+  return { ...s, action, name: s.suggestedName };
+}
+
+function SyncBody({
+  onClose,
+  onApplied,
+  className,
+}: {
+  onClose: () => void;
+  onApplied: () => Promise<void> | void;
+  className?: string;
+}) {
+  const [rows, setRows] = useState<SyncRow[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
+  const [result, setResult] = useState<ApplyResult | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const { data } = await api.get<{ suggestions: CategorySuggestion[] }>(
+          "/api/hardware/asset-checkout/suggestions",
+        );
+        setRows(data.suggestions.map(suggestionToRow));
+      } catch (err: any) {
+        setLoadError(
+          err.response?.data?.details ||
+            err.response?.data?.error ||
+            "Could not reach AssetCheckout. Check the hardware endpoint setting and API key.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const setRow = (categoryId: number, patch: Partial<SyncRow>) => {
+    setRows(
+      (prev) =>
+        prev?.map((r) =>
+          r.category.id === categoryId ? { ...r, ...patch } : r,
+        ) ?? prev,
+    );
+  };
+
+  const actionable = rows?.filter((r) => r.status !== "linked") ?? [];
+  const linkedCount = (rows?.length ?? 0) - actionable.length;
+  const selectedCount = actionable.filter((r) => r.action !== "skip").length;
+
+  const handleApply = async () => {
+    if (!rows) return;
+    const actions = rows
+      .filter((r) => r.status !== "linked" && r.action !== "skip")
+      .map((r) =>
+        r.action === "create"
+          ? {
+              type: "create" as const,
+              categoryId: r.category.id,
+              categoryName: r.category.name,
+              name: r.name.trim() || r.category.name,
+            }
+          : {
+              type: "link" as const,
+              itemId: r.existingItem!.id,
+              categoryId: r.category.id,
+              categoryName: r.category.name,
+            },
+      );
+
+    if (actions.length === 0) return;
+
+    setIsApplying(true);
+    try {
+      const { data } = await api.post<ApplyResult>(
+        "/api/hardware/asset-checkout/apply",
+        { actions },
+      );
+      setResult(data);
+      await onApplied();
+    } catch (err: any) {
+      setLoadError(
+        err.response?.data?.details ||
+          err.response?.data?.error ||
+          "Failed to apply changes",
+      );
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className={cn("py-10 text-center text-muted-foreground", className)}>
+        <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin" />
+        Polling AssetCheckout for requestable categories…
+      </div>
+    );
+  }
+
+  if (loadError && !result) {
+    return (
+      <div className={cn("space-y-4", className)}>
+        <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{loadError}</span>
+        </div>
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (result) {
+    return (
+      <div className={cn("space-y-4", className)}>
+        <div className="flex items-start gap-2 rounded-md bg-green-50 p-3 text-sm text-green-800">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Created {result.created.length} item
+            {result.created.length !== 1 ? "s" : ""} and linked{" "}
+            {result.linked.length}.
+            {result.errors.length > 0 &&
+              ` ${result.errors.length} failed — see below.`}
+          </span>
+        </div>
+        {result.errors.length > 0 && (
+          <ul className="list-disc space-y-1 pl-5 text-sm text-red-700">
+            {result.errors.map((e, i) => (
+              <li key={i}>{e.error}</li>
+            ))}
+          </ul>
+        )}
+        <div className="flex justify-end">
+          <Button onClick={onClose}>Done</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("space-y-4", className)}>
+      <p className="text-sm text-muted-foreground">
+        {actionable.length} category
+        {actionable.length !== 1 ? "ies" : "y"} to review
+        {linkedCount > 0 && ` · ${linkedCount} already linked`}. Confirm each
+        before applying — nothing is written until you click Apply.
+      </p>
+
+      <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+        {rows?.map((row) => (
+          <div
+            key={row.category.id}
+            className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="min-w-0">
+              <div className="font-medium">{row.category.name}</div>
+              <div className="text-xs text-muted-foreground">
+                Snipe category #{row.category.id}
+                {row.existingItem && ` · matches "${row.existingItem.name}"`}
+              </div>
+            </div>
+
+            {row.status === "linked" ? (
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">
+                <CheckCircle2 className="h-3 w-3" />
+                Linked to {row.existingItem?.name}
+              </span>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {row.action === "create" && (
+                  <Input
+                    aria-label={`Name for ${row.category.name}`}
+                    value={row.name}
+                    onChange={(e) =>
+                      setRow(row.category.id, { name: e.target.value })
+                    }
+                    className="h-9 w-full sm:w-48"
+                  />
+                )}
+                <Select
+                  value={row.action}
+                  onValueChange={(v) =>
+                    setRow(row.category.id, { action: v as RowAction })
+                  }
+                >
+                  <SelectTrigger className="w-full sm:w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="create">Create new item</SelectItem>
+                    {row.existingItem && (
+                      <SelectItem value="link">
+                        Link to "{row.existingItem.name}"
+                      </SelectItem>
+                    )}
+                    <SelectItem value="skip">Skip</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-2 pb-2 sm:flex-row-reverse sm:gap-2">
+        <Button
+          onClick={handleApply}
+          disabled={isApplying || selectedCount === 0}
+        >
+          {isApplying
+            ? "Applying…"
+            : `Apply ${selectedCount > 0 ? `(${selectedCount})` : ""}`}
+        </Button>
+        <Button variant="outline" onClick={onClose} disabled={isApplying}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SyncFromAssetCheckoutDialog({
+  open,
+  onOpenChange,
+  onApplied,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onApplied: () => Promise<void> | void;
+}) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const handleClose = () => onOpenChange(false);
+  const title = "Sync from AssetCheckout";
+  const description =
+    "Pull requestable categories from AssetCheckout and reconcile them against the catalogue.";
+
+  // Remount the body each time it opens so it re-polls fresh suggestions.
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+          {open && (
+            <div className="py-2">
+              <SyncBody onClose={handleClose} onApplied={onApplied} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[90vh]">
+        <DrawerHeader className="text-left">
+          <DrawerTitle>{title}</DrawerTitle>
+          <DrawerDescription>{description}</DrawerDescription>
+        </DrawerHeader>
+        {open && (
+          <SyncBody
+            className="px-4 pb-4 overflow-y-auto"
+            onClose={handleClose}
+            onApplied={onApplied}
+          />
+        )}
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
 const HardwareDirectory = () => {
   const [items, setItems] = useState<HardwareItem[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSyncOpen, setIsSyncOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<HardwareItem | null>(
     null,
   );
@@ -327,20 +651,21 @@ const HardwareDirectory = () => {
     { id: "isActive", desc: true },
   ]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const { data } = await api.get<HardwareItem[]>("/api/hardware");
-        setItems(data);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const { data } = await api.get<HardwareItem[]>("/api/hardware");
+      setItems(data);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleEdit = (record: HardwareItem) => {
@@ -486,13 +811,23 @@ const HardwareDirectory = () => {
                 {items.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Button
-              onClick={() => setIsAddOpen(true)}
-              className="w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Hardware Item
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                onClick={() => setIsSyncOpen(true)}
+                className="w-full sm:w-auto"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sync from AssetCheckout
+              </Button>
+              <Button
+                onClick={() => setIsAddOpen(true)}
+                className="w-full sm:w-auto"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Hardware Item
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -624,6 +959,12 @@ const HardwareDirectory = () => {
         onOpenChange={setIsDeleteOpen}
         item={selectedRecord}
         onConfirm={handleConfirmDelete}
+      />
+
+      <SyncFromAssetCheckoutDialog
+        open={isSyncOpen}
+        onOpenChange={setIsSyncOpen}
+        onApplied={fetchData}
       />
     </div>
   );

@@ -23,5 +23,11 @@ export function startScheduler(): void {
     console.log("[Scheduler] Enqueued weekly cleanup job");
   });
 
+  // Daily at 3am — mirror Snipe-IT user phone numbers onto HRT employees
+  cron.schedule("0 3 * * *", async () => {
+    await enqueue("SNIPE_PHONE_SYNC");
+    console.log("[Scheduler] Enqueued Snipe phone sync");
+  });
+
   console.log("[Scheduler] Started");
 }

@@ -5,6 +5,7 @@ import { ExportButtons } from "@/components/ExportButtons";
 import React, { useEffect, useState, useMemo } from "react";
 import { Archive, BadgeCheck } from "lucide-react";
 import { EmployeeWithRelations } from "@/lib/types";
+import type { EmployeeRequirementsResponse } from "@/lib/services/requirementService";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { EmployeeCombobox } from "@/components/combobox/employee-combobox";
@@ -26,9 +27,9 @@ export interface RequirementItem extends Record<string, unknown> {
 }
 
 export default function Page() {
-  const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
   const [allEmployees, setAllEmployees] = useState<EmployeeWithRelations[]>([]);
-  const [requirementsData, setRequirementsData] = useState<any>(null);
+  const [requirementsData, setRequirementsData] =
+    useState<EmployeeRequirementsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(
@@ -52,24 +53,24 @@ export default function Page() {
     if (!requirementsData) return [];
 
     const {
-      allTrainingRequirements = [],
-      allTicketRequirements = [],
-      exemptions = [],
-      trainingRequired = [],
-      ticketRequired = [],
+      allTrainingRequirements,
+      allTicketRequirements,
+      exemptions,
+      trainingRequired,
+      ticketRequired,
     } = requirementsData;
 
     // Create exemption lookup maps for quick filtering
     const trainingExemptions = new Map(
       exemptions
-        .filter((ex: any) => ex.type === "Training" && ex.trainingId)
-        .map((ex: any) => [ex.trainingId, ex]),
+        .filter((ex) => ex.type === "Training" && ex.trainingId != null)
+        .map((ex) => [ex.trainingId, ex]),
     );
 
     const ticketExemptions = new Map(
       exemptions
-        .filter((ex: any) => ex.type === "Ticket" && ex.ticketId)
-        .map((ex: any) => [ex.ticketId, ex]),
+        .filter((ex) => ex.type === "Ticket" && ex.ticketId != null)
+        .map((ex) => [ex.ticketId, ex]),
     );
 
     const items: RequirementItem[] = [];
@@ -79,7 +80,7 @@ export default function Page() {
       ? allTrainingRequirements
       : trainingRequired;
 
-    trainingToProcess.forEach((req: any) => {
+    trainingToProcess.forEach((req) => {
       const exemption = trainingExemptions.get(req.trainingId);
 
       // If exempted and we're not showing completed records, skip
@@ -89,7 +90,7 @@ export default function Page() {
       // Completed means: no longer required AND not just exempted
       const isCompleted =
         !isExempted &&
-        !trainingRequired.some((tr: any) => tr.trainingId === req.trainingId);
+        !trainingRequired.some((tr) => tr.trainingId === req.trainingId);
 
       items.push({
         id: `training-${req.trainingId}`,
@@ -115,7 +116,7 @@ export default function Page() {
       ? allTicketRequirements
       : ticketRequired;
 
-    ticketsToProcess.forEach((req: any) => {
+    ticketsToProcess.forEach((req) => {
       const exemption = ticketExemptions.get(req.ticketId);
 
       // If exempted and we're not showing completed records, skip
@@ -125,7 +126,7 @@ export default function Page() {
       // Completed means: no longer required AND not just exempted
       const isCompleted =
         !isExempted &&
-        !ticketRequired.some((tr: any) => tr.ticketId === req.ticketId);
+        !ticketRequired.some((tr) => tr.ticketId === req.ticketId);
 
       items.push({
         id: `ticket-${req.ticketId}`,
@@ -184,9 +185,7 @@ export default function Page() {
       try {
         const response =
           await api.get<EmployeeWithRelations[]>("/api/employees");
-        const data = response.data;
-        setAllEmployees(data);
-        setEmployees(data.filter((emp) => emp.isActive));
+        setAllEmployees(response.data);
       } catch (err) {
         setError(err instanceof AxiosError ? err.message : "An error occurred");
       } finally {
@@ -201,7 +200,7 @@ export default function Page() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(
+      const response = await api.get<EmployeeRequirementsResponse>(
         `/api/requirements?employeeId=${employeeId}`,
       );
       setRequirementsData(response.data);

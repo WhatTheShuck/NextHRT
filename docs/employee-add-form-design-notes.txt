@@ -71,7 +71,7 @@ Location: [Location]
 Do not need to fill in external contact information
 Select Submit
 
-Because you have filled this in, as his manager, it will auto approve. Now, you can request access for the employee to get them an email address by visiting
+Because you have filled this in, as his manager, it will auto approve.
 (end if external)
 
 [HRT Create user]

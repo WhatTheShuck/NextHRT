@@ -16,6 +16,7 @@ import {
   TrainingRequirement,
   TrainingTicketExemption,
   TicketRequirement,
+  EmployeeStatus,
 } from "@/generated/prisma_client/client";
 import type { statement } from "./permissions";
 // Cheeky type hackery to get the permission typing from permissions.ts. Thanks Claude
@@ -129,6 +130,8 @@ export type EmployeeFormData = {
   usi: string | null;
   isActive: boolean;
   startDate: string | null; // Form sends ISO string
+  status: EmployeeStatus;
+  jobFamilyId: number | null;
 };
 
 export interface HistoryWithRelations extends History {

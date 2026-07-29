@@ -189,6 +189,22 @@ export async function DELETE(
             },
             { status: 409 },
           );
+        case "TRAINING_HAS_SOP_ASSESSMENTS":
+          return NextResponse.json(
+            {
+              error:
+                "This SOP has assessment evidence in HRT and can't be deleted. Deactivate it instead.",
+            },
+            { status: 400 },
+          );
+        case "TRAINING_HAS_QUIZ_RESPONSES":
+          return NextResponse.json(
+            {
+              error:
+                "This training has questionnaire responses in HRT and can't be deleted. Deactivate it instead.",
+            },
+            { status: 400 },
+          );
       }
     }
     return NextResponse.json(

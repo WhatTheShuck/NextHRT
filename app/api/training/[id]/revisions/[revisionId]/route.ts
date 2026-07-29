@@ -81,6 +81,11 @@ export async function DELETE(
             { error: "Cannot delete a revision that has stamped training records" },
             { status: 409 },
           );
+        case "REVISION_HAS_ASSESSMENTS":
+          return NextResponse.json(
+            { error: "This revision has SOP assessment evidence and can't be deleted." },
+            { status: 400 },
+          );
       }
     }
     return NextResponse.json(

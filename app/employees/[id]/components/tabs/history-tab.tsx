@@ -97,8 +97,19 @@ export function HistoryTab() {
         return "secondary";
       case "delete":
         return "destructive";
+      case "rehire":
+        return "default";
       default:
         return "outline";
+    }
+  };
+
+  const getActionLabel = (action: string) => {
+    switch (action.toLowerCase()) {
+      case "rehire":
+        return "Rehired";
+      default:
+        return action;
     }
   };
 
@@ -273,7 +284,7 @@ export function HistoryTab() {
                         variant={getActionVariant(record.action)}
                         className="shrink-0"
                       >
-                        {record.action}
+                        {getActionLabel(record.action)}
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1">
@@ -323,7 +334,7 @@ export function HistoryTab() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={getActionVariant(record.action)}>
-                            {record.action}
+                            {getActionLabel(record.action)}
                           </Badge>
                         </TableCell>
                         <TableCell>

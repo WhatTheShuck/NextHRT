@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getAuth } from "@/lib/api-auth";
+import { getAppUrl } from "@/lib/appUrl";
 
-// Strips /api/auth suffix that BETTER_AUTH_URL may include in this project.
-const appBaseUrl = (
-  process.env.BETTER_AUTH_URL ?? "https://hrt.ksb.com.au/api/auth"
-)
-  .replace(/\/api\/auth\/?$/, "")
-  .replace(/\/$/, "") || "https://hrt.ksb.com.au";
+const appBaseUrl = getAppUrl();
 
 function isAllowedHost(hostname: string): boolean {
   return (

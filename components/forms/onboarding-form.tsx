@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -21,18 +22,24 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateSelector } from "@/components/date-selector";
 import { EmployeeCombobox } from "@/components/combobox/employee-combobox";
-import { AddDepartmentDialog, PendingDepartment } from "@/components/dialogs/department/add-department-dialog";
-import { AddLocationDialog, PendingLocation } from "@/components/dialogs/location/add-location-dialog";
+import {
+  AddDepartmentDialog,
+  PendingDepartment,
+} from "@/components/dialogs/department/add-department-dialog";
+import {
+  AddLocationDialog,
+  PendingLocation,
+} from "@/components/dialogs/location/add-location-dialog";
 import { AlertTriangle, CheckCircle2, Clock, Plus, X } from "lucide-react";
 import { companyDetails } from "@/lib/data";
+import {
+  hardwareItemOptions,
+  type HardwareNumberOption,
+} from "@/lib/hardware-category";
 import {
   Department,
   Employee,
@@ -73,7 +80,9 @@ export function OnboardingForm({
   const [departments, setDepartments] = useState<Department[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [jobFamilies, setJobFamilies] = useState<JobFamily[]>([]);
-  const [medicalStandards, setMedicalStandards] = useState<MedicalStandard[]>([]);
+  const [medicalStandards, setMedicalStandards] = useState<MedicalStandard[]>(
+    [],
+  );
   const [programs, setPrograms] = useState<Program[]>([]);
   const [hardwareItems, setHardwareItems] = useState<HardwareItem[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -99,8 +108,10 @@ export function OnboardingForm({
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [isDepartmentDialogOpen, setIsDepartmentDialogOpen] = useState(false);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
-  const [pendingDepartment, setPendingDepartment] = useState<PendingDepartment | null>(null);
-  const [pendingLocation, setPendingLocation] = useState<PendingLocation | null>(null);
+  const [pendingDepartment, setPendingDepartment] =
+    useState<PendingDepartment | null>(null);
+  const [pendingLocation, setPendingLocation] =
+    useState<PendingLocation | null>(null);
 
   // ── Section 2: Compliance ────────────────────────────────────────────────────
   const [letterOfOfferSigned, setLetterOfOfferSigned] = useState(false);
@@ -111,20 +122,39 @@ export function OnboardingForm({
   const [medicalStandardId, setMedicalStandardId] = useState("");
   const [willReceiveVehicle, setWillReceiveVehicle] = useState(false);
   const [willDriveVehicle, setWillDriveVehicle] = useState(false);
+  const [requiresLandline, setRequiresLandline] = useState(false);
 
   // ── Section 3: Programs ──────────────────────────────────────────────────────
-  const [programChecked, setProgramChecked] = useState<Record<number, boolean>>({});
+  const [programChecked, setProgramChecked] = useState<Record<number, boolean>>(
+    {},
+  );
   const [programRefEmployee, setProgramRefEmployee] = useState<
     Record<number, string | null>
   >({});
 
   // ── Section 4: Hardware ───────────────────────��──────────────────────────────
-  const [hardwareChecked, setHardwareChecked] = useState<Record<number, boolean>>({});
+  const [hardwareChecked, setHardwareChecked] = useState<
+    Record<number, boolean>
+  >({});
   const [hardwareNonStandard, setHardwareNonStandard] = useState<
     Record<number, boolean>
   >({});
   const [hardwareJustification, setHardwareJustification] = useState<
     Record<number, string>
+  >({});
+  // Phone/tablet request options (mirror AssetCheckout's request form).
+  const [hardwareCallText, setHardwareCallText] = useState<
+    Record<number, boolean>
+  >({});
+  const [hardwareNeedsData, setHardwareNeedsData] = useState<
+    Record<number, boolean>
+  >({});
+  // Number decision per SIM-bearing item; reuse-from picks the departing employee.
+  const [hardwareNumberOption, setHardwareNumberOption] = useState<
+    Record<number, HardwareNumberOption>
+  >({});
+  const [hardwareReuseFrom, setHardwareReuseFrom] = useState<
+    Record<number, string | null>
   >({});
 
   // ── Section 5: Notes ───��─────────────────────────────────────────────────────
@@ -141,20 +171,23 @@ export function OnboardingForm({
   const isInternal = INTERNAL_STATUSES.includes(employmentStatus);
 
   const emailFirstName =
-    !preferredSameAsLegal && preferredFirstName ? preferredFirstName : legalFirstName;
+    !preferredSameAsLegal && preferredFirstName
+      ? preferredFirstName
+      : legalFirstName;
   const emailLastName =
-    !preferredSameAsLegal && preferredLastName ? preferredLastName : legalLastName;
+    !preferredSameAsLegal && preferredLastName
+      ? preferredLastName
+      : legalLastName;
   const computedEmail =
     emailFirstName && emailLastName
       ? `${emailFirstName.toLowerCase()}.${emailLastName.toLowerCase()}@${companyDetails.domain_extension}`
       : "";
 
-  // Known hardware items (by name from catalogue seeds)
+  // Known hardware items (by name from catalogue seeds) — used for job-family
+  // prefill defaults only. Non-standard / call-text / new-number are generic
+  // per-item options, not tied to specific items.
   const laptopItem = hardwareItems.find((h) => h.name === "Laptop");
-  const nonStdLaptopItem = hardwareItems.find((h) => h.name === "Non-standard laptop");
   const iPadItem = hardwareItems.find((h) => h.name === "iPad");
-  const phoneItem = hardwareItems.find((h) => h.name === "Phone");
-  const nonStdPhoneItem = hardwareItems.find((h) => h.name === "Non-standard phone");
 
   // Known programs (by name from catalogue seeds)
   const e3LicenceProgram = programs.find(
@@ -193,7 +226,8 @@ export function OnboardingForm({
   // ── Employment status → compliance prefills ──────────────────────────────────
   useEffect(() => {
     const internal =
-      employmentStatus === "Permanent" || employmentStatus === "PartTimePermanent";
+      employmentStatus === "Permanent" ||
+      employmentStatus === "PartTimePermanent";
     setEmploymentFormsRequired(internal);
     setPoliceCheckRequired(internal);
   }, [employmentStatus]);
@@ -203,14 +237,16 @@ export function OnboardingForm({
     if (programs.length === 0 || hardwareItems.length === 0) return;
 
     const jfIdNum = jobFamilyId ? parseInt(jobFamilyId) : null;
-    const selectedJF = jfIdNum !== null ? jobFamilies.find((jf) => jf.id === jfIdNum) : null;
+    const selectedJF =
+      jfIdNum !== null ? jobFamilies.find((jf) => jf.id === jfIdNum) : null;
 
     const hw: Record<number, boolean> = {};
 
     // Laptop: default true, overridden by job family if set
     if (laptopItem) {
       hw[laptopItem.id] =
-        selectedJF?.prefillLaptop !== null && selectedJF?.prefillLaptop !== undefined
+        selectedJF?.prefillLaptop !== null &&
+        selectedJF?.prefillLaptop !== undefined
           ? selectedJF.prefillLaptop
           : true;
     }
@@ -218,18 +254,20 @@ export function OnboardingForm({
     // iPad: default false, overridden by job family if set
     if (iPadItem) {
       hw[iPadItem.id] =
-        selectedJF?.prefillIpad !== null && selectedJF?.prefillIpad !== undefined
+        selectedJF?.prefillIpad !== null &&
+        selectedJF?.prefillIpad !== undefined
           ? selectedJF.prefillIpad
           : false;
     }
 
     setHardwareChecked((prev) => ({ ...prev, ...hw }));
 
-    // Non-standard laptop: default false, overridden by job family if set
-    if (nonStdLaptopItem) {
+    // Non-standard laptop: now a per-item option on the Laptop item itself.
+    // Default false, overridden by job family if set.
+    if (laptopItem) {
       setHardwareNonStandard((prev) => ({
         ...prev,
-        [nonStdLaptopItem.id]:
+        [laptopItem.id]:
           selectedJF?.prefillNonStandardLaptop !== null &&
           selectedJF?.prefillNonStandardLaptop !== undefined
             ? selectedJF.prefillNonStandardLaptop
@@ -242,7 +280,8 @@ export function OnboardingForm({
       setProgramChecked((prev) => ({
         ...prev,
         [e3LicenceProgram.id]:
-          selectedJF?.prefillE3Licence !== null && selectedJF?.prefillE3Licence !== undefined
+          selectedJF?.prefillE3Licence !== null &&
+          selectedJF?.prefillE3Licence !== undefined
             ? selectedJF.prefillE3Licence
             : true,
       }));
@@ -262,7 +301,6 @@ export function OnboardingForm({
     hardwareItems,
     laptopItem,
     iPadItem,
-    nonStdLaptopItem,
     e3LicenceProgram,
   ]);
 
@@ -272,31 +310,41 @@ export function OnboardingForm({
     if (checked) setWillDriveVehicle(true);
   };
 
-  // ── Hardware toggle (cascades to non-standard child) ─���───────────────────────
+  // ── Hardware toggle (clears the item's options when unchecked) ───────────────
   const handleHardwareToggle = (id: number, checked: boolean) => {
     setHardwareChecked((prev) => ({ ...prev, [id]: checked }));
     if (!checked) {
-      if (laptopItem && id === laptopItem.id && nonStdLaptopItem) {
-        setHardwareNonStandard((prev) => ({
-          ...prev,
-          [nonStdLaptopItem.id]: false,
-        }));
-        setHardwareJustification((prev) => ({
-          ...prev,
-          [nonStdLaptopItem.id]: "",
-        }));
-      }
-      if (phoneItem && id === phoneItem.id && nonStdPhoneItem) {
-        setHardwareNonStandard((prev) => ({
-          ...prev,
-          [nonStdPhoneItem.id]: false,
-        }));
-        setHardwareJustification((prev) => ({
-          ...prev,
-          [nonStdPhoneItem.id]: "",
-        }));
-      }
+      setHardwareNonStandard((prev) => ({ ...prev, [id]: false }));
+      setHardwareJustification((prev) => ({ ...prev, [id]: "" }));
+      setHardwareCallText((prev) => ({ ...prev, [id]: false }));
+      setHardwareNeedsData((prev) => ({ ...prev, [id]: false }));
+      clearNumber(id);
     }
+  };
+
+  // Call & text is bundled with data — it can't exist without a data SIM, so
+  // turning it on forces data on. Turning it off leaves data as-is.
+  const handleCallTextToggle = (id: number, checked: boolean) => {
+    setHardwareCallText((prev) => ({ ...prev, [id]: checked }));
+    if (checked) {
+      setHardwareNeedsData((prev) => ({ ...prev, [id]: true }));
+    }
+  };
+
+  // Data toggle. Losing the SIM (data off, and call/text implies data) clears
+  // the number decision, since there's no number to make without a SIM.
+  const handleNeedsDataToggle = (id: number, checked: boolean) => {
+    setHardwareNeedsData((prev) => ({ ...prev, [id]: checked }));
+    if (!checked) clearNumber(id);
+  };
+
+  const clearNumber = (id: number) => {
+    setHardwareNumberOption((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setHardwareReuseFrom((prev) => ({ ...prev, [id]: null }));
   };
 
   // ── Program toggle (best-effort reference user prefill) ───────────────────────
@@ -323,10 +371,12 @@ export function OnboardingForm({
     if (!legalFirstName.trim()) return "Legal first name is required.";
     if (!legalLastName.trim()) return "Legal last name is required.";
     if (!preferredSameAsLegal) {
-      if (!preferredFirstName.trim()) return "Preferred first name is required.";
+      if (!preferredFirstName.trim())
+        return "Preferred first name is required.";
       if (!preferredLastName.trim()) return "Preferred last name is required.";
     }
-    if (!emailConfirmed) return "Please confirm the email address looks correct.";
+    if (!emailConfirmed)
+      return "Please confirm the email address looks correct.";
     if (!title.trim()) return "Title is required.";
     if (!departmentId && !pendingDepartment) return "Department is required.";
     if (!locationId && !pendingLocation) return "Location is required.";
@@ -340,14 +390,25 @@ export function OnboardingForm({
       }
     }
 
-    if (nonStdLaptopItem && hardwareNonStandard[nonStdLaptopItem.id]) {
-      if (!(hardwareJustification[nonStdLaptopItem.id] ?? "").trim()) {
-        return "A justification is required for the non-standard laptop.";
+    for (const h of hardwareItems) {
+      if (!hardwareChecked[h.id]) continue;
+
+      if (hardwareNonStandard[h.id] && !(hardwareJustification[h.id] ?? "").trim()) {
+        return `A justification is required for the non-standard ${h.name.toLowerCase()}.`;
       }
-    }
-    if (nonStdPhoneItem && hardwareNonStandard[nonStdPhoneItem.id]) {
-      if (!(hardwareJustification[nonStdPhoneItem.id] ?? "").trim()) {
-        return "A justification is required for the non-standard phone.";
+
+      const { showNumberOption } = hardwareItemOptions(
+        h,
+        hardwareNeedsData[h.id] ?? false,
+      );
+      if (showNumberOption) {
+        const option = hardwareNumberOption[h.id];
+        if (!option) {
+          return `Choose a phone-number option for the ${h.name.toLowerCase()}.`;
+        }
+        if (option === "REUSE" && !hardwareReuseFrom[h.id]) {
+          return `Select whose number the ${h.name.toLowerCase()} will reuse.`;
+        }
       }
     }
 
@@ -378,11 +439,27 @@ export function OnboardingForm({
         })),
       hardware: hardwareItems
         .filter((h) => hardwareChecked[h.id])
-        .map((h) => ({
-          hardwareItemId: h.id,
-          nonStandard: hardwareNonStandard[h.id] ?? false,
-          justification: hardwareJustification[h.id] || null,
-        })),
+        .map((h) => {
+          const needsData = hardwareNeedsData[h.id] ?? false;
+          const { showCallText, showNeedsData, showNumberOption } =
+            hardwareItemOptions(h, needsData);
+          const numberOption = showNumberOption
+            ? hardwareNumberOption[h.id]
+            : undefined;
+          return {
+            hardwareItemId: h.id,
+            nonStandard: hardwareNonStandard[h.id] ?? false,
+            justification: hardwareJustification[h.id] || null,
+            // Only send options the category actually supports.
+            callText: showCallText ? (hardwareCallText[h.id] ?? false) : false,
+            needsData: showNeedsData ? needsData : false,
+            numberOption: numberOption ?? null,
+            reuseNumberFromEmployeeId:
+              numberOption === "REUSE" && hardwareReuseFrom[h.id]
+                ? parseInt(hardwareReuseFrom[h.id]!)
+                : null,
+          };
+        }),
       compliance: {
         letterOfOfferSigned,
         employmentFormsRequired,
@@ -390,6 +467,7 @@ export function OnboardingForm({
         marketingInductionRequired,
         willReceiveVehicle,
         willDriveVehicle,
+        requiresLandline,
       },
       notes: {
         it: itNotes.trim() || null,
@@ -408,8 +486,16 @@ export function OnboardingForm({
         ? null
         : preferredLastName.trim() || null,
       title: title.trim(),
-      departmentId: pendingDepartment ? null : (departmentId ? parseInt(departmentId) : null),
-      locationId: pendingLocation ? null : (locationId ? parseInt(locationId) : null),
+      departmentId: pendingDepartment
+        ? null
+        : departmentId
+          ? parseInt(departmentId)
+          : null,
+      locationId: pendingLocation
+        ? null
+        : locationId
+          ? parseInt(locationId)
+          : null,
       pendingDepartmentRequestId: pendingDepartment?.orgRequestId ?? null,
       pendingLocationRequestId: pendingLocation?.orgRequestId ?? null,
       employmentStatus,
@@ -427,7 +513,7 @@ export function OnboardingForm({
     } catch (err) {
       const message =
         err instanceof AxiosError
-          ? err.response?.data?.error ?? "Submission failed."
+          ? (err.response?.data?.error ?? "Submission failed.")
           : "Submission failed.";
       setSubmitError(message);
     } finally {
@@ -455,7 +541,10 @@ export function OnboardingForm({
               record on approval.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-              <Button variant="outline" onClick={() => window.location.reload()}>
+              <Button
+                variant="outline"
+                onClick={() => window.location.reload()}
+              >
                 Submit another request
               </Button>
               <Button asChild variant="outline">
@@ -498,7 +587,9 @@ export function OnboardingForm({
       <Card>
         <CardHeader>
           <CardTitle>Employee Details</CardTitle>
-          <CardDescription>Core HR information for the new hire.</CardDescription>
+          <CardDescription>
+            Core HR information for the new hire.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Legal names */}
@@ -592,7 +683,10 @@ export function OnboardingForm({
                   checked={emailConfirmed}
                   onCheckedChange={(c) => setEmailConfirmed(!!c)}
                 />
-                <Label htmlFor="emailConfirmed" className="cursor-pointer text-sm">
+                <Label
+                  htmlFor="emailConfirmed"
+                  className="cursor-pointer text-sm"
+                >
                   This email address looks correct
                 </Label>
               </div>
@@ -636,12 +730,19 @@ export function OnboardingForm({
               {pendingDepartment ? (
                 <div className="flex-1 flex items-center gap-2 h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                  <span className="flex-1 truncate">{pendingDepartment.name}</span>
-                  <span className="text-xs text-amber-600 bg-amber-100 rounded px-1.5 py-0.5 shrink-0">Pending</span>
+                  <span className="flex-1 truncate">
+                    {pendingDepartment.name}
+                  </span>
+                  <span className="text-xs text-amber-600 bg-amber-100 rounded px-1.5 py-0.5 shrink-0">
+                    Pending
+                  </span>
                   <button
                     type="button"
                     className="ml-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => { setPendingDepartment(null); setDepartmentId(""); }}
+                    onClick={() => {
+                      setPendingDepartment(null);
+                      setDepartmentId("");
+                    }}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -649,7 +750,8 @@ export function OnboardingForm({
               ) : departmentId ? (
                 <div className="flex-1 flex items-center gap-2 h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <span className="flex-1 truncate">
-                    {departments.find((d) => d.id.toString() === departmentId)?.name ?? departmentId}
+                    {departments.find((d) => d.id.toString() === departmentId)
+                      ?.name ?? departmentId}
                   </span>
                   <button
                     type="button"
@@ -662,17 +764,22 @@ export function OnboardingForm({
               ) : (
                 <Select
                   value={departmentId}
-                  onValueChange={(v) => { setDepartmentId(v); setPendingDepartment(null); }}
+                  onValueChange={(v) => {
+                    setDepartmentId(v);
+                    setPendingDepartment(null);
+                  }}
                 >
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.filter((d) => d.id > 0).map((d) => (
-                      <SelectItem key={d.id} value={d.id.toString()}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
+                    {departments
+                      .filter((d) => d.id > 0)
+                      .map((d) => (
+                        <SelectItem key={d.id} value={d.id.toString()}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               )}
@@ -681,7 +788,11 @@ export function OnboardingForm({
                 size="icon"
                 variant="outline"
                 onClick={() => setIsDepartmentDialogOpen(true)}
-                title={userRole === "Admin" ? "Add new department" : "Request new department"}
+                title={
+                  userRole === "Admin"
+                    ? "Add new department"
+                    : "Request new department"
+                }
                 disabled={!!pendingDepartment}
               >
                 <Plus className="h-4 w-4" />
@@ -696,12 +807,19 @@ export function OnboardingForm({
               {pendingLocation ? (
                 <div className="flex-1 flex items-center gap-2 h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                  <span className="flex-1 truncate">{pendingLocation.name}, {pendingLocation.state}</span>
-                  <span className="text-xs text-amber-600 bg-amber-100 rounded px-1.5 py-0.5 shrink-0">Pending</span>
+                  <span className="flex-1 truncate">
+                    {pendingLocation.name}, {pendingLocation.state}
+                  </span>
+                  <span className="text-xs text-amber-600 bg-amber-100 rounded px-1.5 py-0.5 shrink-0">
+                    Pending
+                  </span>
                   <button
                     type="button"
                     className="ml-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => { setPendingLocation(null); setLocationId(""); }}
+                    onClick={() => {
+                      setPendingLocation(null);
+                      setLocationId("");
+                    }}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -709,7 +827,12 @@ export function OnboardingForm({
               ) : locationId ? (
                 <div className="flex-1 flex items-center gap-2 h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <span className="flex-1 truncate">
-                    {(() => { const l = locations.find((l) => l.id.toString() === locationId); return l ? `${l.name}, ${l.state}` : locationId; })()}
+                    {(() => {
+                      const l = locations.find(
+                        (l) => l.id.toString() === locationId,
+                      );
+                      return l ? `${l.name}, ${l.state}` : locationId;
+                    })()}
                   </span>
                   <button
                     type="button"
@@ -722,17 +845,22 @@ export function OnboardingForm({
               ) : (
                 <Select
                   value={locationId}
-                  onValueChange={(v) => { setLocationId(v); setPendingLocation(null); }}
+                  onValueChange={(v) => {
+                    setLocationId(v);
+                    setPendingLocation(null);
+                  }}
                 >
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations.filter((l) => l.id > 0).map((l) => (
-                      <SelectItem key={l.id} value={l.id.toString()}>
-                        {l.name}, {l.state}
-                      </SelectItem>
-                    ))}
+                    {locations
+                      .filter((l) => l.id > 0)
+                      .map((l) => (
+                        <SelectItem key={l.id} value={l.id.toString()}>
+                          {l.name}, {l.state}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               )}
@@ -741,7 +869,11 @@ export function OnboardingForm({
                 size="icon"
                 variant="outline"
                 onClick={() => setIsLocationDialogOpen(true)}
-                title={userRole === "Admin" ? "Add new location" : "Request new location"}
+                title={
+                  userRole === "Admin"
+                    ? "Add new location"
+                    : "Request new location"
+                }
                 disabled={!!pendingLocation}
               >
                 <Plus className="h-4 w-4" />
@@ -850,14 +982,22 @@ export function OnboardingForm({
             checked={employmentFormsRequired}
             onCheckedChange={setEmploymentFormsRequired}
             label="Employment forms required"
-            description={isInternal ? "Pre-filled: Internal employees require employment forms." : "Pre-filled: External employees do not typically require employment forms."}
+            description={
+              isInternal
+                ? "Pre-filled: Internal employees require employment forms."
+                : "Pre-filled: External employees do not typically require employment forms."
+            }
           />
           <CheckboxRow
             id="policeCheckRequired"
             checked={policeCheckRequired}
             onCheckedChange={setPoliceCheckRequired}
             label="Police check required"
-            description={isInternal ? "Pre-filled: Internal employees require a police check." : "Pre-filled: External employees do not typically require a police check."}
+            description={
+              isInternal
+                ? "Pre-filled: Internal employees require a police check."
+                : "Pre-filled: External employees do not typically require a police check."
+            }
           />
           <CheckboxRow
             id="marketingInductionRequired"
@@ -901,6 +1041,13 @@ export function OnboardingForm({
             onCheckedChange={setWillDriveVehicle}
             label="Will be required to drive a KSB vehicle"
             description='Auto-checked when "Will receive a KSB vehicle" is checked.'
+          />
+          <CheckboxRow
+            id="requiresLandline"
+            checked={requiresLandline}
+            onCheckedChange={setRequiresLandline}
+            label="Requires a landline number"
+            description="Does this employee need a desk/landline phone number?"
           />
         </CardContent>
       </Card>
@@ -954,130 +1101,186 @@ export function OnboardingForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Laptop */}
-          {laptopItem && (
-            <div className="space-y-2">
-              <CheckboxRow
-                id="hw-laptop"
-                checked={hardwareChecked[laptopItem.id] ?? false}
-                onCheckedChange={(c) => handleHardwareToggle(laptopItem.id, c)}
-                label="Laptop"
-              />
-              {hardwareChecked[laptopItem.id] && nonStdLaptopItem && (
-                <div className="ml-6 space-y-2">
-                  <CheckboxRow
-                    id="hw-nonStdLaptop"
-                    checked={hardwareNonStandard[nonStdLaptopItem.id] ?? false}
-                    onCheckedChange={(c) =>
-                      setHardwareNonStandard((prev) => ({
-                        ...prev,
-                        [nonStdLaptopItem.id]: c,
-                      }))
-                    }
-                    label="Non-standard laptop"
-                    description="Pre-filled based on job family."
-                  />
-                  {hardwareNonStandard[nonStdLaptopItem.id] && (
-                    <div className="ml-6 space-y-2">
-                      <Label htmlFor="justif-nslaptop" className="text-sm">
-                        Justification *
-                      </Label>
-                      <Textarea
-                        id="justif-nslaptop"
-                        rows={2}
-                        value={hardwareJustification[nonStdLaptopItem.id] ?? ""}
-                        onChange={(e) =>
-                          setHardwareJustification((prev) => ({
-                            ...prev,
-                            [nonStdLaptopItem.id]: e.target.value,
-                          }))
+          {hardwareItems.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No hardware items configured.
+            </p>
+          )}
+          {hardwareItems.map((h) => {
+            const checked = hardwareChecked[h.id] ?? false;
+            const nonStandard = hardwareNonStandard[h.id] ?? false;
+            const callText = hardwareCallText[h.id] ?? false;
+            const needsData = hardwareNeedsData[h.id] ?? false;
+            const { showCallText, showNeedsData, showNumberOption, allowNoNumber } =
+              hardwareItemOptions(h, needsData);
+            const numberOption = hardwareNumberOption[h.id];
+            const reuseId = hardwareReuseFrom[h.id] ?? null;
+            const reuseEmp = reuseId
+              ? employees.find((e) => e.id.toString() === reuseId)
+              : null;
+            return (
+              <div key={h.id} className="space-y-2">
+                <CheckboxRow
+                  id={`hw-${h.id}`}
+                  checked={checked}
+                  onCheckedChange={(c) => handleHardwareToggle(h.id, c)}
+                  label={h.name}
+                />
+                {checked && (
+                  <div className="ml-6 space-y-2">
+                    {/* Non-standard: available for every item (requestType) */}
+                    <CheckboxRow
+                      id={`hw-${h.id}-nonstd`}
+                      checked={nonStandard}
+                      onCheckedChange={(c) =>
+                        setHardwareNonStandard((prev) => ({
+                          ...prev,
+                          [h.id]: c,
+                        }))
+                      }
+                      label="Non-standard"
+                      description="Raises a non-standard request in AssetCheckout; requires a justification."
+                    />
+                    {nonStandard && (
+                      <div className="ml-6 space-y-2">
+                        <Label htmlFor={`justif-${h.id}`} className="text-sm">
+                          Justification *
+                        </Label>
+                        <Textarea
+                          id={`justif-${h.id}`}
+                          rows={2}
+                          value={hardwareJustification[h.id] ?? ""}
+                          onChange={(e) =>
+                            setHardwareJustification((prev) => ({
+                              ...prev,
+                              [h.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={`Reason for non-standard ${h.name.toLowerCase()}...`}
+                          required
+                        />
+                      </div>
+                    )}
+
+                    {/* Tablet: data SIM (site employees) */}
+                    {showNeedsData && (
+                      <CheckboxRow
+                        id={`hw-${h.id}-data`}
+                        checked={needsData}
+                        disabled={callText}
+                        onCheckedChange={(c) => handleNeedsDataToggle(h.id, c)}
+                        label="Needs data"
+                        description={
+                          callText
+                            ? "Included automatically with call & text."
+                            : "Only for employees who go to site — adds a data SIM."
                         }
-                        placeholder="Reason for non-standard laptop..."
-                        required
                       />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                    )}
 
-          {/* iPad */}
-          {iPadItem && (
-            <CheckboxRow
-              id="hw-ipad"
-              checked={hardwareChecked[iPadItem.id] ?? false}
-              onCheckedChange={(c) => handleHardwareToggle(iPadItem.id, c)}
-              label="iPad"
-            />
-          )}
-
-          {/* Phone */}
-          {phoneItem && (
-            <div className="space-y-2">
-              <CheckboxRow
-                id="hw-phone"
-                checked={hardwareChecked[phoneItem.id] ?? false}
-                onCheckedChange={(c) => handleHardwareToggle(phoneItem.id, c)}
-                label="Phone"
-              />
-              {hardwareChecked[phoneItem.id] && nonStdPhoneItem && (
-                <div className="ml-6 space-y-2">
-                  <CheckboxRow
-                    id="hw-nonStdPhone"
-                    checked={hardwareNonStandard[nonStdPhoneItem.id] ?? false}
-                    onCheckedChange={(c) =>
-                      setHardwareNonStandard((prev) => ({
-                        ...prev,
-                        [nonStdPhoneItem.id]: c,
-                      }))
-                    }
-                    label="Non-standard phone"
-                  />
-                  {hardwareNonStandard[nonStdPhoneItem.id] && (
-                    <div className="ml-6 space-y-2">
-                      <Label htmlFor="justif-nsphone" className="text-sm">
-                        Justification *
-                      </Label>
-                      <Textarea
-                        id="justif-nsphone"
-                        rows={2}
-                        value={hardwareJustification[nonStdPhoneItem.id] ?? ""}
-                        onChange={(e) =>
-                          setHardwareJustification((prev) => ({
-                            ...prev,
-                            [nonStdPhoneItem.id]: e.target.value,
-                          }))
-                        }
-                        placeholder="Reason for non-standard phone..."
-                        required
+                    {/* Tablet: call & text capability (bundles data) */}
+                    {showCallText && (
+                      <CheckboxRow
+                        id={`hw-${h.id}-calltext`}
+                        checked={callText}
+                        onCheckedChange={(c) => handleCallTextToggle(h.id, c)}
+                        label="Are call and text capabilities required?"
+                        description="Typically not — iPads are usually data-only. Enabling this includes a data SIM."
                       />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                    )}
 
-          {/* Any other hardware items not covered by the above */}
-          {hardwareItems
-            .filter(
-              (h) =>
-                h.id !== laptopItem?.id &&
-                h.id !== nonStdLaptopItem?.id &&
-                h.id !== iPadItem?.id &&
-                h.id !== phoneItem?.id &&
-                h.id !== nonStdPhoneItem?.id,
-            )
-            .map((h) => (
-              <CheckboxRow
-                key={h.id}
-                id={`hw-${h.id}`}
-                checked={hardwareChecked[h.id] ?? false}
-                onCheckedChange={(c) => handleHardwareToggle(h.id, c)}
-                label={h.name}
-              />
-            ))}
+                    {/* Number decision — only once a SIM is present */}
+                    {showNumberOption && (
+                      <div className="space-y-2">
+                        <Label className="text-sm">Phone number</Label>
+                        <RadioGroup
+                          value={numberOption ?? ""}
+                          onValueChange={(v) => {
+                            const opt = v as HardwareNumberOption;
+                            setHardwareNumberOption((prev) => ({
+                              ...prev,
+                              [h.id]: opt,
+                            }));
+                            if (opt !== "REUSE") {
+                              setHardwareReuseFrom((prev) => ({
+                                ...prev,
+                                [h.id]: null,
+                              }));
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                              value="NEW"
+                              id={`hw-${h.id}-num-new`}
+                            />
+                            <Label
+                              htmlFor={`hw-${h.id}-num-new`}
+                              className="cursor-pointer font-normal"
+                            >
+                              New number required
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                              value="REUSE"
+                              id={`hw-${h.id}-num-reuse`}
+                            />
+                            <Label
+                              htmlFor={`hw-${h.id}-num-reuse`}
+                              className="cursor-pointer font-normal"
+                            >
+                              Reuse an existing number
+                            </Label>
+                          </div>
+                          {allowNoNumber && (
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem
+                                value="NONE"
+                                id={`hw-${h.id}-num-none`}
+                              />
+                              <Label
+                                htmlFor={`hw-${h.id}-num-none`}
+                                className="cursor-pointer font-normal"
+                              >
+                                No phone number required
+                              </Label>
+                            </div>
+                          )}
+                        </RadioGroup>
+
+                        {numberOption === "REUSE" && (
+                          <div className="ml-6 space-y-1">
+                            <Label className="text-sm">
+                              Whose number is being reused? *
+                            </Label>
+                            <EmployeeCombobox
+                              employees={employees}
+                              selectedEmployeeId={reuseId}
+                              onSelect={(id) =>
+                                setHardwareReuseFrom((prev) => ({
+                                  ...prev,
+                                  [h.id]: id,
+                                }))
+                              }
+                              placeholder="Select the departing employee..."
+                            />
+                            {reuseEmp && (
+                              <p className="text-xs text-muted-foreground">
+                                {reuseEmp.mobile
+                                  ? `Current mobile: ${reuseEmp.mobile}`
+                                  : "No mobile on record yet — it will populate from the next Snipe sync."}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
@@ -1176,12 +1379,14 @@ function CheckboxRow({
   onCheckedChange,
   label,
   description,
+  disabled = false,
 }: {
   id: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   label: string;
   description?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -1189,6 +1394,7 @@ function CheckboxRow({
         <Checkbox
           id={id}
           checked={checked}
+          disabled={disabled}
           onCheckedChange={(c) => onCheckedChange(!!c)}
         />
         <Label htmlFor={id} className="cursor-pointer">

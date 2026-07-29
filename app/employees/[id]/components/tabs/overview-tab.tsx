@@ -1,5 +1,6 @@
 // may need to add more info here depending if personal information should be included. Could also be fetched from external data source?
 "use client";
+import { useEffect, useState } from "react";
 import { useEmployee } from "../employee-context";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,13 +13,38 @@ import {
   GraduationCap,
   Activity,
   FileText,
+  History as HistoryIcon,
+  Phone,
+  Smartphone,
   User,
 } from "lucide-react";
 import { format } from "date-fns";
 import NotesEditor from "@/components/notes-editor";
+import api from "@/lib/axios";
+import type { PriorStint } from "@/lib/employment";
 
 export function OverviewTab() {
   const { employee, updateEmployee } = useEmployee();
+
+  // Hot-path guard (§2): only the ~5% of employees flagged with prior employment
+  // trigger the extra History fetch; everyone else skips it entirely.
+  const [priorStints, setPriorStints] = useState<PriorStint[]>([]);
+  const hasPrior = employee?.hasPriorEmployment ?? false;
+  const employeeId = employee?.id;
+
+  useEffect(() => {
+    if (!hasPrior || !employeeId) return;
+    let cancelled = false;
+    api
+      .get<PriorStint[]>(`/api/employees/${employeeId}/prior-employment`)
+      .then((res) => {
+        if (!cancelled) setPriorStints(res.data);
+      })
+      .catch((err) => console.error("Error fetching prior employment:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPrior, employeeId]);
 
   if (!employee) return null;
 
@@ -78,6 +104,32 @@ export function OverviewTab() {
               <span className="text-sm text-muted-foreground">Location</span>
               <span className="ml-auto">{employee.location.name}</span>
             </div>
+            {employee.phone && (
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Phone</span>
+                <a
+                  href={`tel:${employee.phone}`}
+                  className="ml-auto hover:underline"
+                >
+                  {employee.phone}
+                </a>
+              </div>
+            )}
+
+            {employee.mobile && (
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Mobile</span>
+                <a
+                  href={`tel:${employee.mobile}`}
+                  className="ml-auto hover:underline"
+                >
+                  {employee.mobile}
+                </a>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
@@ -123,6 +175,40 @@ export function OverviewTab() {
                 <span className="ml-auto">
                   {formatDate(employee.finishDate)}
                 </span>
+              </div>
+            )}
+
+            {employee.hasPriorEmployment && priorStints.length > 0 && (
+              <div className="pt-4 border-t space-y-3">
+                <div className="flex items-center gap-2">
+                  <HistoryIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">
+                    Previous employment
+                  </span>
+                </div>
+                <ul className="space-y-3">
+                  {priorStints.map((stint, index) => (
+                    <li
+                      key={index}
+                      className="text-sm rounded-md border bg-muted/30 p-3 space-y-1"
+                    >
+                      <div className="font-medium">
+                        {formatDate(
+                          stint.startDate ? new Date(stint.startDate) : null,
+                        )}{" "}
+                        –{" "}
+                        {formatDate(
+                          stint.finishDate ? new Date(stint.finishDate) : null,
+                        )}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {stint.title}
+                        {stint.departmentName ? ` · ${stint.departmentName}` : ""}
+                        {stint.locationName ? ` · ${stint.locationName}` : ""}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </CardContent>

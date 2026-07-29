@@ -902,3 +902,12 @@ export class RequirementService {
 }
 
 export const requirementService = new RequirementService();
+
+/**
+ * Response shape of GET /api/requirements?employeeId=X — derived from the
+ * service method so clients can't drift from the actual payload.
+ * Note: Date fields arrive as ISO strings over JSON.
+ */
+export type EmployeeRequirementsResponse = Awaited<
+  ReturnType<RequirementService["getEmployeeRequirements"]>
+>;

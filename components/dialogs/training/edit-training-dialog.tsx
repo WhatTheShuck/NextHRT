@@ -49,6 +49,8 @@ import {
 } from "@/components/requirement-selector";
 import { TrainingWithRelations } from "@/lib/types";
 import { currentRevision } from "@/lib/services/trainingCompliance";
+import { SopPairSection } from "@/components/dialogs/training/sop-pair-section";
+import { QuizContentSection } from "@/components/dialogs/training/quiz-content-section";
 import { Pencil, Trash2, Plus } from "lucide-react";
 
 interface EditTrainingDialogProps {
@@ -573,6 +575,23 @@ function TrainingForm({
               </ul>
             )}
           </div>
+        )}
+
+        {/* SOP setup: procedure PDF, questions, trainers, assembled download.
+            Keyed on the saved category — the section resolves the pair itself,
+            so it works from either the Task Sheet or the Practical half. */}
+        {training && training.category === "SOP" && (
+          <SopPairSection trainingId={training.id} />
+        )}
+
+        {/* Interactive-quiz content — non-SOP trainings become interactive when
+            their current revision carries a validated quiz document. */}
+        {training && training.category !== "SOP" && (
+          <QuizContentSection
+            trainingId={training.id}
+            revisions={revisions}
+            currentRevisionId={currentRevisionId}
+          />
         )}
 
         {error && (

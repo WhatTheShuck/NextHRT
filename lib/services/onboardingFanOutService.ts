@@ -374,6 +374,22 @@ class OnboardingFanOutService {
     await mailService.send({ to: itRecipient, subject, html: body, attachments: [invite] });
   }
 
+  // §7.4 — IT landline-number request. Sent independently of the programs email
+  // so IT is notified even when no software access was requested.
+  private async enqueueLandlineEmail(
+    vars: Record<string, string | null | undefined>,
+    payload: ReturnType<typeof onboardingService.parsePayload>,
+    settings: Record<string, string>,
+  ): Promise<void> {
+    if (!payload.compliance.requiresLandline) return;
+
+    const itRecipient = settings["onboarding.recipient.it"];
+    if (!itRecipient) return;
+
+    const { subject, body } = await emailTemplateService.render("it.landline", vars);
+    await mailService.send({ to: itRecipient, subject, html: body });
+  }
+
   // §7.4 (notes portion) + §5.5 — HR and Payroll notes emails.
   private async enqueueHrPayrollNotes(
     vars: Record<string, string | null | undefined>,
@@ -414,6 +430,10 @@ class OnboardingFanOutService {
         managerEmployeeId: request.managerEmployeeId,
         nonStandard: selection.nonStandard ?? false,
         justification: selection.justification ?? null,
+        callText: selection.callText ?? false,
+        needsData: selection.needsData ?? false,
+        numberOption: selection.numberOption ?? null,
+        reuseNumberFromEmployeeId: selection.reuseNumberFromEmployeeId ?? null,
       });
     }
   }
@@ -444,6 +464,7 @@ class OnboardingFanOutService {
       this.enqueueManagerEmail(request, vars, managerInfo),
       this.enqueueFormsJobs(request, vars, payload, settings, managerInfo, employeeEmail),
       this.enqueueProgramsEmail(request, vars, payload, settings),
+      this.enqueueLandlineEmail(vars, payload, settings),
       this.enqueueHrPayrollNotes(vars, payload, settings),
       this.enqueueHardwareJobs(request, employee, payload),
     ]);

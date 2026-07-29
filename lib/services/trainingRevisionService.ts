@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
 import { currentRevision } from "@/lib/services/trainingCompliance";
+import { sopService } from "@/lib/services/sopService";
+import { quizService } from "@/lib/services/quizService";
 
 class TrainingRevisionService {
   async listForTraining(trainingId: number) {
@@ -13,6 +15,7 @@ class TrainingRevisionService {
         description: true,
         overrideRequiresRetraining: true,
         createdAt: true,
+        documentPath: true,
       },
       orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
     });
@@ -59,6 +62,11 @@ class TrainingRevisionService {
         userId,
       },
     });
+
+    // SOP Task Sheet revisions carry questions + the procedure PDF forward.
+    await sopService.copyForward(data.trainingId, created.id);
+    // Interactive-quiz trainings carry their quiz content forward.
+    await quizService.copyForward(data.trainingId, created.id);
 
     // If the new revision is current as of now and requires retraining, rebuild the cache.
     const allRevisions = [
@@ -150,6 +158,16 @@ class TrainingRevisionService {
 
     if (!revision) throw new Error("REVISION_NOT_FOUND");
     if (revision.records.length > 0) throw new Error("REVISION_HAS_RECORDS");
+
+    const assessmentCount = await prisma.sopAssessment.count({
+      where: { revisionId: id },
+    });
+    if (assessmentCount > 0) throw new Error("REVISION_HAS_ASSESSMENTS");
+
+    const quizResponseCount = await prisma.quizResponse.count({
+      where: { revisionId: id },
+    });
+    if (quizResponseCount > 0) throw new Error("REVISION_HAS_QUIZ_RESPONSES");
 
     await prisma.trainingRevision.delete({ where: { id } });
 

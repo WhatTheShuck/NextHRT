@@ -2,22 +2,31 @@ import prisma from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
 
+// Stored paths are relative to uploads/ (e.g. "training/<uuid>.jpg" — that is
+// what fileUploadService returns). The defensive replace also keeps any legacy
+// rows that stored an "uploads/" prefix resolving to the same on-disk file.
+const resolveUpload = (p: string) =>
+  path.resolve(process.cwd(), "uploads", p.replace(/^uploads\//, ""));
+
 export async function orphanedImageCleanupHandler(
   _payload: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   let orphanedDbRecords = 0;
   let orphanedFiles = 0;
 
-  const [trainingImages, ticketImages] = await Promise.all([
+  const [trainingImages, ticketImages, trainingRevisionDocs] = await Promise.all([
     prisma.trainingImage.findMany({ select: { id: true, imagePath: true } }),
     prisma.ticketImage.findMany({ select: { id: true, imagePath: true } }),
+    prisma.trainingRevision.findMany({
+      where: { documentPath: { not: null } },
+      select: { documentPath: true },
+    }),
   ]);
 
   // DB records whose file is missing on disk
   const missingTrainingImageIds: number[] = [];
   for (const img of trainingImages) {
-    const fullPath = path.join(process.cwd(), img.imagePath);
-    if (!fs.existsSync(fullPath)) {
+    if (!fs.existsSync(resolveUpload(img.imagePath))) {
       missingTrainingImageIds.push(img.id);
     }
   }
@@ -31,8 +40,7 @@ export async function orphanedImageCleanupHandler(
 
   const missingTicketImageIds: number[] = [];
   for (const img of ticketImages) {
-    const fullPath = path.join(process.cwd(), img.imagePath);
-    if (!fs.existsSync(fullPath)) {
+    if (!fs.existsSync(resolveUpload(img.imagePath))) {
       missingTicketImageIds.push(img.id);
     }
   }
@@ -48,8 +56,11 @@ export async function orphanedImageCleanupHandler(
   const uploadsDir = path.join(process.cwd(), "uploads");
   if (fs.existsSync(uploadsDir)) {
     const allDbPaths = new Set([
-      ...trainingImages.map((i) => path.resolve(process.cwd(), i.imagePath)),
-      ...ticketImages.map((i) => path.resolve(process.cwd(), i.imagePath)),
+      ...trainingImages.map((i) => resolveUpload(i.imagePath)),
+      ...ticketImages.map((i) => resolveUpload(i.imagePath)),
+      ...trainingRevisionDocs
+        .filter((r): r is { documentPath: string } => r.documentPath !== null)
+        .map((r) => resolveUpload(r.documentPath)),
     ]);
 
     const scanDir = (dir: string) => {

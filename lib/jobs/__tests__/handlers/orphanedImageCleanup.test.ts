@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type MockedFunction } from "vitest";
 import path from "path";
 
 const { mockPrisma } = vi.hoisted(() => {
@@ -10,6 +10,9 @@ const { mockPrisma } = vi.hoisted(() => {
     ticketImage: {
       findMany: vi.fn(),
       deleteMany: vi.fn(),
+    },
+    trainingRevision: {
+      findMany: vi.fn(),
     },
   };
   return { mockPrisma };
@@ -26,11 +29,18 @@ function makeFileDirent(name: string): fs.Dirent {
   return { name, isDirectory: () => false, isFile: () => true } as unknown as fs.Dirent;
 }
 
+// vi.mocked resolves readdirSync to its buffer overload; retype the mock to
+// the string/withFileTypes overload the handler actually calls.
+const mockedReaddirSync = vi.mocked(fs.readdirSync) as unknown as MockedFunction<
+  (path: fs.PathLike, options?: { withFileTypes?: boolean }) => fs.Dirent[]
+>;
+
 beforeEach(() => {
   mockPrisma.trainingImage.findMany.mockResolvedValue([]);
   mockPrisma.ticketImage.findMany.mockResolvedValue([]);
   mockPrisma.trainingImage.deleteMany.mockResolvedValue({ count: 0 });
   mockPrisma.ticketImage.deleteMany.mockResolvedValue({ count: 0 });
+  mockPrisma.trainingRevision.findMany.mockResolvedValue([]);
 
   // Default: uploads dir does not exist (keeps tests isolated)
   vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -40,8 +50,10 @@ beforeEach(() => {
 
 describe("orphanedImageCleanupHandler — DB records without files on disk", () => {
   it("deletes training image DB records whose file is missing on disk", async () => {
+    // Real stored format: no "uploads/" prefix — fileUploadService returns
+    // "<subDir>/<uuid>.<ext>" and the record services store it verbatim.
     mockPrisma.trainingImage.findMany.mockResolvedValue([
-      { id: 1, imagePath: "uploads/training/missing.jpg" },
+      { id: 1, imagePath: "training/missing.jpg" },
     ]);
     // The file does not exist on disk; uploads dir also treated as absent
     vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -55,10 +67,11 @@ describe("orphanedImageCleanupHandler — DB records without files on disk", () 
   });
 
   it("does NOT delete training image records whose file exists on disk", async () => {
-    mockPrisma.trainingImage.findMany.mockResolvedValue([
-      { id: 2, imagePath: "uploads/training/present.jpg" },
-    ]);
-    vi.mocked(fs.existsSync).mockReturnValue(true);
+    const imagePath = "training/present.jpg";
+    mockPrisma.trainingImage.findMany.mockResolvedValue([{ id: 2, imagePath }]);
+    // Only the correctly-resolved location under uploads/ exists on disk
+    const fullPath = path.join(process.cwd(), "uploads", imagePath);
+    vi.mocked(fs.existsSync).mockImplementation((p) => p.toString() === fullPath);
 
     await orphanedImageCleanupHandler({});
 
@@ -67,7 +80,7 @@ describe("orphanedImageCleanupHandler — DB records without files on disk", () 
 
   it("deletes ticket image DB records whose file is missing on disk", async () => {
     mockPrisma.ticketImage.findMany.mockResolvedValue([
-      { id: 10, imagePath: "uploads/tickets/gone.png" },
+      { id: 10, imagePath: "tickets/gone.png" },
     ]);
     vi.mocked(fs.existsSync).mockReturnValue(false);
 
@@ -81,11 +94,11 @@ describe("orphanedImageCleanupHandler — DB records without files on disk", () 
 
   it("accumulates orphanedDbRecords across both image types", async () => {
     mockPrisma.trainingImage.findMany.mockResolvedValue([
-      { id: 1, imagePath: "uploads/training/a.jpg" },
-      { id: 2, imagePath: "uploads/training/b.jpg" },
+      { id: 1, imagePath: "training/a.jpg" },
+      { id: 2, imagePath: "training/b.jpg" },
     ]);
     mockPrisma.ticketImage.findMany.mockResolvedValue([
-      { id: 10, imagePath: "uploads/tickets/c.png" },
+      { id: 10, imagePath: "tickets/c.png" },
     ]);
     vi.mocked(fs.existsSync).mockReturnValue(false);
 
@@ -116,9 +129,7 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
       // only need existsSync to return true for the uploads dir check
       return str === uploadsDir;
     });
-    vi.mocked(fs.readdirSync).mockReturnValue(
-      [makeFileDirent(orphanFile)] as unknown as fs.Dirent[],
-    );
+    mockedReaddirSync.mockReturnValue([makeFileDirent(orphanFile)]);
 
     const result = await orphanedImageCleanupHandler({});
 
@@ -127,25 +138,25 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
   });
 
   it("does NOT delete disk files that ARE referenced in the DB", async () => {
-    const imagePath = "uploads/training/keep.jpg";
+    const imagePath = "training/keep.jpg";
     mockPrisma.trainingImage.findMany.mockResolvedValue([{ id: 5, imagePath }]);
 
     const uploadsDir = path.join(process.cwd(), "uploads");
     const trainingDir = path.join(uploadsDir, "training");
-    const keepFullPath = path.resolve(process.cwd(), imagePath);
+    const keepFullPath = path.join(process.cwd(), "uploads", imagePath);
 
     vi.mocked(fs.existsSync).mockImplementation((p) => {
       const str = p.toString();
       return str === uploadsDir || str === keepFullPath;
     });
-    vi.mocked(fs.readdirSync).mockImplementation((dir) => {
+    mockedReaddirSync.mockImplementation((dir) => {
       if (dir.toString() === uploadsDir) {
         return [
           { name: "training", isDirectory: () => true, isFile: () => false },
         ] as unknown as fs.Dirent[];
       }
       if (dir.toString() === trainingDir) {
-        return [makeFileDirent("keep.jpg")] as unknown as fs.Dirent[];
+        return [makeFileDirent("keep.jpg")];
       }
       return [];
     });
@@ -153,6 +164,74 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
     await orphanedImageCleanupHandler({});
 
     expect(fs.unlinkSync).not.toHaveBeenCalled();
+  });
+
+  it("protects legacy rows that stored an uploads/ prefix by resolving them to the same path", async () => {
+    const legacyImagePath = "uploads/training/legacy.jpg";
+    mockPrisma.trainingImage.findMany.mockResolvedValue([
+      { id: 6, imagePath: legacyImagePath },
+    ]);
+
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    const trainingDir = path.join(uploadsDir, "training");
+    // Legacy prefix or not, the file lives at uploads/training/legacy.jpg
+    const legacyFullPath = path.join(uploadsDir, "training", "legacy.jpg");
+
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
+      const str = p.toString();
+      return str === uploadsDir || str === legacyFullPath;
+    });
+    vi.mocked(fs.readdirSync).mockImplementation(((dir: fs.PathLike) => {
+      if (dir.toString() === uploadsDir) {
+        return [
+          { name: "training", isDirectory: () => true, isFile: () => false },
+        ] as unknown as fs.Dirent[];
+      }
+      if (dir.toString() === trainingDir) {
+        return [makeFileDirent("legacy.jpg")] as unknown as fs.Dirent[];
+      }
+      return [];
+    }) as any);
+
+    await orphanedImageCleanupHandler({});
+
+    expect(mockPrisma.trainingImage.deleteMany).not.toHaveBeenCalled();
+    expect(fs.unlinkSync).not.toHaveBeenCalled();
+  });
+
+  it("does NOT delete SOP document files that are referenced by a TrainingRevision, but does delete orphaned ones", async () => {
+    mockPrisma.trainingRevision.findMany.mockResolvedValue([
+      { documentPath: "sop-documents/keep.pdf" },
+    ]);
+
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    const sopDir = path.join(uploadsDir, "sop-documents");
+    const keepFullPath = path.resolve(process.cwd(), "uploads", "sop-documents/keep.pdf");
+    const orphanFullPath = path.join(sopDir, "orphan.pdf");
+
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
+      const str = p.toString();
+      return str === uploadsDir || str === keepFullPath;
+    });
+    vi.mocked(fs.readdirSync).mockImplementation(((dir: fs.PathLike) => {
+      if (dir.toString() === uploadsDir) {
+        return [
+          { name: "sop-documents", isDirectory: () => true, isFile: () => false },
+        ] as unknown as fs.Dirent[];
+      }
+      if (dir.toString() === sopDir) {
+        return [
+          makeFileDirent("keep.pdf"),
+          makeFileDirent("orphan.pdf"),
+        ] as unknown as fs.Dirent[];
+      }
+      return [];
+    }) as any);
+
+    await orphanedImageCleanupHandler({});
+
+    expect(fs.unlinkSync).not.toHaveBeenCalledWith(keepFullPath);
+    expect(fs.unlinkSync).toHaveBeenCalledWith(orphanFullPath);
   });
 });
 

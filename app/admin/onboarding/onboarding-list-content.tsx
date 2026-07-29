@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RowLink } from "@/components/ui/row-link";
 import {
   Card,
   CardContent,
@@ -70,7 +71,6 @@ function fmt(iso: string | null) {
 }
 
 export function OnboardingListContent() {
-  const router = useRouter();
   const [requests, setRequests] = useState<OnboardingRequestRow[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
@@ -158,14 +158,12 @@ export function OnboardingListContent() {
               </TableHeader>
               <TableBody>
                 {requests.map((r) => (
-                  <TableRow
-                    key={r.id}
-                    className="cursor-pointer"
-                    onClick={() =>
-                      router.push(`/admin/onboarding/${r.id}`)
-                    }
-                  >
+                  <TableRow key={r.id} className="relative cursor-pointer">
                     <TableCell className="font-medium">
+                      <RowLink
+                        href={`/admin/onboarding/${r.id}`}
+                        label={`${r.legalFirstName} ${r.legalLastName}`}
+                      />
                       {r.legalFirstName} {r.legalLastName}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-muted-foreground">
@@ -183,15 +181,15 @@ export function OnboardingListContent() {
                     <TableCell>{statusBadge(r.status)}</TableCell>
                     <TableCell className="text-right">
                       <Button
+                        asChild
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/admin/onboarding/${r.id}`);
-                        }}
+                        className="relative z-10"
                       >
-                        <ExternalLink className="h-4 w-4 mr-1" />
-                        Review
+                        <Link href={`/admin/onboarding/${r.id}`}>
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          Review
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>

@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Pencil, Save, X } from "lucide-react";
 import api from "@/lib/axios";
 import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 interface NotesEditorProps {
   employeeId: number;
@@ -36,24 +37,14 @@ export default function NotesEditor({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const response = await api.patch(`api/employees/${employeeId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ notes: editedNotes }),
-      });
-
-      if (!response) {
-        throw new Error("Failed to update notes");
-      }
+      await api.patch(`/api/employees/${employeeId}`, { notes: editedNotes });
 
       // Call parent callback if provided
       onNotesUpdate?.(editedNotes);
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating notes:", error);
-      // You might want to show a toast notification here
+      toast.error("Failed to save notes. Please try again.");
     } finally {
       setIsSaving(false);
     }

@@ -45,7 +45,11 @@ HRT/
 
 generated/
 
-prisma/dev.db
+prisma/dev.db*
+db-migration/
+backups/
+# Runtime upload storage (bind-mounted from the host in docker-compose)
+uploads/
 .worktrees/
 .superpowers/
 

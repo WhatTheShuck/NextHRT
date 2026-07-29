@@ -100,6 +100,8 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
     usi: usi || null,
     isActive,
     startDate: startDate?.toISOString() || null,
+    status,
+    jobFamilyId: jobFamilyId ? parseInt(jobFamilyId) : null,
   });
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -344,6 +346,9 @@ export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
           onOpenChange={setIsDuplicateDialogOpen}
           duplicateData={duplicateData}
           employeeFormData={createEmployeeData()}
+          departments={departments}
+          locations={locations}
+          jobFamilies={jobFamilies}
           onSuccess={handleDuplicateSuccess}
         />
       )}
