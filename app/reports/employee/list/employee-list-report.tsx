@@ -15,7 +15,7 @@ import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function Page() {
+export function EmployeeListReport() {
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<
     EmployeeWithRelations[]

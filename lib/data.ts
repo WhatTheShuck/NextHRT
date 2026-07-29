@@ -191,7 +191,7 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "View the current employees. Useful for evacuation list",
     icon: Users,
     href: "/reports/employee/list",
-    minimumAllowedPermission: "reports:viewEmployee",
+    minimumAllowedPermission: "reports:evac",
   },
   {
     title: "New Hire Report",
