@@ -27,10 +27,23 @@ const SCHEDULED_JOBS: ScheduledJob[] = [
     schedule: "Daily at midnight",
   },
   {
+    type: "TRAINING_REVISION_CROSSING",
+    label: "Training Revision Crossing",
+    description:
+      "Detects training revisions that just became effective and invalidates the cache for affected employees.",
+    schedule: "Daily at midnight",
+  },
+  {
     type: "INACTIVE_EMPLOYEE_CHECK",
     label: "Inactive Employee Check",
     description: "Sets employees as inactive when their finish date has passed.",
     schedule: "Daily at midnight",
+  },
+  {
+    type: "SNIPE_PHONE_SYNC",
+    label: "Snipe Phone Sync",
+    description: "Mirrors Snipe-IT user phone and mobile numbers onto HRT employees.",
+    schedule: "Daily at 3am",
   },
   {
     type: "ORPHANED_IMAGE_CLEANUP",
@@ -42,7 +55,14 @@ const SCHEDULED_JOBS: ScheduledJob[] = [
     type: "REQUIREMENTS_CACHE_REBUILD",
     label: "Requirements Cache Rebuild",
     description: "Rebuilds the full requirements cache for all employees.",
-    schedule: "On boot / on demand",
+    schedule: "Nightly at 1am / on boot",
+  },
+  {
+    type: "REEVALUATE_PENDING_APPROVALS",
+    label: "Re-evaluate Pending Approvals",
+    description:
+      "Re-checks pending approval requests against the current approval rules.",
+    schedule: "On demand",
   },
 ];
 
