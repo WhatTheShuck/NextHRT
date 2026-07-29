@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import { UserRole, Prisma, EmployeeStatus } from "@/generated/prisma_client/client";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { auth } from "../auth";
-import { deriveEmploymentType } from "@/lib/employment";
+import { deriveEmploymentType, serializePriorStint } from "@/lib/employment";
 
 export interface GetEmployeesOptions {
   activeOnly?: boolean;
@@ -211,13 +211,23 @@ export class EmployeeService {
 
         throw {
           code: "DUPLICATE_EMPLOYEE",
+          // Full prior values are carried so the rehire reconciliation panel can
+          // compare typed-vs-existing for every field client-side (§4).
           matches: potentialDuplicates.map((emp) => ({
             id: emp.id,
             legalFirstName: emp.legalFirstName,
             legalLastName: emp.legalLastName,
+            preferredFirstName: emp.preferredFirstName,
+            preferredLastName: emp.preferredLastName,
             title: emp.title,
             department: emp.department || "Unknown",
             location: emp.location || "Unknown",
+            departmentId: emp.departmentId,
+            locationId: emp.locationId,
+            status: emp.status,
+            usi: emp.usi,
+            notes: emp.notes,
+            jobFamilyId: emp.jobFamilyId,
             isActive: emp.isActive,
             startDate: emp.startDate,
             finishDate: emp.finishDate,
@@ -490,6 +500,115 @@ export class EmployeeService {
     });
 
     return updatedEmployee;
+  }
+
+  /**
+   * Rehire a previously-departed employee (§3). Archives the prior stint as a
+   * parseable `REHIRE` History row, then reactivates the live record with the
+   * caller's already-reconciled field values. The server owns the archive
+   * snapshot — `data` carries no snapshot/archive fields.
+   */
+  async rehireEmployee(
+    employeeId: number,
+    data: {
+      startDate: string;
+      priorFinishDate?: string | null;
+      title: string;
+      departmentId: number;
+      locationId: number;
+      status: string;
+      jobFamilyId?: number | null;
+      usi?: string | null;
+      notes?: string | null;
+      preferredFirstName?: string | null;
+      preferredLastName?: string | null;
+    },
+    userId: string,
+  ) {
+    // 1. Load the existing record with the relations we snapshot names from.
+    const existing = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: { department: true, location: true },
+    });
+
+    if (!existing) {
+      throw new Error("EMPLOYEE_NOT_FOUND");
+    }
+
+    // 2. Only a departed employee can be rehired.
+    if (existing.isActive) {
+      throw new Error("ACTIVE_EMPLOYEE");
+    }
+
+    // 3. Resolve the prior stint's finish date (record's own, else supplied).
+    const priorFinishDate = existing.finishDate
+      ? existing.finishDate.toISOString()
+      : data.priorFinishDate ?? null;
+    if (!priorFinishDate) {
+      throw new Error("MISSING_FINISH_DATE");
+    }
+
+    // 4. The new stint must start strictly after the prior one ends.
+    const rehireStart = new Date(data.startDate);
+    if (rehireStart <= new Date(priorFinishDate)) {
+      throw new Error("INVALID_REHIRE_DATE");
+    }
+
+    const status = data.status as EmployeeStatus;
+    const oldStint = serializePriorStint(existing, priorFinishDate);
+    const newStint = {
+      startDate: rehireStart.toISOString(),
+      finishDate: null,
+      title: data.title,
+      departmentId: data.departmentId,
+      locationId: data.locationId,
+      status: data.status,
+    };
+
+    // 5. Archive + reactivate atomically.
+    return prisma.$transaction(async (tx) => {
+      await tx.history.create({
+        data: {
+          tableName: "Employee",
+          recordId: String(employeeId),
+          action: "REHIRE",
+          oldValues: JSON.stringify(oldStint),
+          newValues: JSON.stringify(newStint),
+          // Full prior-record snapshot kept purely as an audit backup.
+          changedFields: JSON.stringify(existing),
+          userId,
+        },
+      });
+
+      return tx.employee.update({
+        where: { id: employeeId },
+        data: {
+          startDate: rehireStart,
+          finishDate: null,
+          isActive: true,
+          hasPriorEmployment: true,
+          title: data.title,
+          department: { connect: { id: data.departmentId } },
+          location: { connect: { id: data.locationId } },
+          status,
+          employmentType: deriveEmploymentType(status),
+          jobFamily:
+            data.jobFamilyId !== undefined
+              ? data.jobFamilyId
+                ? { connect: { id: data.jobFamilyId } }
+                : { disconnect: true }
+              : undefined,
+          usi: data.usi,
+          notes: data.notes,
+          preferredFirstName: data.preferredFirstName,
+          preferredLastName: data.preferredLastName,
+        },
+        include: {
+          department: true,
+          location: true,
+        },
+      });
+    });
   }
 
   async deleteEmployee(employeeId: number, userId: string) {

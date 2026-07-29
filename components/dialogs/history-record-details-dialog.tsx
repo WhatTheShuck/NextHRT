@@ -46,6 +46,8 @@ function RecordContent({ record }: RecordContentProps) {
         return "secondary";
       case "delete":
         return "destructive";
+      case "rehire":
+        return "default";
       default:
         return "outline";
     }
@@ -100,6 +102,24 @@ function RecordContent({ record }: RecordContentProps) {
       }
     }
     return String(value);
+  };
+
+  const renderStint = (stint: Record<string, unknown> | null) => {
+    if (!stint) {
+      return <p className="text-muted-foreground text-sm">Not available</p>;
+    }
+    return (
+      <div className="space-y-2 text-sm">
+        {Object.entries(stint).map(([field, value]) => (
+          <div key={field} className="grid grid-cols-2 gap-2">
+            <span className="text-muted-foreground capitalize">
+              {field.replace(/([A-Z])/g, " $1").trim()}
+            </span>
+            <span className="font-mono">{formatValue(value)}</span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -207,6 +227,27 @@ function RecordContent({ record }: RecordContentProps) {
               <pre className="text-sm whitespace-pre-wrap">
                 {JSON.stringify(parseJsonSafely(record.oldValues), null, 2)}
               </pre>
+            </div>
+          </div>
+        </>
+      )}
+
+      {record.action === "REHIRE" && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-3">Rehired</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border rounded-lg p-3">
+                <h4 className="font-medium text-sm mb-2">
+                  Previous employment
+                </h4>
+                {renderStint(parseJsonSafely(record.oldValues || undefined))}
+              </div>
+              <div className="border rounded-lg p-3">
+                <h4 className="font-medium text-sm mb-2">New employment</h4>
+                {renderStint(parseJsonSafely(record.newValues || undefined))}
+              </div>
             </div>
           </div>
         </>
