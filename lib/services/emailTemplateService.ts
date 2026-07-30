@@ -224,18 +224,81 @@ const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
 ];
 
 export class EmailTemplateService {
-  // Idempotent. Seeds the placeholder templates but NEVER overwrites the
-  // admin-edited subject/body — only keeps the display name in sync (mirrors
-  // appSettingService.ensureDefaults). Safe to run repeatedly / concurrently.
+  // Idempotent. Seeds the placeholder templates and keeps them in sync with the
+  // defaults above, but NEVER overwrites an admin-edited subject/body. "Edited"
+  // means updateTemplate has written a History row for that key — templates
+  // nobody has touched adopt the current default, so changing the copy (or the
+  // tokens a caller supplies) here actually reaches existing databases instead
+  // of leaving stale text that renders its placeholders literally.
+  // Safe to run repeatedly / concurrently.
   async ensureDefaults(): Promise<void> {
-    const upserts = TEMPLATE_DEFAULTS.map((t) =>
-      prisma.emailTemplate.upsert({
-        where: { key: t.key },
-        create: { key: t.key, name: t.name, subject: t.subject, body: t.body },
-        update: { name: t.name },
-      }),
-    );
-    await Promise.all(upserts);
+    const existing = await prisma.emailTemplate.findMany({
+      where: { key: { in: TEMPLATE_DEFAULTS.map((t) => t.key) } },
+      select: { key: true, name: true, subject: true, body: true },
+    });
+    const byKey = new Map(existing.map((t) => [t.key, t]));
+
+    const missing = TEMPLATE_DEFAULTS.filter((t) => !byKey.has(t.key));
+    // Copy drift: the stored text no longer matches the default. Either an admin
+    // rewrote it (keep theirs) or the default moved on underneath it (adopt the
+    // new one) — the History audit trail tells the two apart.
+    const drifted = TEMPLATE_DEFAULTS.filter((t) => {
+      const current = byKey.get(t.key);
+      return (
+        current !== undefined &&
+        (current.subject !== t.subject || current.body !== t.body)
+      );
+    });
+    const stale =
+      drifted.length > 0
+        ? await this.uneditedKeys(drifted.map((t) => t.key))
+        : new Set<string>();
+
+    const writes = TEMPLATE_DEFAULTS.flatMap((t) => {
+      if (missing.includes(t)) {
+        return [
+          prisma.emailTemplate.upsert({
+            where: { key: t.key },
+            create: {
+              key: t.key,
+              name: t.name,
+              subject: t.subject,
+              body: t.body,
+            },
+            update: {}, // lost a create race — the winner already wrote the default
+          }),
+        ];
+      }
+      const current = byKey.get(t.key)!;
+      const resync = stale.has(t.key);
+      if (current.name === t.name && !resync) return []; // already in sync
+      return [
+        prisma.emailTemplate.update({
+          where: { key: t.key },
+          data: resync
+            ? { name: t.name, subject: t.subject, body: t.body }
+            : { name: t.name },
+        }),
+      ];
+    });
+
+    await Promise.all(writes);
+  }
+
+  // Of `keys`, those with no UPDATE recorded against them — i.e. never edited
+  // through updateTemplate, so their copy is still whatever was seeded.
+  private async uneditedKeys(keys: string[]): Promise<Set<string>> {
+    const edits = await prisma.history.findMany({
+      where: {
+        tableName: "EmailTemplate",
+        recordId: { in: keys },
+        action: "UPDATE",
+      },
+      select: { recordId: true },
+      distinct: ["recordId"],
+    });
+    const editedKeys = new Set(edits.map((e) => e.recordId));
+    return new Set(keys.filter((k) => !editedKeys.has(k)));
   }
 
   async getTemplates() {
