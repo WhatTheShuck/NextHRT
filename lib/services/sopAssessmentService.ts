@@ -393,11 +393,18 @@ class SopAssessmentService {
       : "An employee";
     const sopTitle = (training?.title ?? "SOP").replace(/ - Task Sheet$/, "");
 
-    const { subject, body } = await emailTemplateService.render("sop.submitted", {
+    // null = template switched off in the admin editor; skip the send.
+    const rendered = await emailTemplateService.render("sop.submitted", {
       sopTitle,
       employeeName,
     });
-    await mailService.send({ to: recipients, subject, html: body });
+    if (!rendered) return;
+
+    await mailService.send({
+      to: recipients,
+      subject: rendered.subject,
+      html: rendered.body,
+    });
   }
 
   /** Admin, or a designated trainer (via their linked employee) for this SOP. */
@@ -604,12 +611,18 @@ class SopAssessmentService {
     const employeeName = `${employee.preferredFirstName ?? employee.legalFirstName} ${employee.preferredLastName ?? employee.legalLastName}`;
     const sopTitle = (training?.title ?? "SOP").replace(/ - Task Sheet$/, "");
 
-    const { subject, body } = await emailTemplateService.render(templateKey, {
+    const rendered = await emailTemplateService.render(templateKey, {
       sopTitle,
       employeeName,
       trainerName,
     });
-    await mailService.send({ to: email, subject, html: body });
+    if (!rendered) return;
+
+    await mailService.send({
+      to: email,
+      subject: rendered.subject,
+      html: rendered.body,
+    });
   }
 
   /** Submitted assessments this user may mark, oldest first. */

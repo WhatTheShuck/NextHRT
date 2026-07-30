@@ -171,8 +171,18 @@ model OnboardingRequest {
   // --- Non-HR payload (NOT admin-approved; drives jobs; archived to profile) ---
   payload String // JSON: { programs[], hardware[], compliance{}, notes{it,hr,payroll} }
 
+  // --- Rehire handling ---
+  // Submitter's hint at submit time ("this looks like a returning employee").
+  // Advisory only — the Admin decides at approval.
+  possibleRehire Boolean @default(false)
+  // Set on approval when approved as a rehire; one nullable field carries both
+  // the fact and the target, so `approvedAsRehire` is just `!= null`. Bare scalar
+  // with no relation, matching createdEmployeeId. On an Approved request,
+  // possibleRehire=true with this null means "flagged, reviewed, created new".
+  rehireOfEmployeeId Int?
+
   // --- Lifecycle ---
-  createdEmployeeId Int? // set on approval
+  createdEmployeeId Int? // set on approval; on a rehire this is the reactivated employee's id
   reviewedByUserId  String?
   reviewedAt        DateTime?
   reviewNotes       String?

@@ -5,6 +5,14 @@ import {
   Prisma,
 } from "@/generated/prisma_client/client";
 import { deriveEmploymentType } from "@/lib/employment";
+import {
+  duplicateSuggestions,
+  findNameMatches,
+} from "@/lib/services/employeeDuplicateService";
+import {
+  enqueueRequirementsCacheInvalidate,
+  rehireInTx,
+} from "@/lib/services/employeeRehire";
 
 /**
  * Non-HR payload archived on the request as JSON (spec §6.3 / §5). These objects
@@ -77,7 +85,40 @@ export interface CreateOnboardingData extends OnboardingCoreHRData {
   payload: OnboardingPayload;
   pendingDepartmentRequestId?: number | null;
   pendingLocationRequestId?: number | null;
+  /** Submitter's "this looks like a returning employee" hint. Advisory only. */
+  possibleRehire?: boolean;
 }
+
+/**
+ * How the Admin resolved the request at approval.
+ *
+ * `create` is the default so an approval that says nothing behaves as it always
+ * has — but it is guarded: without `confirmDuplicate` it refuses to create over a
+ * name match, mirroring `employeeService.createEmployee`. An unrecognised mode is
+ * rejected outright rather than falling through to `create`, because a typo'd mode
+ * silently creating the duplicate employee is the exact failure this exists to
+ * prevent.
+ *
+ * There is deliberately no `startDate` here: the rehire start date travels in
+ * `edits.startDate`, so the request row and the reactivated Employee cannot end up
+ * disagreeing about when the new stint began.
+ */
+export interface RehireOptionalFields {
+  jobFamilyId?: number | null;
+  preferredFirstName?: string | null;
+  preferredLastName?: string | null;
+}
+
+export type ApprovalDecision =
+  | { mode: "create"; confirmDuplicate?: boolean }
+  | {
+      mode: "rehire";
+      employeeId: number;
+      priorFinishDate?: string | null;
+      legalFirstName?: string;
+      legalLastName?: string;
+      optionalFields?: RehireOptionalFields;
+    };
 
 export interface ListOnboardingOptions {
   status?: OnboardingStatus;
@@ -136,6 +177,10 @@ export class OnboardingService {
           ? { connect: { id: data.medicalStandardId } }
           : undefined,
         emailConfirmed: data.emailConfirmed ?? false,
+        // `=== true` because POST /api/onboarding hands request.json() straight
+        // through with no validation, and a non-boolean here would 500 the
+        // submission on a purely advisory field.
+        possibleRehire: data.possibleRehire === true,
         payload: JSON.stringify(data.payload ?? emptyPayload()),
       },
       include: requestInclude,
@@ -197,19 +242,24 @@ export class OnboardingService {
 
   /**
    * Approve a pending request. In one transaction: optionally apply the Admin's
-   * edits to the core HR fields, create the Employee (NO User — §6.3), and flip
-   * the request to Approved with the created employee linked. History logged for
-   * both the Employee (CREATE) and the request (UPDATE).
+   * edits to the core HR fields, then either create the Employee (NO User — §6.3)
+   * or reactivate a departed one as a rehire, and flip the request to Approved with
+   * the resulting employee linked. History logged for the Employee (CREATE or
+   * REHIRE) and the request (UPDATE).
    *
    * Downstream job fan-out (Wave E / P10) hangs off this approval; it is NOT
-   * wired here.
+   * wired here. A rehire gets the identical new-starter fan-out, which is
+   * deliberate — a returning employee genuinely needs new hardware, re-granted
+   * program access and forms re-signed. If the *wording* turns out to matter, the
+   * fix is rehire variants of the affected templates, not suppressing sections.
    */
   async approveRequest(
     id: number,
     userId: string,
     edits?: Partial<OnboardingCoreHRData>,
+    decision: ApprovalDecision = { mode: "create" },
   ) {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const request = await tx.onboardingRequest.findUnique({ where: { id } });
 
       if (!request) {
@@ -250,47 +300,109 @@ export class OnboardingService {
           : request.jobFamilyId;
       const employmentType = deriveEmploymentType(employmentStatus);
 
-      // Create the Employee (no User) — mirrors employeeService.createEmployee
-      // field mapping; preferred defaults to legal.
-      const employee = await tx.employee.create({
-        data: {
-          legalFirstName,
-          legalLastName,
-          preferredFirstName: preferredFirstName ?? legalFirstName,
-          preferredLastName: preferredLastName ?? legalLastName,
-          title,
-          startDate,
-          department: { connect: { id: departmentId } },
-          location: { connect: { id: locationId } },
-          status: employmentStatus,
-          isActive: true,
-          employmentType,
-          jobFamily: jobFamilyId ? { connect: { id: jobFamilyId } } : undefined,
-        },
-        include: { department: true, location: true },
-      });
+      if (decision.mode !== "create" && decision.mode !== "rehire") {
+        // Never fall through to `create` — a typo'd mode silently creating the
+        // duplicate employee is the exact failure this feature prevents.
+        throw new Error("INVALID_APPROVAL_DECISION");
+      }
 
-      await tx.history.create({
-        data: {
-          tableName: "Employee",
-          recordId: employee.id.toString(),
-          action: "CREATE",
-          newValues: JSON.stringify(employee),
+      let employee;
+
+      if (decision.mode === "rehire") {
+        employee = await rehireInTx(
+          tx,
+          decision.employeeId,
+          {
+            startDate,
+            priorFinishDate: decision.priorFinishDate,
+            title,
+            departmentId,
+            locationId,
+            status: employmentStatus,
+            // The request has no usi/notes columns, so those are left as the prior
+            // record holds them (undefined = don't touch).
+            jobFamilyId: decision.optionalFields?.jobFamilyId,
+            preferredFirstName: decision.optionalFields?.preferredFirstName,
+            preferredLastName: decision.optionalFields?.preferredLastName,
+            legalFirstName: decision.legalFirstName,
+            legalLastName: decision.legalLastName,
+          },
           userId,
-        },
-      });
+        );
+      } else {
+        // Refuse to create over a name match unless the Admin said so explicitly.
+        // Without this the guarantee would be a button in one React component:
+        // any other caller, or a replayed request, creates the duplicate row.
+        // `!== true`, not falsy: a junk value from an unvalidated caller must fail
+        // closed into the guard rather than truthily past it.
+        if (decision.confirmDuplicate !== true) {
+          const matches = await findNameMatches(
+            legalFirstName,
+            legalLastName,
+            tx,
+          );
+          if (matches.length > 0) {
+            throw {
+              code: "DUPLICATE_EMPLOYEE",
+              matches,
+              suggestions: duplicateSuggestions(matches),
+            };
+          }
+        }
+
+        // Create the Employee (no User) — mirrors employeeService.createEmployee
+        // field mapping; preferred defaults to legal.
+        employee = await tx.employee.create({
+          data: {
+            legalFirstName,
+            legalLastName,
+            preferredFirstName: preferredFirstName ?? legalFirstName,
+            preferredLastName: preferredLastName ?? legalLastName,
+            title,
+            startDate,
+            department: { connect: { id: departmentId } },
+            location: { connect: { id: locationId } },
+            status: employmentStatus,
+            isActive: true,
+            employmentType,
+            jobFamily: jobFamilyId ? { connect: { id: jobFamilyId } } : undefined,
+          },
+          include: { department: true, location: true },
+        });
+
+        await tx.history.create({
+          data: {
+            tableName: "Employee",
+            recordId: employee.id.toString(),
+            action: "CREATE",
+            newValues: JSON.stringify(employee),
+            userId,
+          },
+        });
+      }
 
       const updated = await tx.onboardingRequest.update({
         where: { id },
         data: {
           status: "Approved",
+          // Populated on both paths — on a rehire this is the reactivated
+          // employee's id, so the profile's onboarding tab keeps working unchanged
+          // and a returning employee shows both their original and their rehire
+          // request (the column is not unique).
           createdEmployeeId: employee.id,
+          rehireOfEmployeeId:
+            decision.mode === "rehire" ? decision.employeeId : null,
           reviewedByUserId: userId,
           reviewedAt: new Date(),
           // Persist the (possibly edited) core HR fields back onto the request
           // so the stored request reflects exactly what was approved.
-          legalFirstName,
-          legalLastName,
+          //
+          // Legal names come off the resulting employee, not the merge: in rehire
+          // mode the Admin may have chosen to keep the existing record's names, and
+          // writing the merged values here would leave the request and the Employee
+          // disagreeing about the person's legal name.
+          legalFirstName: employee.legalFirstName,
+          legalLastName: employee.legalLastName,
           preferredFirstName,
           preferredLastName,
           title,
@@ -321,6 +433,15 @@ export class OnboardingService {
 
       return { request: updated, employee };
     });
+
+    if (decision.mode === "rehire") {
+      // Post-commit: the job runner can pick the row up as soon as it is visible,
+      // so enqueueing inside the transaction would race the recompute against the
+      // old dept/location — the exact staleness this fixes.
+      await enqueueRequirementsCacheInvalidate(result.employee.id);
+    }
+
+    return result;
   }
 
   /** Reject a pending request with a reason. No Employee is created. */

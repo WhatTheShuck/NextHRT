@@ -1,230 +1,74 @@
 import prisma from "@/lib/prisma";
+import {
+  LAYOUT_KEY,
+  LIST_TOKENS,
+  SAMPLE_TOKEN_VALUES,
+  TEMPLATE_META,
+  groupFor,
+  isFragment,
+  kindFor,
+  tokensFor,
+  unbalancedConditionals,
+  unknownTokens,
+  type TemplateGroup,
+  type TemplateKind,
+} from "@/lib/email-templates/tokens";
+import {
+  PLACEHOLDER_BODY,
+  SAMPLE_LIST_ROWS,
+  TEMPLATE_DEFAULTS,
+  type EmailTemplateDefault,
+} from "@/lib/email-templates/defaults";
 
-export interface EmailTemplateDefault {
+export type { EmailTemplateDefault };
+export {
+  TEMPLATE_META,
+  LAYOUT_KEY,
+  LIST_TOKENS,
+} from "@/lib/email-templates/tokens";
+
+/** Every token any template can use — the flat union, for reference/tests. */
+export const EMAIL_TEMPLATE_TOKENS = [
+  ...new Set(Object.values(TEMPLATE_META).flatMap((m) => [...m.tokens])),
+] as const;
+
+export type TemplateVars = Record<string, string | number | null | undefined>;
+
+/** A template row plus the registry metadata the editor needs. */
+export interface TemplateWithMeta {
   key: string;
   name: string;
   subject: string;
   body: string;
+  isActive: boolean;
+  updatedAt: Date;
+  group: TemplateGroup;
+  kind: TemplateKind;
+  blurb: string;
+  tokens: readonly string[];
+  /** An admin has edited this template, so ensureDefaults leaves it alone. */
+  isEdited: boolean;
+  /** Still holds the "copy not written yet" placeholder. */
+  isPlaceholder: boolean;
+  /** Tokens referenced but not supplied by the send site. */
+  unknownTokens: string[];
+  /** The row fragment this template's generated list is built from, if any. */
+  rowKey?: string;
 }
 
-// Tokens available for interpolation in a template's subject/body. Values are
-// supplied at job-fan-out time (Wave E) from the onboarding request and the
-// created employee. Surfaced in the admin editor so authors know what they can
-// reference. Unknown tokens are left untouched so typos are visible.
-export const EMAIL_TEMPLATE_TOKENS = [
-  "legalFirstName",
-  "legalLastName",
-  "preferredFirstName",
-  "preferredLastName",
-  "title",
-  "department",
-  "location",
-  "startDate",
-  "managerName",
-  "employmentType",
-  "email",
-  // Fan-out computed tokens (§7): rendered at job time, not from the Employee record.
-  "programs", // it.programs: HTML list of selected programs with ticket URLs
-  "notes",    // hr.notes / payroll.notes / it.programs: the freeform department note
-  // Vehicle tokens (manager.vehicle template only).
-  "willReceiveVehicle", // "Yes" or "No"
-  "willDriveVehicle",   // "Yes" or "No"
-  "iamValidTo",         // startDate + 1 year (external hires only)
-  // Ticket-expiry notification tokens (ticket.expiryWarning / ticket.expired).
-  // These emails are consolidated: one message per recipient lists every
-  // affected employee/ticket, so the copy references the list, not one holder.
-  "ticketList",       // HTML <ul> of affected tickets (holder — ticket: expiry)
-  "count",            // number of tickets listed in this email
-  "employeeName",     // (SOP templates) an individual employee's name
-  // SOP assessment tokens (sop.submitted / sop.changesRequested / sop.passed).
-  "sopTitle",         // the SOP assessment title
-  "trainerName",      // the designated trainer's name
-  // IT induction quiz summary token (it.quizSummary).
-  "summaryUrl",       // deep link to the response's results detail page
-] as const;
-
-const PLACEHOLDER_BODY =
-  "TODO: the email copy for this template has not been written yet. " +
-  "Edit it in App Settings → Onboarding. Use {tokens} (see the editor) to " +
-  "interpolate values such as {preferredFirstName} and {startDate}.";
-
-// Stable template ids the onboarding job fan-out (§7) renders. Seeded as blank
-// placeholders; the owner fills the copy in over time via the admin editor.
-const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
-  {
-    key: "manager.nextSteps.internal",
-    name: "Manager next steps — internal hire",
-    subject: "Next steps for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
-  },
-  {
-    key: "manager.nextSteps.external",
-    name: "Manager next steps — external hire",
-    subject: "Next steps for {preferredFirstName} {preferredLastName}",
-    body: `<p>Hi {managerName},</p>
-
-<p>{preferredFirstName} {preferredLastName} is starting on {startDate} as an external contractor. Please set up their KSB identity account by completing the IAM contractor request form:</p>
-
-<p><a href="https://iam.ksb.com/workitemdlg.aspx?ACTTEMP=1001819&amp;RURLID=062e87d9-6494-49fa-852b-f9e50fef0e8d">Click here to open the contractor request form</a></p>
-
-<p>If that link doesn't work, go to <a href="https://iam.ksb.com">iam.ksb.com</a>, select <strong>Services</strong> in the left-hand bar, then choose <strong>Request Contractor Identity</strong>.</p>
-
-<p>Fill in the form as follows:</p>
-
-<ul>
-  <li><strong>First name:</strong> {preferredFirstName}</li>
-  <li><strong>Last name:</strong> {preferredLastName}</li>
-  <li><strong>Valid from:</strong> {startDate}</li>
-  <li><strong>Valid to:</strong> {iamValidTo} <em>(external employees have a maximum of one year; you will be reminded to extend their access before expiry)</em></li>
-  <li><strong>KSB Responsible:</strong> your name</li>
-  <li><strong>Ext. Company:</strong> AIGroup (or the actual company they have been hired through)</li>
-  <li><strong>Field of activity / Job title:</strong> {title}</li>
-  <li><strong>Preferred Language:</strong> English</li>
-  <li><strong>KSB Company:</strong> KSB Australia Pty Ltd. [5055]</li>
-  <li><strong>Country:</strong> Australia</li>
-  <li><strong>Cost center:</strong> the cost center for their department</li>
-  <li><strong>Location:</strong> {location}</li>
-</ul>
-
-<p>You do not need to fill in external contact information. Select <strong>Submit</strong> when done.</p>
-
-<p>Because you are filling this in as their manager, it will auto-approve.</p>`,
-  },
-  {
-    key: "hr.notes",
-    name: "HR department note",
-    subject: "New hire — note for HR: {preferredFirstName} {preferredLastName}",
-    body: `<p>Hi,</p>
-
-<p>A note has been recorded for HR regarding the onboarding of <strong>{preferredFirstName} {preferredLastName}</strong> ({title}), who is joining {department} at {location} on {startDate}.</p>
-
-<p>{notes}</p>
-
-<p>Please action this as required.</p>`,
-  },
-  {
-    key: "payroll.notes",
-    name: "Payroll department note",
-    subject:
-      "New hire — note for Payroll: {preferredFirstName} {preferredLastName}",
-    body: `<p>Hi,</p>
-
-<p>A note has been recorded for Payroll regarding the onboarding of <strong>{preferredFirstName} {preferredLastName}</strong> ({title}), who is joining {department} at {location} on {startDate}.</p>
-
-<p>{notes}</p>
-
-<p>Please action this as required.</p>`,
-  },
-  {
-    key: "it.programs",
-    name: "IT software-access request",
-    subject: "Software access for {preferredFirstName} {preferredLastName}",
-    body: `<p>Hi,</p>
-
-<p>Please arrange software access for <strong>{preferredFirstName} {preferredLastName}</strong> ({title}), who is joining {department} at {location} on {startDate}. Their manager is {managerName}.</p>
-
-<p>The following programs have been requested:</p>
-
-{programs}
-
-<p>If you have any questions, please reach out to their manager directly.</p>`,
-  },
-  {
-    key: "it.landline",
-    name: "IT landline-number request",
-    subject: "Landline number for {preferredFirstName} {preferredLastName}",
-    body: `<p>Hi,</p>
-
-<p>Please arrange a landline / desk phone number for <strong>{preferredFirstName} {preferredLastName}</strong> ({title}), who is joining {department} at {location} on {startDate}. Their manager is {managerName}.</p>
-
-<p>If you have any questions, please reach out to their manager directly.</p>`,
-  },
-  {
-    key: "marketing.induction",
-    name: "Marketing induction booking",
-    subject:
-      "Marketing induction for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
-  },
-  {
-    key: "licence.request",
-    name: "Driver licence request",
-    subject:
-      "Driver licence copy for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
-  },
-  {
-    key: "manager.vehicle",
-    name: "Manager vehicle notification",
-    subject:
-      "Vehicle arrangements for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
-  },
-  {
-    key: "forms.offerReminder",
-    name: "Letter of offer reminder",
-    subject:
-      "Letter of offer outstanding for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
-  },
-  {
-    key: "forms.attachments",
-    name: "Employment forms / police check",
-    subject: "Employment forms for {preferredFirstName} {preferredLastName}",
-    body: PLACEHOLDER_BODY,
-  },
-  {
-    key: "ticket.expiryWarning",
-    name: "Tickets expiring soon",
-    subject: "Tickets expiring soon ({count})",
-    body: `<p>Hi,</p>
-<p>The following tickets/credentials are due to expire soon. Please arrange renewal:</p>
-{ticketList}`,
-  },
-  {
-    key: "ticket.expired",
-    name: "Tickets expired",
-    subject: "Tickets expired ({count})",
-    body: `<p>Hi,</p>
-<p>The following tickets/credentials have expired. Their holders are now non-compliant until renewed:</p>
-{ticketList}`,
-  },
-  {
-    key: "sop.submitted",
-    name: "SOP assessment submitted — to designated trainers",
-    subject: "SOP assessment ready to mark: {sopTitle} — {employeeName}",
-    body: `<p>Hi,</p>
-<p>{employeeName} has submitted their answers for <strong>{sopTitle}</strong>.</p>
-<p>Please review and mark the assessment in HRT (SOP Reviews).</p>`,
-  },
-  {
-    key: "sop.changesRequested",
-    name: "SOP assessment — changes requested (to employee)",
-    subject: "Changes requested on your {sopTitle} assessment",
-    body: `<p>Hi {employeeName},</p>
-<p>{trainerName} has reviewed your <strong>{sopTitle}</strong> assessment and marked one or more answers as needing changes.</p>
-<p>Open My SOPs in HRT to see the comments and resubmit.</p>`,
-  },
-  {
-    key: "sop.passed",
-    name: "SOP assessment passed (to employee)",
-    subject: "You passed: {sopTitle}",
-    body: `<p>Hi {employeeName},</p>
-<p>{trainerName} has marked all your answers sufficient — <strong>{sopTitle}</strong> is complete and recorded in HRT.</p>`,
-  },
-  {
-    key: "it.quizSummary",
-    name: "IT induction questionnaire — summary to IT",
-    subject: "IT induction completed: {employeeName}",
-    body: `<p>Hi,</p>
-<p>{employeeName} has completed the IT induction questionnaire. Open their summary in HRT to tailor their introduction before the session:</p>
-<p><a href="{summaryUrl}">{summaryUrl}</a></p>
-<p>Nothing in the questionnaire is graded — the summary flags where a hand or a tip would help.</p>`,
-  },
-];
+export interface TemplateVersion {
+  id: number;
+  timestamp: Date;
+  action: string;
+  userId: string | null;
+  userName: string | null;
+  subject: string;
+  body: string;
+  isActive: boolean;
+}
 
 export class EmailTemplateService {
-  // Idempotent. Seeds the placeholder templates and keeps them in sync with the
+  // Idempotent. Seeds the default templates and keeps them in sync with the
   // defaults above, but NEVER overwrites an admin-edited subject/body. "Edited"
   // means updateTemplate has written a History row for that key — templates
   // nobody has touched adopt the current default, so changing the copy (or the
@@ -285,25 +129,67 @@ export class EmailTemplateService {
     await Promise.all(writes);
   }
 
-  // Of `keys`, those with no UPDATE recorded against them — i.e. never edited
-  // through updateTemplate, so their copy is still whatever was seeded.
+  // Of `keys`, those whose copy is still whatever was seeded — no edit recorded,
+  // or the most recent audit row is a REVERT back to the default. Reverting has
+  // to clear "edited" status, otherwise a template an admin has restored would
+  // be frozen out of future default updates forever.
   private async uneditedKeys(keys: string[]): Promise<Set<string>> {
-    const edits = await prisma.history.findMany({
+    const rows = await prisma.history.findMany({
       where: {
         tableName: "EmailTemplate",
         recordId: { in: keys },
-        action: "UPDATE",
+        action: { in: ["UPDATE", "REVERT"] },
       },
-      select: { recordId: true },
-      distinct: ["recordId"],
+      select: { recordId: true, action: true, timestamp: true },
+      orderBy: { timestamp: "desc" },
     });
-    const editedKeys = new Set(edits.map((e) => e.recordId));
-    return new Set(keys.filter((k) => !editedKeys.has(k)));
+
+    const latest = new Map<string, string>();
+    for (const row of rows) {
+      if (!latest.has(row.recordId)) latest.set(row.recordId, row.action);
+    }
+
+    // Errs towards "edited": only no audit trail at all, or an explicit REVERT,
+    // frees a template to be resynced. Anything else keeps the admin's copy.
+    return new Set(
+      keys.filter((k) => !latest.has(k) || latest.get(k) === "REVERT"),
+    );
   }
 
   async getTemplates() {
     await this.ensureDefaults();
     return prisma.emailTemplate.findMany({ orderBy: { key: "asc" } });
+  }
+
+  /** The editor's list view: every template with its registry metadata. */
+  async getTemplatesWithMeta(): Promise<TemplateWithMeta[]> {
+    const templates = await this.getTemplates();
+    const unedited = await this.uneditedKeys(templates.map((t) => t.key));
+
+    return templates.map((t) => {
+      const meta = TEMPLATE_META[t.key];
+      return {
+        key: t.key,
+        name: t.name,
+        subject: t.subject,
+        body: t.body,
+        isActive: t.isActive,
+        updatedAt: t.updatedAt,
+        group: groupFor(t.key),
+        kind: kindFor(t.key),
+        blurb: meta?.blurb ?? "",
+        tokens: tokensFor(t.key),
+        isEdited: !unedited.has(t.key),
+        isPlaceholder: t.body.trim() === PLACEHOLDER_BODY.trim(),
+        unknownTokens: [
+          ...new Set([
+            ...unknownTokens(t.key, t.subject),
+            ...unknownTokens(t.key, t.body),
+          ]),
+        ],
+        rowKey: LIST_TOKENS[t.key]?.rowKey,
+      };
+    });
   }
 
   async getTemplateByKey(key: string) {
@@ -330,6 +216,16 @@ export class EmailTemplateService {
       throw new Error("TEMPLATE_NOT_FOUND");
     }
 
+    // The layout is the one template whose body has a hard requirement: without
+    // {content} every email wrapped in it would go out empty.
+    if (
+      key === LAYOUT_KEY &&
+      data.body !== undefined &&
+      !data.body.includes("{content}")
+    ) {
+      throw new Error("LAYOUT_MISSING_CONTENT");
+    }
+
     const updated = await prisma.emailTemplate.update({
       where: { key },
       data: {
@@ -340,52 +236,370 @@ export class EmailTemplateService {
       },
     });
 
-    await prisma.history.create({
-      data: {
-        tableName: "EmailTemplate",
-        recordId: key,
-        action: "UPDATE",
-        oldValues: JSON.stringify({
-          name: existing.name,
-          subject: existing.subject,
-          body: existing.body,
-          isActive: existing.isActive,
-        }),
-        newValues: JSON.stringify({
-          name: updated.name,
-          subject: updated.subject,
-          body: updated.body,
-          isActive: updated.isActive,
-        }),
-        userId,
-      },
-    });
+    await this.recordVersion("UPDATE", key, existing, updated, userId);
 
     return updated;
   }
 
-  // Replace {token} occurrences with their values. Unknown tokens (and tokens
-  // whose value is null/undefined) are left intact so authors can spot typos.
-  interpolate(
-    text: string,
-    vars: Record<string, string | number | null | undefined>,
-  ): string {
+  /**
+   * Put a template back to the copy it shipped with. Recorded as a REVERT so
+   * `uneditedKeys` stops protecting it and it tracks future default changes
+   * again.
+   */
+  async revertToDefault(key: string, userId: string) {
+    const fallback = TEMPLATE_DEFAULTS.find((t) => t.key === key);
+    if (!fallback) {
+      throw new Error("TEMPLATE_NOT_FOUND");
+    }
+    const existing = await prisma.emailTemplate.findUnique({ where: { key } });
+    if (!existing) {
+      throw new Error("TEMPLATE_NOT_FOUND");
+    }
+
+    const updated = await prisma.emailTemplate.update({
+      where: { key },
+      data: {
+        name: fallback.name,
+        subject: fallback.subject,
+        body: fallback.body,
+        isActive: true,
+      },
+    });
+
+    await this.recordVersion("REVERT", key, existing, updated, userId);
+
+    return updated;
+  }
+
+  /** Past versions of a template, newest first, for the editor's history view. */
+  async getHistory(key: string): Promise<TemplateVersion[]> {
+    const rows = await prisma.history.findMany({
+      where: {
+        tableName: "EmailTemplate",
+        recordId: key,
+        action: { in: ["UPDATE", "REVERT"] },
+      },
+      orderBy: { timestamp: "desc" },
+      take: 50,
+      include: { user: { select: { name: true, email: true } } },
+    });
+
+    // Each row's `oldValues` is the copy as it stood *before* that edit — which
+    // is exactly the snapshot "restore this version" puts back.
+    return rows.flatMap((row) => {
+      const snapshot = this.parseSnapshot(row.oldValues);
+      if (!snapshot) return [];
+      return [
+        {
+          id: row.id,
+          timestamp: row.timestamp,
+          action: row.action,
+          userId: row.userId,
+          userName: row.user?.name ?? row.user?.email ?? null,
+          subject: snapshot.subject,
+          body: snapshot.body,
+          isActive: snapshot.isActive,
+        },
+      ];
+    });
+  }
+
+  /** Restore the copy captured by a History row, itself recorded as an edit. */
+  async restoreVersion(key: string, historyId: number, userId: string) {
+    const row = await prisma.history.findUnique({ where: { id: historyId } });
+    if (
+      !row ||
+      row.tableName !== "EmailTemplate" ||
+      row.recordId !== key
+    ) {
+      throw new Error("VERSION_NOT_FOUND");
+    }
+
+    const snapshot = this.parseSnapshot(row.oldValues);
+    if (!snapshot) {
+      throw new Error("VERSION_NOT_FOUND");
+    }
+
+    return this.updateTemplate(
+      key,
+      {
+        subject: snapshot.subject,
+        body: snapshot.body,
+        isActive: snapshot.isActive,
+      },
+      userId,
+    );
+  }
+
+  private parseSnapshot(
+    json: string | null,
+  ): { subject: string; body: string; isActive: boolean } | null {
+    if (!json) return null;
+    try {
+      const parsed = JSON.parse(json) as Record<string, unknown>;
+      if (
+        typeof parsed.subject !== "string" ||
+        typeof parsed.body !== "string"
+      ) {
+        return null;
+      }
+      return {
+        subject: parsed.subject,
+        body: parsed.body,
+        isActive:
+          typeof parsed.isActive === "boolean" ? parsed.isActive : true,
+      };
+    } catch {
+      return null; // a malformed audit row shouldn't break the history view
+    }
+  }
+
+  private async recordVersion(
+    action: "UPDATE" | "REVERT",
+    key: string,
+    before: { name: string; subject: string; body: string; isActive: boolean },
+    after: { name: string; subject: string; body: string; isActive: boolean },
+    userId: string,
+  ): Promise<void> {
+    const fields = (["name", "subject", "body", "isActive"] as const).filter(
+      (f) => before[f] !== after[f],
+    );
+
+    await prisma.history.create({
+      data: {
+        tableName: "EmailTemplate",
+        recordId: key,
+        action,
+        changedFields: JSON.stringify(fields),
+        oldValues: JSON.stringify({
+          name: before.name,
+          subject: before.subject,
+          body: before.body,
+          isActive: before.isActive,
+        }),
+        newValues: JSON.stringify({
+          name: after.name,
+          subject: after.subject,
+          body: after.body,
+          isActive: after.isActive,
+        }),
+        userId,
+      },
+    });
+  }
+
+  /**
+   * Replace {token} occurrences with their values, and resolve
+   * {#token}…{/token} conditional blocks.
+   *
+   * Unknown tokens (and tokens whose value is null/undefined) are left intact so
+   * authors can spot typos. Conditional blocks are dropped when their token is
+   * missing or empty — that is how an optional line in a generated row
+   * disappears cleanly instead of leaving "Ticket:" with nothing after it.
+   */
+  interpolate(text: string, vars: TemplateVars): string {
+    return this.replaceTokens(this.resolveConditionals(text, vars), vars);
+  }
+
+  private resolveConditionals(text: string, vars: TemplateVars): string {
+    // Innermost-first so nested blocks collapse correctly; loops until no
+    // markers are left rather than recursing.
+    const block = /\{#(\w+)\}((?:(?!\{[#/]\w+\})[\s\S])*?)\{\/\1\}/;
+    let out = text;
+    let match = block.exec(out);
+    let guard = 0;
+    while (match && guard++ < 100) {
+      const value = vars[match[1]];
+      const present =
+        value !== undefined && value !== null && String(value).trim() !== "";
+      out = out.slice(0, match.index) + (present ? match[2] : "") +
+        out.slice(match.index + match[0].length);
+      match = block.exec(out);
+    }
+    return out;
+  }
+
+  private replaceTokens(text: string, vars: TemplateVars): string {
     return text.replace(/\{(\w+)\}/g, (match, token: string) => {
       const value = vars[token];
       return value === undefined || value === null ? match : String(value);
     });
   }
 
-  // Convenience for the job fan-out: fetch a template by key and interpolate
-  // both subject and body in one call.
+  /**
+   * Render one row fragment per item and join them into the parent's list
+   * wrapper. Returns "" for an empty list so the parent's {token} collapses.
+   */
+  async renderList(parentKey: string, rows: TemplateVars[]): Promise<string> {
+    const source = LIST_TOKENS[parentKey];
+    if (!source) throw new Error("TEMPLATE_NOT_FOUND");
+    if (rows.length === 0) return "";
+
+    const rowTemplate = await this.getTemplateByKey(source.rowKey);
+    const rendered = rows
+      .map((row) => this.interpolate(rowTemplate.body, row))
+      .join("\n");
+
+    return source.wrapper.replace("{rows}", rendered);
+  }
+
+  /**
+   * Fetch a template by key, interpolate subject and body, and wrap the body in
+   * the shared layout.
+   *
+   * Returns `null` when the template is switched off — an inactive template is a
+   * deliberate "don't send this", so every call site must decide what to do
+   * rather than silently mailing an empty message. TypeScript makes that
+   * explicit at each site.
+   */
   async render(
     key: string,
-    vars: Record<string, string | number | null | undefined>,
-  ): Promise<{ subject: string; body: string }> {
+    vars: TemplateVars,
+  ): Promise<{ subject: string; body: string } | null> {
     const template = await this.getTemplateByKey(key);
+    if (!template.isActive) return null;
+
+    const subject = this.interpolate(template.subject, vars);
+    const body = this.interpolate(template.body, vars);
+
     return {
-      subject: this.interpolate(template.subject, vars),
-      body: this.interpolate(template.body, vars),
+      subject,
+      body: isFragment(key) ? body : await this.applyLayout(subject, body),
+    };
+  }
+
+  /**
+   * Wrap a rendered body in the shared layout. Skipped when the layout is
+   * switched off or missing its {content} slot, so a broken layout degrades to
+   * the bare body rather than sending an empty email.
+   */
+  private async applyLayout(subject: string, body: string): Promise<string> {
+    const layout = await prisma.emailTemplate.findUnique({
+      where: { key: LAYOUT_KEY },
+    });
+    if (!layout?.isActive || !layout.body.includes("{content}")) return body;
+
+    return this.interpolate(layout.body, {
+      subject,
+      companyName: process.env.NEXT_PUBLIC_COMPANY_NAME ?? "HRT",
+      appUrl: process.env.APP_URL ?? "",
+      year: new Date().getFullYear(),
+      // Substituted last and via a plain replace so tokens the body itself
+      // failed to resolve are not re-interpreted as layout tokens.
+    }).replace("{content}", () => body);
+  }
+
+  /**
+   * Render a template against sample data for the editor's preview. Unlike
+   * `render` this ignores `isActive` (an admin previewing a switched-off
+   * template still wants to see it) and takes the draft copy from the editor
+   * rather than what is stored.
+   */
+  async renderPreview(
+    key: string,
+    draft: { subject: string; body: string },
+  ): Promise<{
+    subject: string;
+    body: string;
+    unknownTokens: string[];
+    unbalancedConditionals: string[];
+  }> {
+    const vars = await this.sampleVars(key);
+    const subject = this.interpolate(draft.subject, vars);
+
+    return {
+      subject,
+      body: isFragment(key)
+        ? // Fragments interpolate against their own scaffolding, not the flat
+          // samples — a row template needs one pass per sample row.
+          await this.previewFragment(key, draft.body)
+        : await this.applyLayout(subject, this.interpolate(draft.body, vars)),
+      unknownTokens: [
+        ...new Set([
+          ...unknownTokens(key, draft.subject),
+          ...unknownTokens(key, draft.body),
+        ]),
+      ],
+      unbalancedConditionals: [
+        ...new Set([
+          ...unbalancedConditionals(draft.subject),
+          ...unbalancedConditionals(draft.body),
+        ]),
+      ],
+    };
+  }
+
+  // A fragment previewed on its own is not a valid document — a bare <li>, or a
+  // layout with no content. Give each one enough scaffolding to look right.
+  // `draft` is the raw editor text: a row fragment is interpolated once per
+  // sample row, so pre-substituted values would leave nothing to vary.
+  private async previewFragment(key: string, draft: string): Promise<string> {
+    if (key === LAYOUT_KEY) {
+      return this.interpolate(draft, {
+        companyName: process.env.NEXT_PUBLIC_COMPANY_NAME ?? "HRT",
+        appUrl: process.env.APP_URL ?? "https://hrt.example.com",
+        year: new Date().getFullYear(),
+        subject: "Sample subject line",
+      }).replace(
+        "{content}",
+        () =>
+          "<p>This is where each email's own copy appears.</p>" +
+          "<p>Edit the individual templates to change this part.</p>",
+      );
+    }
+
+    const source = Object.values(LIST_TOKENS).find((s) => s.rowKey === key);
+    if (!source) return this.interpolate(draft, SAMPLE_TOKEN_VALUES);
+
+    // Render every sample row so the admin sees the whole list — including the
+    // row whose optional fields are empty, which is what {#token} blocks exist
+    // for.
+    const rows = SAMPLE_LIST_ROWS[key] ?? [];
+    const rendered = (rows.length > 0 ? rows : [SAMPLE_TOKEN_VALUES]).map(
+      (row) => this.interpolate(draft, row),
+    );
+    return source.wrapper.replace("{rows}", rendered.join("\n"));
+  }
+
+  /**
+   * Sample values for every token `key` supports. List tokens are built by
+   * rendering the current row fragment so a preview reflects row edits too.
+   */
+  async sampleVars(key: string): Promise<TemplateVars> {
+    const vars: TemplateVars = {};
+    for (const token of tokensFor(key)) {
+      if (token in SAMPLE_TOKEN_VALUES) vars[token] = SAMPLE_TOKEN_VALUES[token];
+    }
+
+    const source = LIST_TOKENS[key];
+    if (source) {
+      vars[source.token] = await this.renderList(
+        key,
+        SAMPLE_LIST_ROWS[source.rowKey] ?? [],
+      );
+    }
+
+    return vars;
+  }
+
+  /** Unknown-token / malformed-conditional warnings for draft copy. */
+  validate(
+    key: string,
+    draft: { subject: string; body: string },
+  ): { unknownTokens: string[]; unbalancedConditionals: string[] } {
+    return {
+      unknownTokens: [
+        ...new Set([
+          ...unknownTokens(key, draft.subject),
+          ...unknownTokens(key, draft.body),
+        ]),
+      ],
+      unbalancedConditionals: [
+        ...new Set([
+          ...unbalancedConditionals(draft.subject),
+          ...unbalancedConditionals(draft.body),
+        ]),
+      ],
     };
   }
 }

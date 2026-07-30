@@ -31,6 +31,8 @@ interface OnboardingRequestSummary {
   createdAt: string;
   reviewedAt: string | null;
   reviewNotes: string | null;
+  possibleRehire: boolean;
+  rehireOfEmployeeId: number | null;
   payload: string;
   submittedByUser: { id: string; name: string | null; email: string };
   jobFamily: { id: number; name: string } | null;
@@ -201,6 +203,23 @@ export function OnboardingTab() {
               </div>
             )}
           </div>
+          {/* How the approval was resolved. Without this the rehire columns are
+              write-only and a later reviewer cannot tell a rehire approval from a
+              create approval without reading the REHIRE history row. */}
+          {request.status === "Approved" && request.rehireOfEmployeeId && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Approved as a rehire of employee #{request.rehireOfEmployeeId} — the
+              existing record was reactivated rather than duplicated.
+            </p>
+          )}
+          {request.status === "Approved" &&
+            !request.rehireOfEmployeeId &&
+            request.possibleRehire && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Flagged as a possible rehire and reviewed — a new record was
+                created.
+              </p>
+            )}
           {request.status === "Rejected" && request.reviewNotes && (
             <div className="mt-3">
               <Badge variant="destructive" className="text-xs">

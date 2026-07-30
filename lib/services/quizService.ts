@@ -785,15 +785,22 @@ class QuizService {
     const employeeName = employee ? this.employeeName(employee) : "A new starter";
     const summaryUrl = appLink(`/admin/quiz-results/${responseId}`);
 
-    const { subject, body } = await emailTemplateService.render("it.quizSummary", {
+    // null = template switched off in the admin editor; skip the send.
+    const rendered = await emailTemplateService.render("it.quizSummary", {
       employeeName,
       summaryUrl,
     });
+    if (!rendered) return;
+
     // Lazy import: mailService pulls "server-only", which would otherwise be
     // dragged into every module that imports quizService (e.g.
     // trainingRevisionService) and break their test loads.
     const { mailService } = await import("@/lib/services/mailService");
-    await mailService.send({ to: recipients, subject, html: body });
+    await mailService.send({
+      to: recipients,
+      subject: rendered.subject,
+      html: rendered.body,
+    });
   }
 
   // ---- Admin list surfaces ----

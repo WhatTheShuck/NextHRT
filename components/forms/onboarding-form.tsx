@@ -91,6 +91,13 @@ export function OnboardingForm({
   // ── Section 1: Core HR ─���─────────────────────────────────────────────────────
   const [legalFirstName, setLegalFirstName] = useState("");
   const [legalLastName, setLegalLastName] = useState("");
+  // Advisory name-match hint. Non-admins get a count and one "is any of them
+  // departed" bit — never names, dates or departments.
+  const [nameMatch, setNameMatch] = useState<{
+    count: number;
+    hasDepartedMatch: boolean;
+  } | null>(null);
+  const [possibleRehire, setPossibleRehire] = useState(false);
   const [preferredSameAsLegal, setPreferredSameAsLegal] = useState(true);
   const [preferredFirstName, setPreferredFirstName] = useState("");
   const [preferredLastName, setPreferredLastName] = useState("");
@@ -367,6 +374,31 @@ export function OnboardingForm({
   };
 
   // ── Validation ─────���──────────────────────────────────────────────────────────
+  /**
+   * Check the typed legal name against existing employees, on blur of either name
+   * field. Blur alone — no debounce on top of it, since the two together only add
+   * in-flight races for no benefit. Failures are silent: this is a hint, never a
+   * gate, and it must never block or slow a submission.
+   */
+  const checkNameMatch = async () => {
+    const first = legalFirstName.trim();
+    const last = legalLastName.trim();
+    if (!first || !last) {
+      setNameMatch(null);
+      return;
+    }
+    try {
+      const res = await api.get<{ count: number; hasDepartedMatch: boolean }>(
+        `/api/employees/name-matches?firstName=${encodeURIComponent(first)}&lastName=${encodeURIComponent(last)}`,
+      );
+      setNameMatch(res.data);
+      // Never leave the box ticked for a name that no longer has a departed match.
+      if (!res.data.hasDepartedMatch) setPossibleRehire(false);
+    } catch {
+      setNameMatch(null);
+    }
+  };
+
   const validate = (): string | null => {
     if (!legalFirstName.trim()) return "Legal first name is required.";
     if (!legalLastName.trim()) return "Legal last name is required.";
@@ -479,6 +511,7 @@ export function OnboardingForm({
     const data: CreateOnboardingData = {
       legalFirstName: legalFirstName.trim(),
       legalLastName: legalLastName.trim(),
+      possibleRehire,
       preferredFirstName: preferredSameAsLegal
         ? null
         : preferredFirstName.trim() || null,
@@ -600,6 +633,7 @@ export function OnboardingForm({
                 id="legalFirstName"
                 value={legalFirstName}
                 onChange={(e) => setLegalFirstName(e.target.value)}
+                onBlur={checkNameMatch}
                 required
               />
             </div>
@@ -609,10 +643,44 @@ export function OnboardingForm({
                 id="legalLastName"
                 value={legalLastName}
                 onChange={(e) => setLegalLastName(e.target.value)}
+                onBlur={checkNameMatch}
                 required
               />
             </div>
           </div>
+
+          {/* Advisory only — never blocks submit, never affects validate(). */}
+          {nameMatch && nameMatch.count > 0 && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="space-y-3">
+                <p>
+                  An existing employee record matches this name — the reviewer will
+                  check it before creating a duplicate.
+                </p>
+                {/* The checkbox is offered only when a *departed* record matched.
+                    Keying it on count alone would prompt "returning employee?" for
+                    an active same-name colleague and train submitters to tick it
+                    wrongly, which is worse than no hint. */}
+                {nameMatch.hasDepartedMatch && (
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="possibleRehire"
+                      checked={possibleRehire}
+                      onCheckedChange={(checked) => setPossibleRehire(!!checked)}
+                    />
+                    <Label
+                      htmlFor="possibleRehire"
+                      className="text-sm font-normal leading-snug"
+                    >
+                      This is a returning employee — flag it so the reviewer links
+                      the records instead of creating a duplicate.
+                    </Label>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Preferred name toggle */}
           <div className="flex items-center gap-2">

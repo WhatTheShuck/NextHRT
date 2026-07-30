@@ -156,7 +156,8 @@ the slop around its edges plus a few things Round 1 missed.
 ### C5. `[ ]` Rehire date guard silently bypassed by invalid input — SAFE NOW
 - **Where:** `lib/services/employeeService.ts:552-554` (`rehireEmployee`), fed by `app/api/employees/[id]/rehire/route.ts` which passes `request.json()` through unvalidated.
 - **Why it matters:** `new Date(data.startDate)` on a malformed string yields `Invalid Date`, and `Invalid Date <= anything` is `false` — so the `INVALID_REHIRE_DATE` business rule **passes silently** and the request only dies later as a Prisma/`toISOString()` 500 inside the transaction. Same for a malformed `priorFinishDate`. Missing `title`/`departmentId`/`locationId` and a bad `status` enum likewise surface as 500s, and the 500 handler echoes `details: message` (internal error text) to the client. No data corruption is possible (the transaction aborts), but a validation guard that evaluates to "pass" on garbage input is a correctness hole, not just a robustness one.
-- **Fix:** This is the concrete first target for **C4 (zod)**: a `rehireBodySchema` with `z.string().datetime()` dates, `z.nativeEnum(EmployeeStatus)`, and required ids would eliminate the bypass, the 500s, and the `FORBIDDEN_BODY_KEYS` hand-rolling in one move. Add an explicit `isNaN(date.getTime())` check in the service too — defense in depth for non-route callers.
+- **Fix:** This is the concrete first target for **C4 (zod)**: a `rehireBodySchema` with `z.string().datetime()` dates, `z.nativeEnum(EmployeeStatus)`, and required ids would eliminate the bypass, the 500s, and the `FORBIDDEN_BODY_KEYS` hand-rolling in one move.
+- **PARTLY DONE** (rehire-onboarding work): the `isNaN(date.getTime())` guard now lives in `rehireInTx` (`lib/services/employeeRehire.ts`), so the silent-pass bypass is closed for **both** rehire callers — an unparseable `startDate` or `priorFinishDate` throws `INVALID_REHIRE_DATE` instead of evaluating to "pass". Still outstanding: the route-level zod schema, the missing-field 500s, and the `details:` echo. The approve route (`app/api/onboarding/[id]/approve/route.ts`) is now the better zod pilot — it hand-validates a `decision` object reaching a transaction.
 - **Safe now?** Yes — additive validation, feature's tests already cover the happy and error paths.
 
 ## 🟡 Medium (Round 2)
@@ -179,16 +180,16 @@ the slop around its edges plus a few things Round 1 missed.
 - **Fix:** Mechanical swap to semantic tokens: `text-gray-900` → `text-foreground`, `text-gray-500/600` → `text-muted-foreground`, `bg-white` → `bg-card` / `bg-background`, `border-gray-200` → `border`, selection blue → `border-primary bg-primary/5`. Keep amber as an accent via explicit `dark:` variants if wanted.
 - **Safe now?** Yes — class-only change; verify visually in both themes.
 
-### M13. `[ ]` Duplicate detection is case-sensitive (and misses name swaps) — SAFE NOW (small), decide scope
+### M13. `[x]` Duplicate detection is case-sensitive (and misses name swaps) — SAFE NOW (small), decide scope
 - **Where:** `lib/services/employeeService.ts:188-204` — `legalFirstName: { equals }` / `legalLastName: { equals }` on SQLite, which is case-sensitive.
 - **Why it matters:** "jane smith" typed against an existing "Jane Smith" sails past the duplicate check — the exact scenario the rehire flow exists to catch. HR data entry is exactly where casing varies.
-- **Fix:** Prisma on SQLite has no `mode: "insensitive"`, but SQLite's `LIKE` is ASCII-case-insensitive: a `$queryRaw` with `WHERE legalFirstName LIKE ? AND legalLastName LIKE ?` (no wildcards) gets exact-but-case-insensitive matching cheaply. (Matching swapped preferred/legal names or typos is `matchingService` territory — out of scope unless you want it.)
+- **DONE** (rehire-onboarding work, `lib/services/employeeDuplicateService.ts`). The `LIKE`/`$queryRaw` fix suggested here was **not** used and should not be revisited: `LIKE` folds ASCII only, so `'Müller' LIKE '%MÜLLER%'` is false while the JS filter's `toLowerCase()` accepts it — a `LIKE` prefilter silently drops exactly the non-ASCII rows it is supposed to catch, and Prisma emits `LIKE ?` with no `ESCAPE` clause so `%`/`_` can be neither escaped nor relied upon. `findNameMatches` instead scans two columns (~400-row table) and compares in JS with `trim().normalize("NFKC").toLowerCase()`. Swapped names/typos remain out of scope (`matchingService` territory).
 - **Safe now?** Yes — tighter matching only ever *adds* candidates to an advisory dialog.
 
-### M14. `[ ]` Duplicate-match payload lies about its type — SAFE NOW
+### M14. `[x]` Duplicate-match payload lies about its type — SAFE NOW
 - **Where:** `lib/services/employeeService.ts:216-234` builds `matches` with `department: emp.department || "Unknown"` (a **string** where the type promises a relation object); `components/dialogs/duplicate-employee-dialog.tsx:46` then types the wire payload as `EmployeeWithRelations[]`, which it isn't (it's a hand-picked subset, post-JSON so dates are strings).
 - **Why it matters:** `match.department?.name` on the string `"Unknown"` returns `undefined` and the UI happens to fall back to "Not specified" — it works by coincidence. The `EmployeeWithRelations` annotation also invites future code to reach for fields (`trainingRecords`…) that aren't in the payload; the compiler won't object.
-- **Fix:** In the service, send `department: emp.department ?? null` (drop the string sentinel), and export a real `DuplicateMatch` type from the service that the dialog imports. Pairs naturally with M6 (`AppError`) since this is the payload of the plain-object `DUPLICATE_EMPLOYEE` throw.
+- **DONE** (rehire-onboarding work). `employeeDuplicateService` exports `DuplicateMatch` / `DuplicateMatchWire` / `DuplicateResponse`; both the dialog and `employee-add-form.tsx` import the wire type instead of re-declaring it, and the `|| "Unknown"` sentinels are gone (`department`/`location` are required relations, so with the include they are always present — no `?? null` needed either).
 - **Safe now?** Yes.
 
 ### M15. `[ ]` Leftover `as any` / `undefined as any` casts in employeeService — SAFE NOW

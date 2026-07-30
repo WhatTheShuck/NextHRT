@@ -26,19 +26,11 @@ import { AddLocationDialog } from "@/components/dialogs/location/add-location-di
 import { AxiosError } from "axios";
 import { EmployeeFormData, EmployeeWithRelations } from "@/lib/types";
 import { DuplicateEmployeeDialog } from "@/components/dialogs/duplicate-employee-dialog";
+import type { DuplicateResponse } from "@/lib/services/employeeDuplicateService";
 import { DateSelector } from "@/components/date-selector";
 
 interface EmployeeAddFormProps {
   onSuccess?: (employee?: EmployeeWithRelations) => void;
-}
-interface DuplicateResponse {
-  error: string;
-  code: string;
-  matches: Array<EmployeeWithRelations>;
-  suggestions: {
-    rehire: boolean;
-    duplicate: boolean;
-  };
 }
 export function EmployeeAddForm({ onSuccess }: EmployeeAddFormProps) {
   // Form state
