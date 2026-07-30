@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuth } from "@/lib/api-auth";
+import { requireAdmin } from "@/lib/api-admin";
 import { emailTemplateService } from "@/lib/services/emailTemplateService";
 
-// GET all onboarding email templates (Admin only — this is config surface).
+// GET every email template with its editor metadata — group, kind, the tokens
+// its send site supplies, and whether it has been edited or is still an
+// unwritten placeholder (Admin only — this is config surface).
 export async function GET(request: NextRequest) {
-  const session = await getAuth(request);
-
-  if (!session) {
-    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
-  }
-
-  if (session.user.role !== "Admin") {
-    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
-  }
+  const guard = await requireAdmin(request);
+  if ("response" in guard) return guard.response;
 
   try {
-    const templates = await emailTemplateService.getTemplates();
+    const templates = await emailTemplateService.getTemplatesWithMeta();
     return NextResponse.json(templates);
   } catch (error) {
     return NextResponse.json(

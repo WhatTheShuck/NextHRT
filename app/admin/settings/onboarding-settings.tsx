@@ -11,25 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMediaQuery } from "usehooks-ts";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import Link from "next/link";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import {
@@ -70,15 +55,6 @@ function parseAttachments(value: string | undefined): StoredAttachment[] {
   return [{ path: value, name: value.split("/").pop() ?? value, size: 0 }];
 }
 
-
-interface EmailTemplate {
-  id: number;
-  key: string;
-  name: string;
-  subject: string;
-  body: string;
-  isActive: boolean;
-}
 
 // Scalar settings surfaced on this tab. Base URLs + recipients (§6.7).
 const CONFIG_FIELDS: { key: string; label: string; description: string }[] = [
@@ -127,23 +103,17 @@ const ATTACHMENT_SLOTS: { slot: string; label: string; multi: boolean }[] = [
 
 export function OnboardingSettings() {
   const [settings, setSettings] = useState<Settings>({});
-  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [editing, setEditing] = useState<EmailTemplate | null>(null);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [settingsRes, templatesRes] = await Promise.all([
-        api.get<Settings>("/api/settings"),
-        api.get<EmailTemplate[]>("/api/email-templates"),
-      ]);
+      const settingsRes = await api.get<Settings>("/api/settings");
       setSettings(settingsRes.data);
-      setTemplates(templatesRes.data);
     } catch (err) {
       setError(
         err instanceof AxiosError && err.response?.status === 403
@@ -241,37 +211,22 @@ export function OnboardingSettings() {
         </CardHeader>
       </Card>
 
-      {/* Email templates */}
+      {/* Email templates (informational pointer) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Email templates</CardTitle>
           <CardDescription>
-            Edit the copy sent by onboarding jobs. Use {"{tokens}"} to
-            interpolate values such as {"{preferredFirstName}"}.
+            The wording of every automatic email — onboarding, ticket expiry, SOP
+            and IT — is edited under{" "}
+            <Link
+              href="/admin/email-templates"
+              className="font-medium underline underline-offset-2"
+            >
+              Admin &rsaquo; Email Templates
+            </Link>
+            , with a live preview and a test send.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {templates.map((t) => (
-            <div
-              key={t.key}
-              className="flex items-center justify-between gap-4 rounded-md border p-3"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{t.name}</p>
-                <p className="text-xs text-muted-foreground font-mono truncate">
-                  {t.key}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditing(t)}
-              >
-                Edit
-              </Button>
-            </div>
-          ))}
-        </CardContent>
       </Card>
 
       {/* Compliance attachments */}
@@ -307,16 +262,6 @@ export function OnboardingSettings() {
         </>
       )}
 
-      <TemplateEditor
-        template={editing}
-        onClose={() => setEditing(null)}
-        onSaved={(updated) => {
-          setTemplates((prev) =>
-            prev.map((t) => (t.key === updated.key ? updated : t)),
-          );
-          setEditing(null);
-        }}
-      />
     </div>
   );
 }
@@ -491,128 +436,6 @@ function CombinedSizeIndicator({ settings }: { settings: Settings }) {
           className={`h-full ${near ? "bg-amber-500" : "bg-primary"}`}
           style={{ width: `${pct}%` }}
         />
-      </div>
-    </div>
-  );
-}
-
-function TemplateEditor({
-  template,
-  onClose,
-  onSaved,
-}: {
-  template: EmailTemplate | null;
-  onClose: () => void;
-  onSaved: (t: EmailTemplate) => void;
-}) {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
-  const open = template !== null;
-
-  if (isDesktop) {
-    return (
-      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit email template</DialogTitle>
-            <DialogDescription>{template?.key}</DialogDescription>
-          </DialogHeader>
-          {template && (
-            <TemplateForm
-              template={template}
-              onSaved={onSaved}
-              onCancel={onClose}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  return (
-    <Drawer open={open} onOpenChange={(o) => !o && onClose()}>
-      <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader className="text-left">
-          <DrawerTitle>Edit email template</DrawerTitle>
-          <DrawerDescription>{template?.key}</DrawerDescription>
-        </DrawerHeader>
-        {template && (
-          <TemplateForm
-            className="px-4 pb-4 overflow-y-auto"
-            template={template}
-            onSaved={onSaved}
-            onCancel={onClose}
-          />
-        )}
-      </DrawerContent>
-    </Drawer>
-  );
-}
-
-function TemplateForm({
-  template,
-  onSaved,
-  onCancel,
-  className,
-}: {
-  template: EmailTemplate;
-  onSaved: (t: EmailTemplate) => void;
-  onCancel: () => void;
-  className?: string;
-}) {
-  const [subject, setSubject] = useState(template.subject);
-  const [body, setBody] = useState(template.body);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      setError(null);
-      const res = await api.put<EmailTemplate>(
-        `/api/email-templates/${encodeURIComponent(template.key)}`,
-        { subject, body },
-      );
-      onSaved(res.data);
-    } catch (err) {
-      setError(
-        err instanceof AxiosError && err.response?.status === 403
-          ? "You do not have permission to edit templates."
-          : "Failed to save template.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className={className}>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="tmpl-subject">Subject</Label>
-          <Input
-            id="tmpl-subject"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="tmpl-body">Body</Label>
-          <Textarea
-            id="tmpl-body"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={10}
-          />
-        </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <div className="flex flex-col space-y-2 w-full md:flex-row-reverse md:gap-2 md:space-y-0 md:justify-start">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save template"}
-          </Button>
-          <Button variant="outline" onClick={onCancel} disabled={saving}>
-            Cancel
-          </Button>
-        </div>
       </div>
     </div>
   );

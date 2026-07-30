@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Inbox, ExternalLink } from "lucide-react";
+import { Inbox, ExternalLink, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { OnboardingStatus } from "@/generated/prisma_client/client";
 
@@ -46,6 +46,8 @@ interface OnboardingRequestRow {
   startDate: string;
   createdAt: string;
   createdEmployeeId: number | null;
+  possibleRehire: boolean;
+  rehireOfEmployeeId: number | null;
   submittedByUser: { id: string; name: string | null; email: string };
 }
 
@@ -165,6 +167,26 @@ export function OnboardingListContent() {
                         label={`${r.legalFirstName} ${r.legalLastName}`}
                       />
                       {r.legalFirstName} {r.legalLastName}
+                      {/* Lets an Admin triage the flagged requests first, instead
+                          of discovering the flag only after opening each one. */}
+                      {r.possibleRehire && !r.rehireOfEmployeeId && (
+                        <Badge
+                          variant="outline"
+                          className="ml-2 gap-1 align-middle text-xs font-normal"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Possible rehire
+                        </Badge>
+                      )}
+                      {r.rehireOfEmployeeId && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 gap-1 align-middle text-xs font-normal"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Rehire of #{r.rehireOfEmployeeId}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-muted-foreground">
                       {r.title}

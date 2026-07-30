@@ -10,9 +10,16 @@ import {
   OnboardingStatus,
 } from "@/generated/prisma_client/client";
 import {
+  ApprovalDecision,
   OnboardingCoreHRData,
   OnboardingPayload,
 } from "@/lib/services/onboardingService";
+import type { DuplicateMatchWire } from "@/lib/services/employeeDuplicateService";
+import {
+  RehireMatchList,
+  RehireReconciliationPanel,
+  type RehireDecisionPayload,
+} from "@/components/rehire/onboarding-rehire-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +63,7 @@ import {
   ExternalLink,
   Clock,
   AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -92,6 +100,8 @@ interface OnboardingRequest {
   emailConfirmed: boolean;
   payload: string;
   createdEmployeeId: number | null;
+  possibleRehire: boolean;
+  rehireOfEmployeeId: number | null;
   reviewedByUserId: string | null;
   reviewedAt: string | null;
   reviewNotes: string | null;
@@ -166,6 +176,27 @@ function statusBadge(status: OnboardingStatus) {
 function fmt(iso: string | null) {
   if (!iso) return "—";
   return format(new Date(iso), "PP");
+}
+
+/**
+ * `<input type="date">` speaks the *local* calendar date, but stored start dates
+ * are instants built from a local-midnight `Date` (see DateSelector usage in the
+ * onboarding form). Slicing the ISO string reads the UTC date instead, which in
+ * AEST is the previous day — so go through `format`, which localises first.
+ */
+function toDateInputValue(iso: string | null | undefined) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return format(date, "yyyy-MM-dd");
+}
+
+/** Inverse of `toDateInputValue`: a local-midnight instant, kept as ISO. */
+function fromDateInputValue(value: string) {
+  if (!value) return "";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
 }
 
 // ─── Reject dialog (responsive Dialog / Drawer) ───────────────────────────────
@@ -419,6 +450,11 @@ export function OnboardingDetailContent({
   // Editable core HR fields (pre-filled from the request).
   const [edits, setEdits] = useState<Partial<OnboardingCoreHRData>>({});
 
+  // Name-match state (the rehire gate). Admins get the full match records.
+  const [nameMatches, setNameMatches] = useState<DuplicateMatchWire[]>([]);
+  const [selectedRehireId, setSelectedRehireId] = useState<number | null>(null);
+  const [rehirePanelOpen, setRehirePanelOpen] = useState(false);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -453,7 +489,7 @@ export function OnboardingDetailContent({
         departmentId: r.departmentId,
         locationId: r.locationId,
         employmentStatus: r.employmentStatus,
-        startDate: r.startDate.substring(0, 10),
+        startDate: r.startDate,
         jobFamilyId: r.jobFamilyId ?? undefined,
         medicalStandardId: r.medicalStandardId ?? undefined,
         managerEmployeeId: r.managerEmployeeId ?? undefined,
@@ -479,6 +515,53 @@ export function OnboardingDetailContent({
     fetchAll();
   }, [fetchAll]);
 
+  // Look the legal name up against existing employees, and REFETCH when the Admin
+  // edits either name. A single on-load fetch would mean correcting "Jon" → "John"
+  // in the edits panel never surfaces the departed "John Smith" — the collision the
+  // Admin is best placed to catch. Debounced because it fires on every keystroke.
+  const firstNameToMatch = edits.legalFirstName ?? "";
+  const lastNameToMatch = edits.legalLastName ?? "";
+
+  useEffect(() => {
+    const first = firstNameToMatch.trim();
+    const last = lastNameToMatch.trim();
+
+    if (!first || !last) {
+      setNameMatches([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get<{ matches: DuplicateMatchWire[] }>(
+          `/api/employees/name-matches?firstName=${encodeURIComponent(first)}&lastName=${encodeURIComponent(last)}`,
+        );
+        if (!cancelled) setNameMatches(res.data.matches ?? []);
+      } catch {
+        // Advisory lookup — a failure must never block the approval flow.
+        if (!cancelled) setNameMatches([]);
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [firstNameToMatch, lastNameToMatch]);
+
+  // Drop a stale selection if the matches no longer contain it (e.g. the Admin
+  // corrected the name after selecting a rehire target).
+  useEffect(() => {
+    if (
+      selectedRehireId !== null &&
+      !nameMatches.some((m) => m.id === selectedRehireId)
+    ) {
+      setSelectedRehireId(null);
+      setRehirePanelOpen(false);
+    }
+  }, [nameMatches, selectedRehireId]);
+
   const handleOrgRequestDecision = async () => {
     if (!orgRequestAction) return;
     setOrgRequestSubmitting(true);
@@ -501,14 +584,19 @@ export function OnboardingDetailContent({
     }
   };
 
-  const handleApprove = async () => {
+  const postApproval = async (
+    decision: ApprovalDecision,
+    editsOverride?: Partial<OnboardingCoreHRData>,
+  ) => {
     setApproving(true);
     setActionError(null);
     try {
       const result = await api.post<{ employee: { id: number } }>(
         `/api/onboarding/${requestId}/approve`,
-        edits,
+        { edits: editsOverride ?? edits, decision },
       );
+      // In rehire mode this is the reactivated record's id, so the same redirect
+      // lands on the right employee either way.
       router.push(`/employees/${result.data.employee.id}`);
     } catch (e: unknown) {
       const msg =
@@ -522,6 +610,32 @@ export function OnboardingDetailContent({
     } finally {
       setApproving(false);
     }
+  };
+
+  const handleApprove = () =>
+    // `confirmDuplicate` asserts the Admin reviewed the matches this page showed
+    // them and decided this is a different person. Without matches there is
+    // nothing to confirm, so the server-side guard stays armed.
+    postApproval({
+      mode: "create",
+      confirmDuplicate: nameMatches.length > 0,
+    });
+
+  const handleConfirmRehire = (payload: RehireDecisionPayload) => {
+    // The rehire start date travels in `edits`, not the decision, so the request
+    // row and the reactivated employee cannot disagree about the new stint.
+    setRehirePanelOpen(false);
+    return postApproval(
+      {
+        mode: "rehire",
+        employeeId: payload.employeeId,
+        priorFinishDate: payload.priorFinishDate,
+        legalFirstName: payload.legalFirstName,
+        legalLastName: payload.legalLastName,
+        optionalFields: payload.optionalFields,
+      },
+      { ...edits, startDate: payload.startDate },
+    );
   };
 
   const handleReject = async (notes: string) => {
@@ -579,6 +693,21 @@ export function OnboardingDetailContent({
     : request.pendingDepartmentRequest
     ? `${(JSON.parse(request.pendingDepartmentRequest.requestedData) as { name: string }).name} (Pending)`
     : "—";
+  const lookups = {
+    departmentName: (id: number | null | undefined) =>
+      departments.find((d) => d.id === id)?.name ?? "—",
+    locationName: (id: number | null | undefined) => {
+      const loc = locations.find((l) => l.id === id);
+      return loc ? `${loc.name}, ${loc.state}` : "—";
+    },
+    jobFamilyName: (id: number | null | undefined) =>
+      jobFamilies.find((j) => j.id === id)?.name ?? "—",
+  };
+
+  const selectedRehireMatch =
+    nameMatches.find((m) => m.id === selectedRehireId) ?? null;
+  const departedMatches = nameMatches.filter((m) => !m.isActive);
+
   const locName = request.locationId
     ? (locations.find((l) => l.id === request.locationId)?.name ?? `Location #${request.locationId}`)
     : request.pendingLocationRequest
@@ -606,7 +735,15 @@ export function OnboardingDetailContent({
             {request.submittedByUser.name ?? request.submittedByUser.email}
           </p>
         </div>
-        {statusBadge(request.status)}
+        <div className="flex flex-col items-end gap-1">
+          {statusBadge(request.status)}
+          {request.possibleRehire && (
+            <Badge variant="outline" className="gap-1 text-xs">
+              <RotateCcw className="h-3 w-3" />
+              Possible rehire
+            </Badge>
+          )}
+        </div>
       </div>
 
       {actionError && (
@@ -615,12 +752,29 @@ export function OnboardingDetailContent({
         </Alert>
       )}
 
-      {/* Approved — link to employee */}
+      {/* Approved — link to employee, and how it was resolved */}
       {request.status === "Approved" && request.createdEmployeeId && (
         <Alert>
           <CheckCircle className="h-4 w-4" />
-          <AlertDescription className="flex items-center gap-2">
-            Employee record created.
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            {request.rehireOfEmployeeId ? (
+              <>
+                Approved as rehire of employee #{request.rehireOfEmployeeId} — the
+                existing record was reactivated, not duplicated.
+              </>
+            ) : (
+              <>
+                Employee record created.
+                {/* possibleRehire set but no rehire target = flagged, reviewed,
+                    created new. Without this the Admin's decision leaves no trace. */}
+                {request.possibleRehire && (
+                  <span className="text-muted-foreground">
+                    Flagged as a possible rehire and reviewed — a new record was
+                    created.
+                  </span>
+                )}
+              </>
+            )}
             <Link
               href={`/employees/${request.createdEmployeeId}`}
               className="underline font-medium flex items-center gap-1"
@@ -832,9 +986,12 @@ export function OnboardingDetailContent({
                   <Input
                     id="startDate"
                     type="date"
-                    value={edits.startDate?.substring(0, 10) ?? ""}
+                    value={toDateInputValue(edits.startDate)}
                     onChange={(e) =>
-                      setEdits((v) => ({ ...v, startDate: e.target.value }))
+                      setEdits((v) => ({
+                        ...v,
+                        startDate: fromDateInputValue(e.target.value),
+                      }))
                     }
                     disabled={!isPending}
                   />
@@ -1026,15 +1183,65 @@ export function OnboardingDetailContent({
                         })}
                     </div>
                   )}
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  {nameMatches.length > 0 && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>
+                        {nameMatches.length === 1
+                          ? "An existing employee record matches this name"
+                          : `${nameMatches.length} existing employee records match this name`}
+                      </AlertTitle>
+                      <AlertDescription className="space-y-3">
+                        <p>
+                          {departedMatches.length > 0
+                            ? "If this is a returning employee, rehire the existing record so their training, tickets and USI stay attached. Creating a new record would orphan all of it."
+                            : "Every match is still active, so none can be rehired. Check this is a different person before approving."}
+                        </p>
+                        <RehireMatchList
+                          matches={nameMatches}
+                          selectedId={selectedRehireId}
+                          onSelect={(id) => {
+                            setSelectedRehireId(id);
+                            setRehirePanelOpen(true);
+                          }}
+                          lookups={lookups}
+                          disabled={approving || rejecting}
+                        />
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Wraps because the rehire path adds a third button and the
+                      match-aware labels are long — without this the Reject button
+                      spills out of the card. */}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    {departedMatches.length > 0 && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setSelectedRehireId(departedMatches[0].id);
+                          setRehirePanelOpen(true);
+                        }}
+                        disabled={approving || rejecting || hasPendingOrgRequests}
+                        className="flex items-center gap-2"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Approve as Rehire…
+                      </Button>
+                    )}
                     <Button
                       onClick={handleApprove}
                       disabled={approving || rejecting || hasPendingOrgRequests}
                       title={hasPendingOrgRequests ? "Resolve pending org requests first" : undefined}
+                      variant={nameMatches.length > 0 ? "outline" : "default"}
                       className="flex items-center gap-2"
                     >
                       <CheckCircle className="h-4 w-4" />
-                      {approving ? "Approving…" : "Approve & Create Employee"}
+                      {approving
+                        ? "Approving…"
+                        : nameMatches.length > 0
+                          ? "Not the same person — Create New"
+                          : "Approve & Create Employee"}
                     </Button>
                     <Button
                       variant="destructive"
@@ -1117,6 +1324,32 @@ export function OnboardingDetailContent({
           </Card>
         </div>
       </div>
+
+      {selectedRehireMatch && (
+        <RehireReconciliationPanel
+          open={rehirePanelOpen}
+          onOpenChange={setRehirePanelOpen}
+          match={selectedRehireMatch}
+          typed={{
+            legalFirstName: edits.legalFirstName ?? request.legalFirstName,
+            legalLastName: edits.legalLastName ?? request.legalLastName,
+            title: edits.title ?? request.title,
+            departmentId: edits.departmentId ?? request.departmentId,
+            locationId: edits.locationId ?? request.locationId,
+            status: edits.employmentStatus ?? request.employmentStatus,
+            startDate: edits.startDate ?? request.startDate,
+            jobFamilyId: edits.jobFamilyId ?? request.jobFamilyId,
+            preferredFirstName:
+              edits.preferredFirstName ?? request.preferredFirstName,
+            preferredLastName:
+              edits.preferredLastName ?? request.preferredLastName,
+          }}
+          lookups={lookups}
+          submitting={approving}
+          error={actionError}
+          onConfirm={handleConfirmRehire}
+        />
+      )}
 
       <RejectDialog
         open={rejectOpen}

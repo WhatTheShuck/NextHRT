@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuth } from "@/lib/api-auth";
+import { requireAdmin } from "@/lib/api-admin";
 import { emailTemplateService } from "@/lib/services/emailTemplateService";
 
 // GET a single template by its stable key (Admin only).
@@ -7,15 +7,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ key: string }> },
 ) {
-  const session = await getAuth(request);
-
-  if (!session) {
-    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
-  }
-
-  if (session.user.role !== "Admin") {
-    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
-  }
+  const guard = await requireAdmin(request);
+  if ("response" in guard) return guard.response;
 
   const { key } = await params;
 
@@ -46,15 +39,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ key: string }> },
 ) {
-  const session = await getAuth(request);
-
-  if (!session) {
-    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
-  }
-
-  if (session.user.role !== "Admin") {
-    return NextResponse.json({ message: "Not authorised" }, { status: 403 });
-  }
+  const guard = await requireAdmin(request);
+  if ("response" in guard) return guard.response;
 
   const { key } = await params;
 
@@ -68,7 +54,7 @@ export async function PUT(
         body: json.body,
         isActive: json.isActive,
       },
-      session.user.id,
+      guard.session.user.id,
     );
     return NextResponse.json(updated);
   } catch (error) {
@@ -76,6 +62,15 @@ export async function PUT(
       return NextResponse.json(
         { error: "Template not found" },
         { status: 404 },
+      );
+    }
+    if (error instanceof Error && error.message === "LAYOUT_MISSING_CONTENT") {
+      return NextResponse.json(
+        {
+          error:
+            "The shared layout must contain {content} — that is where each email's copy goes.",
+        },
+        { status: 400 },
       );
     }
     return NextResponse.json(

@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { emailTemplateService } from "@/lib/services/emailTemplateService";
+import { escapeHtml } from "@/lib/email-templates/tokens";
 import {
   resolveExpiryRecipients,
   ExpiryRecipients,
@@ -167,37 +168,44 @@ async function sendConsolidated(
   }
 
   for (const group of groups.values()) {
-    const ticketList = renderList(group.items, expiredMode);
-    const { subject, body } = await emailTemplateService.render(templateKey, {
+    const ticketList = await renderList(templateKey, group.items, expiredMode);
+    const rendered = await emailTemplateService.render(templateKey, {
       ticketList,
       count: group.items.length,
     });
+    // Template switched off in the admin editor — an explicit "don't send this".
+    if (!rendered) return;
+
     await enqueue("SEND_EMAIL", {
       to: group.recipients.to,
       cc: group.recipients.cc,
-      subject,
-      html: body,
+      subject: rendered.subject,
+      html: rendered.body,
     });
   }
 }
 
-function renderList(items: NotificationItem[], expiredMode: boolean): string {
+// The row markup lives in an admin-editable fragment template
+// (`<key>.row`), so the per-row wording is authorable rather than hardcoded.
+// Values are escaped here because the fragment interpolates them into HTML.
+async function renderList(
+  templateKey: string,
+  items: NotificationItem[],
+  expiredMode: boolean,
+): Promise<string> {
   const rows = [...items]
     .sort((a, b) => a.days - b.days) // most urgent first
-    .map((i) =>
-      expiredMode
-        ? `<li>${esc(i.employeeName)} — ${esc(i.ticketName)}: expired ${i.expiryDate}</li>`
-        : `<li>${esc(i.employeeName)} — ${esc(i.ticketName)}: expires ${i.expiryDate} (${i.days} day${i.days === 1 ? "" : "s"})</li>`,
-    )
-    .join("");
-  return `<ul>${rows}</ul>`;
-}
+    .map((i) => ({
+      employeeName: escapeHtml(i.employeeName),
+      ticketName: escapeHtml(i.ticketName),
+      expiryDate: i.expiryDate,
+      days: i.days,
+      daysText: expiredMode
+        ? ""
+        : `${i.days} day${i.days === 1 ? "" : "s"}`,
+    }));
 
-function esc(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return emailTemplateService.renderList(templateKey, rows);
 }
 
 function isNewer(

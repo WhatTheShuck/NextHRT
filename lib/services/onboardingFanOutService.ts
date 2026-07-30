@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
 import { mailService, type MailAttachment } from "@/lib/services/mailService";
 import { emailTemplateService } from "@/lib/services/emailTemplateService";
+import { escapeHtml } from "@/lib/email-templates/tokens";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { onboardingService } from "@/lib/services/onboardingService";
 import { parseStoredAttachments } from "@/lib/services/onboardingConfigService";
@@ -159,36 +160,41 @@ class OnboardingFanOutService {
     const programMap = new Map(programs.map((p) => [p.id, p]));
     const refUserMap = new Map(refUsers.map((u) => [u.id, u]));
 
-    const lines: string[] = [];
+    // Row markup lives in the admin-editable `it.programs.row` fragment; the
+    // optional parts are {#token} blocks there, so an absent ticket URL or
+    // reference user drops its whole line. Values are escaped because the
+    // fragment interpolates them straight into HTML.
+    const rows: Record<string, string>[] = [];
     for (const sel of selections) {
       const program = programMap.get(sel.programId);
       if (!program) continue;
 
-      const ticketUrl = program.ticketNumber
-        ? `${itTicketBaseUrl}${program.ticketNumber}`
-        : null;
-
       const refEmp = sel.referenceUserEmployeeId
         ? refUserMap.get(sel.referenceUserEmployeeId)
         : null;
-      const refUserName = refEmp
-        ? displayName(
-            refEmp.preferredFirstName,
-            refEmp.legalFirstName,
-            refEmp.preferredLastName,
-            refEmp.legalLastName,
-          )
-        : null;
 
-      let line = `<li><strong>${program.name}</strong>`;
-      if (ticketUrl) line += `<br>Ticket: <a href="${ticketUrl}">${ticketUrl}</a>`;
-      if (program.infoRequired) line += `<br>Info required: ${program.infoRequired}`;
-      if (refUserName) line += `<br>Reference user: ${refUserName}`;
-      line += "</li>";
-      lines.push(line);
+      rows.push({
+        programName: escapeHtml(program.name),
+        ticketUrl: program.ticketNumber
+          ? escapeHtml(`${itTicketBaseUrl}${program.ticketNumber}`)
+          : "",
+        infoRequired: program.infoRequired
+          ? escapeHtml(program.infoRequired)
+          : "",
+        referenceUserName: refEmp
+          ? escapeHtml(
+              displayName(
+                refEmp.preferredFirstName,
+                refEmp.legalFirstName,
+                refEmp.preferredLastName,
+                refEmp.legalLastName,
+              ),
+            )
+          : "",
+      });
     }
 
-    return `<ul>\n${lines.join("\n")}\n</ul>`;
+    return emailTemplateService.renderList("it.programs", rows);
   }
 
   // §7.1 — Manager "next steps" email; branches on Internal/External.
@@ -204,10 +210,18 @@ class OnboardingFanOutService {
         ? "manager.nextSteps.internal"
         : "manager.nextSteps.external";
 
-    const { subject, body } = await emailTemplateService.render(templateKey, vars);
+    // null = the template is switched off in the admin editor; skip the send.
+    const rendered = await emailTemplateService.render(templateKey, vars);
+    if (!rendered) return;
+
     const employeeName = `${vars.preferredFirstName ?? ""} ${vars.preferredLastName ?? ""}`.trim();
     const invite = buildCalendarInvite(request.id, request.startDate, employeeName);
-    await mailService.send({ to: managerInfo.email, subject, html: body, attachments: [invite] });
+    await mailService.send({
+      to: managerInfo.email,
+      subject: rendered.subject,
+      html: rendered.body,
+      attachments: [invite],
+    });
   }
 
   // §7.3 — Forms-related jobs (offer reminder, attachments, marketing, medical, licence).
@@ -224,15 +238,21 @@ class OnboardingFanOutService {
 
     // Letter of offer NOT signed → scheduled reminder at commencement date.
     if (!compliance.letterOfOfferSigned && managerEmail) {
-      const { subject, body } = await emailTemplateService.render(
+      const rendered = await emailTemplateService.render(
         "forms.offerReminder",
         vars,
       );
-      await enqueue(
-        "SEND_EMAIL",
-        { to: managerEmail, subject, html: body } as Record<string, unknown>,
-        request.startDate,
-      );
+      if (rendered) {
+        await enqueue(
+          "SEND_EMAIL",
+          {
+            to: managerEmail,
+            subject: rendered.subject,
+            html: rendered.body,
+          } as Record<string, unknown>,
+          request.startDate,
+        );
+      }
     }
 
     // Employment forms / police check → email manager with any stored attachments.
@@ -268,28 +288,36 @@ class OnboardingFanOutService {
         );
       }
 
-      const { subject, body } = await emailTemplateService.render("forms.attachments", vars);
-      const html = oversized
-        ? body +
-          `<p><strong>Note:</strong> the employment / police-check forms were too large to attach to this email and will be sent to you separately.</p>`
-        : body;
-      await mailService.send({
-        to: managerEmail,
-        subject,
-        html,
-        ...(!oversized && attachments.length > 0 ? { attachments } : {}),
-      });
+      const rendered = await emailTemplateService.render("forms.attachments", vars);
+      if (rendered) {
+        const html = oversized
+          ? rendered.body +
+            `<p><strong>Note:</strong> the employment / police-check forms were too large to attach to this email and will be sent to you separately.</p>`
+          : rendered.body;
+        await mailService.send({
+          to: managerEmail,
+          subject: rendered.subject,
+          html,
+          ...(!oversized && attachments.length > 0 ? { attachments } : {}),
+        });
+      }
     }
 
     // Marketing induction → email Marketing recipient.
     if (compliance.marketingInductionRequired) {
       const marketingRecipient = settings["onboarding.recipient.marketing"];
       if (marketingRecipient) {
-        const { subject, body } = await emailTemplateService.render(
+        const rendered = await emailTemplateService.render(
           "marketing.induction",
           vars,
         );
-        await mailService.send({ to: marketingRecipient, subject, html: body });
+        if (rendered) {
+          await mailService.send({
+            to: marketingRecipient,
+            subject: rendered.subject,
+            html: rendered.body,
+          });
+        }
       }
     }
 
@@ -329,19 +357,31 @@ class OnboardingFanOutService {
     if (compliance.willReceiveVehicle || compliance.willDriveVehicle) {
       const licenceRecipient = settings["onboarding.recipient.licence"];
       if (licenceRecipient) {
-        const { subject, body } = await emailTemplateService.render("licence.request", vars);
-        await mailService.send({ to: licenceRecipient, subject, html: body });
+        const rendered = await emailTemplateService.render("licence.request", vars);
+        if (rendered) {
+          await mailService.send({
+            to: licenceRecipient,
+            subject: rendered.subject,
+            html: rendered.body,
+          });
+        }
       }
     }
 
     // Vehicle → notify manager.
     if ((compliance.willReceiveVehicle || compliance.willDriveVehicle) && managerEmail) {
-      const { subject, body } = await emailTemplateService.render("manager.vehicle", {
+      const rendered = await emailTemplateService.render("manager.vehicle", {
         ...vars,
         willReceiveVehicle: compliance.willReceiveVehicle ? "Yes" : "No",
         willDriveVehicle: compliance.willDriveVehicle ? "Yes" : "No",
       });
-      await mailService.send({ to: managerEmail, subject, html: body });
+      if (rendered) {
+        await mailService.send({
+          to: managerEmail,
+          subject: rendered.subject,
+          html: rendered.body,
+        });
+      }
     }
   }
 
@@ -363,15 +403,21 @@ class OnboardingFanOutService {
 
     const programsList = await this.buildProgramsList(payload.programs, itTicketBaseUrl);
 
-    const { subject, body } = await emailTemplateService.render("it.programs", {
+    const rendered = await emailTemplateService.render("it.programs", {
       ...vars,
       programs: programsList,
       notes: payload.notes.it ?? "",
     });
+    if (!rendered) return;
 
     const employeeName = `${vars.preferredFirstName ?? ""} ${vars.preferredLastName ?? ""}`.trim();
     const invite = buildCalendarInvite(request.id, request.startDate, employeeName);
-    await mailService.send({ to: itRecipient, subject, html: body, attachments: [invite] });
+    await mailService.send({
+      to: itRecipient,
+      subject: rendered.subject,
+      html: rendered.body,
+      attachments: [invite],
+    });
   }
 
   // §7.4 — IT landline-number request. Sent independently of the programs email
@@ -386,8 +432,14 @@ class OnboardingFanOutService {
     const itRecipient = settings["onboarding.recipient.it"];
     if (!itRecipient) return;
 
-    const { subject, body } = await emailTemplateService.render("it.landline", vars);
-    await mailService.send({ to: itRecipient, subject, html: body });
+    const rendered = await emailTemplateService.render("it.landline", vars);
+    if (!rendered) return;
+
+    await mailService.send({
+      to: itRecipient,
+      subject: rendered.subject,
+      html: rendered.body,
+    });
   }
 
   // §7.4 (notes portion) + §5.5 — HR and Payroll notes emails.
@@ -399,21 +451,33 @@ class OnboardingFanOutService {
     const hrNote = payload.notes.hr;
     const hrRecipient = settings["onboarding.recipient.hr"];
     if (hrNote && hrRecipient) {
-      const { subject, body } = await emailTemplateService.render("hr.notes", {
+      const rendered = await emailTemplateService.render("hr.notes", {
         ...vars,
         notes: hrNote,
       });
-      await mailService.send({ to: hrRecipient, subject, html: body });
+      if (rendered) {
+        await mailService.send({
+          to: hrRecipient,
+          subject: rendered.subject,
+          html: rendered.body,
+        });
+      }
     }
 
     const payrollNote = payload.notes.payroll;
     const payrollRecipient = settings["onboarding.recipient.payroll"];
     if (payrollNote && payrollRecipient) {
-      const { subject, body } = await emailTemplateService.render("payroll.notes", {
+      const rendered = await emailTemplateService.render("payroll.notes", {
         ...vars,
         notes: payrollNote,
       });
-      await mailService.send({ to: payrollRecipient, subject, html: body });
+      if (rendered) {
+        await mailService.send({
+          to: payrollRecipient,
+          subject: rendered.subject,
+          html: rendered.body,
+        });
+      }
     }
   }
 

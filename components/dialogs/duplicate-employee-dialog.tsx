@@ -29,26 +29,26 @@ import {
   MapPin,
   Building,
   CheckCircle2,
-  ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
-import { EmployeeFormData, EmployeeWithRelations } from "@/lib/types";
+import { EmployeeFormData } from "@/lib/types";
+import type {
+  DuplicateMatchWire,
+  DuplicateResponse,
+} from "@/lib/services/employeeDuplicateService";
 import {
   Department,
   JobFamily,
   Location,
 } from "@/generated/prisma_client/client";
 import { DateSelector } from "@/components/date-selector";
-
-interface DuplicateResponse {
-  error: string;
-  code: string;
-  matches: EmployeeWithRelations[];
-  suggestions: {
-    rehire: boolean;
-    duplicate: boolean;
-  };
-}
+import {
+  ComparisonRow,
+  KeepClearControls,
+  isBlank,
+  resolveKeepClear,
+  type FieldDecision,
+} from "@/components/rehire/reconciliation";
 
 interface DuplicateEmployeeDialogProps {
   open: boolean;
@@ -69,11 +69,6 @@ interface DuplicateFormProps extends Omit<
   className?: string;
 }
 
-type FieldDecision = "keep" | "clear";
-
-function isBlank(value: unknown): boolean {
-  return value === null || value === undefined || String(value).trim() === "";
-}
 
 // Optional fields that reconcile with keep/clear semantics when the typed value
 // is blank but the prior record had one (§4).
@@ -145,13 +140,12 @@ function DuplicateForm({
   const optionalTypedValue = (key: OptionalFieldKey): unknown =>
     employeeFormData[key as keyof EmployeeFormData];
 
-  const resolveOptional = (key: OptionalFieldKey, prior: EmployeeWithRelations) => {
-    const typed = optionalTypedValue(key);
-    if (!isBlank(typed)) return typed;
-    const priorVal = prior[key as keyof EmployeeWithRelations];
-    if (isBlank(priorVal)) return null;
-    return decisions[key] === "clear" ? null : priorVal;
-  };
+  const resolveOptional = (key: OptionalFieldKey, prior: DuplicateMatchWire) =>
+    resolveKeepClear(
+      optionalTypedValue(key),
+      prior[key as keyof DuplicateMatchWire],
+      decisions[key],
+    );
 
   const handleReview = () => {
     if (!selectedMatch) return;
@@ -211,7 +205,7 @@ function DuplicateForm({
     }
   };
 
-  const handleEmployeeClick = (match: EmployeeWithRelations) => {
+  const handleEmployeeClick = (match: DuplicateMatchWire) => {
     if (!match.isActive) {
       setSelectedEmployeeId(match.id);
     }
@@ -307,67 +301,36 @@ function DuplicateForm({
           </h4>
 
           {requiredRows.map((row) => (
-            <div
+            <ComparisonRow
               key={row.label}
-              className="flex flex-col gap-1 rounded-md border border-gray-200 p-3 text-sm md:flex-row md:items-center md:justify-between"
-            >
-              <span className="font-medium text-gray-700">{row.label}</span>
-              <span className="flex items-center gap-2 text-gray-600">
-                <span className="text-gray-500">{row.oldText}</span>
-                <ArrowRight className="h-3 w-3 text-gray-400" />
-                <span className="font-medium text-gray-900">{row.newText}</span>
-              </span>
-            </div>
+              label={row.label}
+              oldText={row.oldText}
+              newText={row.newText}
+            />
           ))}
 
           {optionalConfig.map((cfg) => {
             const typed = optionalTypedValue(cfg.key);
-            const priorVal = selectedMatch[cfg.key as keyof EmployeeWithRelations];
-            const typedPresent = !isBlank(typed);
-            const priorPresent = !isBlank(priorVal);
-            const showKeepClear = !typedPresent && priorPresent;
+            const priorVal = selectedMatch[cfg.key as keyof DuplicateMatchWire];
+            const showKeepClear = isBlank(typed) && !isBlank(priorVal);
             const resolved = resolveOptional(cfg.key, selectedMatch);
 
             return (
-              <div
+              <ComparisonRow
                 key={cfg.key}
-                className="flex flex-col gap-2 rounded-md border border-gray-200 p-3 text-sm"
+                label={cfg.label}
+                oldText={cfg.display(priorVal)}
+                newText={cfg.display(resolved)}
               >
-                <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                  <span className="font-medium text-gray-700">{cfg.label}</span>
-                  <span className="flex items-center gap-2 text-gray-600">
-                    <span className="text-gray-500">{cfg.display(priorVal)}</span>
-                    <ArrowRight className="h-3 w-3 text-gray-400" />
-                    <span className="font-medium text-gray-900">
-                      {cfg.display(resolved)}
-                    </span>
-                  </span>
-                </div>
                 {showKeepClear && (
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={decisions[cfg.key] === "keep" ? "default" : "outline"}
-                      onClick={() =>
-                        setDecisions((d) => ({ ...d, [cfg.key]: "keep" }))
-                      }
-                    >
-                      Keep
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={decisions[cfg.key] === "clear" ? "destructive" : "outline"}
-                      onClick={() =>
-                        setDecisions((d) => ({ ...d, [cfg.key]: "clear" }))
-                      }
-                    >
-                      Clear
-                    </Button>
-                  </div>
+                  <KeepClearControls
+                    value={decisions[cfg.key]}
+                    onChange={(d) =>
+                      setDecisions((prev) => ({ ...prev, [cfg.key]: d }))
+                    }
+                  />
                 )}
-              </div>
+              </ComparisonRow>
             );
           })}
         </div>

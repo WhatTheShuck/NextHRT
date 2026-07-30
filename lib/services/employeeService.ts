@@ -4,6 +4,15 @@ import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { auth } from "../auth";
 import { deriveEmploymentType, serializePriorStint } from "@/lib/employment";
 import { enqueue } from "@/lib/jobs/jobQueue";
+import {
+  duplicateSuggestions,
+  findNameMatches,
+} from "@/lib/services/employeeDuplicateService";
+import {
+  enqueueRequirementsCacheInvalidate,
+  rehireInTx,
+  type RehireData,
+} from "@/lib/services/employeeRehire";
 
 export interface GetEmployeesOptions {
   activeOnly?: boolean;
@@ -184,56 +193,21 @@ export class EmployeeService {
     },
     userId: string,
   ) {
-    // Check for duplicate detection unless confirmDuplicate flag is set
+    // Check for duplicate detection unless confirmDuplicate flag is set.
+    // Matching is case- and Unicode-insensitive — see employeeDuplicateService.
     if (!data.confirmDuplicate) {
-      const potentialDuplicates = await prisma.employee.findMany({
-        where: {
-          legalFirstName: {
-            equals: data.legalFirstName,
-          },
-          legalLastName: {
-            equals: data.legalLastName,
-          },
-        },
-        include: {
-          department: true,
-          location: true,
-        },
-        orderBy: {
-          finishDate: "desc",
-        },
-      });
+      const matches = await findNameMatches(
+        data.legalFirstName,
+        data.legalLastName,
+      );
 
-      if (potentialDuplicates.length > 0) {
-        const suggestions = {
-          rehire: potentialDuplicates.some((emp) => !emp.isActive),
-          duplicate: true,
-        };
-
+      if (matches.length > 0) {
         throw {
           code: "DUPLICATE_EMPLOYEE",
           // Full prior values are carried so the rehire reconciliation panel can
           // compare typed-vs-existing for every field client-side (§4).
-          matches: potentialDuplicates.map((emp) => ({
-            id: emp.id,
-            legalFirstName: emp.legalFirstName,
-            legalLastName: emp.legalLastName,
-            preferredFirstName: emp.preferredFirstName,
-            preferredLastName: emp.preferredLastName,
-            title: emp.title,
-            department: emp.department || "Unknown",
-            location: emp.location || "Unknown",
-            departmentId: emp.departmentId,
-            locationId: emp.locationId,
-            status: emp.status,
-            usi: emp.usi,
-            notes: emp.notes,
-            jobFamilyId: emp.jobFamilyId,
-            isActive: emp.isActive,
-            startDate: emp.startDate,
-            finishDate: emp.finishDate,
-          })),
-          suggestions,
+          matches,
+          suggestions: duplicateSuggestions(matches),
         };
       }
     }
@@ -339,8 +313,9 @@ export class EmployeeService {
   /**
    * When an update flips an employee from active to inactive, enqueue the
    * ASSET_CHECKIN offboarding job (check their Snipe-IT assets back in via
-   * AssetCheckout). Never lets an enqueue failure break the update that
-   * already committed — the job can be raised manually if this ever fails.
+   * AssetCheckout) and clear their requirements cache. Never lets an enqueue
+   * failure break the update that already committed — the jobs can be raised
+   * manually if this ever fails.
    */
   private async enqueueOffboardingIfDeactivated(
     wasActive: boolean,
@@ -356,6 +331,11 @@ export class EmployeeService {
         err,
       );
     }
+    // The invalidate handler wipes cache entries when it finds the employee
+    // inactive. Without this the departed employee's rows (computed against their
+    // old dept/location) survive — the nightly rebuild filters `isActive: true` —
+    // and are still there, stale, if they are ever rehired.
+    await enqueueRequirementsCacheInvalidate(employeeId);
   }
 
   async updateEmployeePartial(
@@ -542,109 +522,22 @@ export class EmployeeService {
    * parseable `REHIRE` History row, then reactivates the live record with the
    * caller's already-reconciled field values. The server owns the archive
    * snapshot — `data` carries no snapshot/archive fields.
+   *
+   * The body lives in `lib/services/employeeRehire.ts` as a free function taking a
+   * transaction client, so `onboardingService.approveRequest` — already inside a
+   * transaction — can share it without nesting one.
    */
-  async rehireEmployee(
-    employeeId: number,
-    data: {
-      startDate: string;
-      priorFinishDate?: string | null;
-      title: string;
-      departmentId: number;
-      locationId: number;
-      status: string;
-      jobFamilyId?: number | null;
-      usi?: string | null;
-      notes?: string | null;
-      preferredFirstName?: string | null;
-      preferredLastName?: string | null;
-    },
-    userId: string,
-  ) {
-    // 1. Load the existing record with the relations we snapshot names from.
-    const existing = await prisma.employee.findUnique({
-      where: { id: employeeId },
-      include: { department: true, location: true },
-    });
+  async rehireEmployee(employeeId: number, data: RehireData, userId: string) {
+    const employee = await prisma.$transaction((tx) =>
+      rehireInTx(tx, employeeId, data, userId),
+    );
 
-    if (!existing) {
-      throw new Error("EMPLOYEE_NOT_FOUND");
-    }
+    // Post-commit, never inside the transaction — see the function's own comment.
+    await enqueueRequirementsCacheInvalidate(employeeId);
 
-    // 2. Only a departed employee can be rehired.
-    if (existing.isActive) {
-      throw new Error("ACTIVE_EMPLOYEE");
-    }
-
-    // 3. Resolve the prior stint's finish date (record's own, else supplied).
-    const priorFinishDate = existing.finishDate
-      ? existing.finishDate.toISOString()
-      : data.priorFinishDate ?? null;
-    if (!priorFinishDate) {
-      throw new Error("MISSING_FINISH_DATE");
-    }
-
-    // 4. The new stint must start strictly after the prior one ends.
-    const rehireStart = new Date(data.startDate);
-    if (rehireStart <= new Date(priorFinishDate)) {
-      throw new Error("INVALID_REHIRE_DATE");
-    }
-
-    const status = data.status as EmployeeStatus;
-    const oldStint = serializePriorStint(existing, priorFinishDate);
-    const newStint = {
-      startDate: rehireStart.toISOString(),
-      finishDate: null,
-      title: data.title,
-      departmentId: data.departmentId,
-      locationId: data.locationId,
-      status: data.status,
-    };
-
-    // 5. Archive + reactivate atomically.
-    return prisma.$transaction(async (tx) => {
-      await tx.history.create({
-        data: {
-          tableName: "Employee",
-          recordId: String(employeeId),
-          action: "REHIRE",
-          oldValues: JSON.stringify(oldStint),
-          newValues: JSON.stringify(newStint),
-          // Full prior-record snapshot kept purely as an audit backup.
-          changedFields: JSON.stringify(existing),
-          userId,
-        },
-      });
-
-      return tx.employee.update({
-        where: { id: employeeId },
-        data: {
-          startDate: rehireStart,
-          finishDate: null,
-          isActive: true,
-          hasPriorEmployment: true,
-          title: data.title,
-          department: { connect: { id: data.departmentId } },
-          location: { connect: { id: data.locationId } },
-          status,
-          employmentType: deriveEmploymentType(status),
-          jobFamily:
-            data.jobFamilyId !== undefined
-              ? data.jobFamilyId
-                ? { connect: { id: data.jobFamilyId } }
-                : { disconnect: true }
-              : undefined,
-          usi: data.usi,
-          notes: data.notes,
-          preferredFirstName: data.preferredFirstName,
-          preferredLastName: data.preferredLastName,
-        },
-        include: {
-          department: true,
-          location: true,
-        },
-      });
-    });
+    return employee;
   }
+
 
   async deleteEmployee(employeeId: number, userId: string) {
     // Get current employee data for history

@@ -101,7 +101,7 @@ export class LocationService {
 
   async updateLocation(
     id: number,
-    data: { name: string; state: string },
+    data: { name: string; state: string; isActive?: boolean },
     userId: string,
   ) {
     const currentLocation = await prisma.location.findUnique({
@@ -117,6 +117,7 @@ export class LocationService {
       data: {
         name: data.name,
         state: data.state,
+        isActive: data.isActive,
       },
     });
 

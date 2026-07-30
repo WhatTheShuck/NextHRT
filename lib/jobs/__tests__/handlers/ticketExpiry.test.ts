@@ -25,7 +25,11 @@ vi.mock("@/lib/services/appSettingService", () => ({
 
 vi.mock("@/lib/services/emailTemplateService", () => ({
   emailTemplateService: {
+    // render resolves null for a switched-off template; these cases all use an
+    // active one.
     render: vi.fn().mockResolvedValue({ subject: "s", body: "b" }),
+    // The row markup comes from an admin-editable fragment template.
+    renderList: vi.fn().mockResolvedValue("<ul><li>row</li></ul>"),
   },
 }));
 

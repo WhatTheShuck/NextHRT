@@ -15,6 +15,7 @@ import {
   UserPlus,
   UserCheck,
   SlidersHorizontal,
+  Mail,
   Eye,
   BookOpenCheck,
   ClipboardCheck,
@@ -95,6 +96,13 @@ export const landingPageNavigationItems: NavigationItem[] = [
     description: "Configure application behaviour and matching rules",
     icon: SlidersHorizontal,
     href: "/admin/settings",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Email Templates",
+    description: "Edit the wording of automatic emails",
+    icon: Mail,
+    href: "/admin/email-templates",
     minimumAllowedPermission: "user:impersonate",
   },
   {
