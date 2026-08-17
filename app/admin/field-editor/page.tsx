@@ -37,6 +37,11 @@ export default async function MetaPropertiesPage() {
       total: stats.totalTraining,
     },
     {
+      label: "SOPs",
+      active: stats.activeSops,
+      total: stats.totalSops,
+    },
+    {
       label: "Ticket Categories",
       active: stats.activeTickets,
       total: stats.totalTickets,

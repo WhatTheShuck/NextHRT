@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { currentRevision } from "@/lib/services/trainingCompliance";
+import { toLocalCalendarDay } from "@/lib/dates";
 
 interface TrainingRevisionOption {
   id: number;
@@ -57,8 +58,10 @@ interface FormProps {
   className?: string;
 }
 
+// Local, not UTC: `toISOString()` returns yesterday for the whole AEST morning,
+// which would default the completion date to the wrong day.
 function todayIso() {
-  return new Date().toISOString().split("T")[0];
+  return toLocalCalendarDay(new Date());
 }
 
 function CompletionForm({

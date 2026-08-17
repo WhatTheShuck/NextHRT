@@ -3,6 +3,7 @@ import path from "path";
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
 import prisma from "@/lib/prisma";
 import { sopService } from "@/lib/services/sopService";
+import { formatDateInZone, formatDateTimeInZone } from "@/lib/dates";
 
 const PAGE_MARGIN = 50;
 const TITLE_SIZE = 16;
@@ -66,9 +67,11 @@ function toWinAnsi(text: string): string {
     .join("");
 }
 
+// Pinned to the app zone: these PDFs are rendered server-side, and the
+// container runs as UTC.
 function formatDate(value: Date | null): string {
   if (!value) return "—";
-  return value.toLocaleDateString("en-AU", {
+  return formatDateInZone(value, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -77,10 +80,7 @@ function formatDate(value: Date | null): string {
 
 function formatDateTime(value: Date | null): string {
   if (!value) return "—";
-  return `${formatDate(value)} ${value.toLocaleTimeString("en-AU", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
+  return formatDateTimeInZone(value);
 }
 
 /**

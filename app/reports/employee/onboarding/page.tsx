@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateSelector } from "@/components/date-selector";
+import { toLocalCalendarDay } from "@/lib/dates";
 
 export default function Page() {
   const [allEmployees, setAllEmployees] = useState<EmployeeWithRelations[]>([]);
@@ -36,9 +37,10 @@ export default function Page() {
     setLoading(true);
     setError(null);
     try {
-      // Format dates as ISO strings for the API
-      const fromStr = from.toISOString().split("T")[0];
-      const toStr = to.toISOString().split("T")[0];
+      // The pickers hand back local-midnight dates; `toISOString()` would shift
+      // them back a day east of UTC and widen the range at both ends.
+      const fromStr = toLocalCalendarDay(from);
+      const toStr = toLocalCalendarDay(to);
 
       const response = await api.get<EmployeeWithRelations[]>(
         `/api/employees?startedFrom=${fromStr}&startedTo=${toStr}`,

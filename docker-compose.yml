@@ -13,4 +13,11 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
+      # Date-only values (start dates, expiry dates) are stored as instants at
+      # local midnight in the user's zone. Leaving the container on UTC made
+      # every server-side render of them land a day early. APP_TIME_ZONE is the
+      # authoritative setting (lib/dates.ts); TZ keeps anything that still reads
+      # ambient local time in agreement with it.
+      - TZ=Australia/Brisbane
+      - APP_TIME_ZONE=Australia/Brisbane
     restart: unless-stopped

@@ -7,6 +7,7 @@ import {
   resolveExpiryRecipients,
   ExpiryRecipients,
 } from "@/lib/services/expiryNotificationRecipients";
+import { toCalendarDay } from "@/lib/dates";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_MILESTONES = [365, 180, 90, 30];
@@ -31,8 +32,16 @@ export async function ticketExpiryHandler(
   const warnCutoff = new Date(now.getTime() + maxMilestone * DAY_MS);
 
   // All records that have an expiry and could matter (expired or expiring soon).
+  // Departed employees and deactivated ("legacy") ticket types are excluded —
+  // neither has a compliance obligation left to chase, so notifying on them is
+  // noise. A rehire re-activates the employee and their stage is untouched, so
+  // the reminders resume from wherever they left off.
   const records = await prisma.ticketRecords.findMany({
-    where: { expiryDate: { not: null, lte: warnCutoff } },
+    where: {
+      expiryDate: { not: null, lte: warnCutoff },
+      ticketHolder: { isActive: true },
+      ticket: { isActive: true },
+    },
     include: {
       ticket: { select: { ticketName: true } },
       ticketHolder: { select: { legalFirstName: true, legalLastName: true } },
@@ -74,7 +83,9 @@ export async function ticketExpiryHandler(
 
     const isExpired = rec.expiryDate!.getTime() <= now.getTime();
     const empName = `${rec.ticketHolder.legalFirstName} ${rec.ticketHolder.legalLastName}`;
-    const expiryStr = rec.expiryDate!.toISOString().slice(0, 10);
+    // Expiry dates descend from a local-midnight `dateIssued`, so slicing the
+    // ISO string would report the previous day from a UTC container.
+    const expiryStr = toCalendarDay(rec.expiryDate!);
     const stage = rec.expiryNotificationStage;
 
     if (isExpired) {

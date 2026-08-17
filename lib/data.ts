@@ -326,6 +326,14 @@ export const fieldEditorNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "user:impersonate",
   },
   {
+    title: "SOPs",
+    description:
+      "Manage standard operating procedures, their questions and trainers",
+    href: "/admin/field-editor/sops",
+    icon: BookOpenCheck,
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
     title: "Tickets",
     description: "Set up ticket categories and configurations",
     href: "/admin/field-editor/tickets",

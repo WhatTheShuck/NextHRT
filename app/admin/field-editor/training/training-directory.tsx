@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { toast } from "sonner";
 import {
   Card,
   CardHeader,
@@ -160,14 +162,11 @@ const TrainingDirectory = () => {
         const { data: trainingsRes } = await api.get<TrainingWithRelations[]>(
           "/api/training?includeRequirements=true",
         );
-        setTrainings(trainingsRes);
+        // SOPs are pairs of Training rows with their own editor — listing their
+        // halves here would show every SOP twice, minus everything that matters
+        // about it. They live at /admin/field-editor/sops.
+        setTrainings(trainingsRes.filter((t) => t.category !== "SOP"));
         setIsLoading(false);
-
-        setTrainings((prev) =>
-          prev.map((training) => ({
-            ...training,
-          })),
-        );
       } catch (err) {
         console.error("Error fetching data:", err);
         setIsLoading(false);
@@ -378,7 +377,14 @@ const TrainingDirectory = () => {
                 Manage training courses and view training records. Showing{" "}
                 {table.getFilteredRowModel().rows.length} of {trainings.length}{" "}
                 training course
-                {trainings.length !== 1 ? "s" : ""}
+                {trainings.length !== 1 ? "s" : ""}. SOPs have their own list —{" "}
+                <Link
+                  href="/admin/field-editor/sops"
+                  className="underline underline-offset-2"
+                >
+                  manage SOPs
+                </Link>
+                .
               </CardDescription>
             </div>
             <Button onClick={() => setIsTrainingAddDialogOpen(true)} className="w-full sm:w-auto">
@@ -508,19 +514,18 @@ const TrainingDirectory = () => {
         isOpen={isTrainingAddDialogOpen}
         onOpenChange={setIsTrainingAddDialogOpen}
         onTrainingCreated={(training) => {
-          const withDefaults = (
-            t: TrainingWithRelations,
-          ): TrainingWithRelations => ({
-            requirements: [],
-            trainingExemptions: [],
-            _count: { trainingRecords: 0 },
-            ...t,
-          });
-          if (Array.isArray(training)) {
-            setTrainings((prev) => [...prev, ...training.map(withDefaults)]);
-          } else {
-            setTrainings((prev) => [...prev, withDefaults(training)]);
-          }
+          const created = Array.isArray(training) ? training : [training];
+          setTrainings((prev) => [
+            ...prev,
+            ...created
+              .filter((t) => t.category !== "SOP")
+              .map((t) => ({
+                requirements: [],
+                trainingExemptions: [],
+                _count: { trainingRecords: 0 },
+                ...t,
+              })),
+          ]);
         }}
       />
 
@@ -529,53 +534,18 @@ const TrainingDirectory = () => {
         onOpenChange={setIsTrainingEditDialogOpen}
         training={selectedRecord}
         onTrainingUpdated={(result) => {
-          if (Array.isArray(result)) {
-            // non-SOP → SOP: first item updates existing, second is new practical
-            const [taskSheet, practical] = result;
-            setTrainings((prev) => [
-              ...prev.map((t) =>
-                t.id === taskSheet.id ? { ...t, ...taskSheet } : t,
-              ),
-              {
-                requirements: [],
-                trainingExemptions: [],
-                _count: { trainingRecords: 0 },
-                ...practical,
-              },
-            ]);
-          } else {
-            // Single training update — may be SOP → non-SOP (sibling deleted on server)
-            const wasSop = selectedRecord?.category === "SOP";
-            const isNowSop = result.category === "SOP";
-            if (wasSop && !isNowSop && selectedRecord?.title) {
-              // Derive sibling title so we can remove it from the local list
-              const siblingTitle = selectedRecord.title.endsWith(
-                " - Task Sheet",
-              )
-                ? selectedRecord.title.replace(" - Task Sheet", " - Practical")
-                : selectedRecord.title.endsWith(" - Practical")
-                  ? selectedRecord.title.replace(
-                      " - Practical",
-                      " - Task Sheet",
-                    )
-                  : null;
-              setTrainings((prev) =>
-                prev
-                  .map((t) => (t.id === result.id ? { ...t, ...result } : t))
-                  .filter(
-                    (t) =>
-                      siblingTitle === null ||
-                      !(t.title === siblingTitle && t.category === "SOP"),
-                  ),
-              );
-            } else {
-              setTrainings((prev) =>
-                prev.map((t) =>
-                  t.id === result.id ? { ...t, ...result } : t,
-                ),
-              );
-            }
+          // A conversion to SOP returns the Task Sheet plus its new Practical;
+          // either way this list only holds the non-SOP rows, so a training that
+          // became an SOP simply leaves it for the SOPs list.
+          const [updated] = Array.isArray(result) ? result : [result];
+          if (updated.category === "SOP") {
+            setTrainings((prev) => prev.filter((t) => t.id !== updated.id));
+            toast.success(`"${updated.title}" moved to the SOPs list`);
+            return;
           }
+          setTrainings((prev) =>
+            prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
+          );
         }}
       />
 
