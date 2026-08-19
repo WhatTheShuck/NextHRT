@@ -296,4 +296,18 @@ describe("ticketExpiryHandler", () => {
     expect(emailCalls).toHaveLength(2);
     expect(result).toEqual({ warned: 2, expired: 0 });
   });
+
+  it("case 12: inactive employees and legacy tickets are excluded by the query", async () => {
+    mockPrisma.ticketRecords.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const result = await ticketExpiryHandler({});
+
+    const where = mockPrisma.ticketRecords.findMany.mock.calls[0][0].where;
+    expect(where.ticketHolder).toEqual({ isActive: true });
+    expect(where.ticket).toEqual({ isActive: true });
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(result).toEqual({ warned: 0, expired: 0 });
+  });
 });

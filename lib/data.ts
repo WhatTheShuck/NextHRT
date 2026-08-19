@@ -217,6 +217,28 @@ export const reportsNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "department:manage",
   },
   {
+    title: "Employee Training Records",
+    description: "See every training course a specific employee has completed",
+    icon: GraduationCap,
+    href: "/reports/employee/training",
+    minimumAllowedPermission: "department:manage",
+  },
+  {
+    title: "Employee Ticket Records",
+    description: "See every ticket a specific employee holds",
+    icon: IdCard,
+    href: "/reports/employee/tickets",
+    minimumAllowedPermission: "department:manage",
+  },
+  {
+    title: "Employee Training & Tickets",
+    description:
+      "See an employee's training and tickets together in one combined record",
+    icon: ClipboardList,
+    href: "/reports/employee/training-and-tickets",
+    minimumAllowedPermission: "department:manage",
+  },
+  {
     title: "Training Completion",
     description: "See who has completed a specific type of training",
     icon: ClipboardList,
@@ -323,6 +345,14 @@ export const fieldEditorNavigationItems: NavigationItem[] = [
     description: "Administer training programmes and records",
     href: "/admin/field-editor/training",
     icon: GraduationCap,
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "SOPs",
+    description:
+      "Manage standard operating procedures, their questions and trainers",
+    href: "/admin/field-editor/sops",
+    icon: BookOpenCheck,
     minimumAllowedPermission: "user:impersonate",
   },
   {

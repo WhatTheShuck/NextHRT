@@ -11,6 +11,8 @@ export class StatsService {
       activeLocations,
       totalTraining,
       activeTraining,
+      totalSops,
+      activeSops,
       totalTickets,
       activeTickets,
       totalJobFamilies,
@@ -28,8 +30,20 @@ export class StatsService {
       prisma.department.count({ where: { isActive: true } }),
       prisma.location.count(),
       prisma.location.count({ where: { isActive: true } }),
-      prisma.training.count(),
-      prisma.training.count({ where: { isActive: true } }),
+      // SOPs are counted separately: two Training rows per SOP would otherwise
+      // inflate the training tally.
+      prisma.training.count({ where: { category: { not: "SOP" } } }),
+      prisma.training.count({
+        where: { isActive: true, category: { not: "SOP" } },
+      }),
+      // One count per pair — a Practical half is the only SOP row with a partner
+      // pointing at it, so excluding those leaves exactly the directory's rows.
+      prisma.training.count({
+        where: { category: "SOP", sopPartnerOf: { is: null } },
+      }),
+      prisma.training.count({
+        where: { category: "SOP", sopPartnerOf: { is: null }, isActive: true },
+      }),
       prisma.ticket.count(),
       prisma.ticket.count({ where: { isActive: true } }),
       prisma.jobFamily.count(),
@@ -51,6 +65,8 @@ export class StatsService {
       activeLocations,
       totalTraining,
       activeTraining,
+      totalSops,
+      activeSops,
       totalTickets,
       activeTickets,
       totalJobFamilies,

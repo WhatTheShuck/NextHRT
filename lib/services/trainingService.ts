@@ -1,6 +1,13 @@
 import prisma from "@/lib/prisma";
 import { Category } from "@/generated/prisma_client/client";
 import { enqueue } from "@/lib/jobs/jobQueue";
+import {
+  PRACTICAL_SUFFIX,
+  TASK_SHEET_SUFFIX,
+  practicalTitle,
+  sopBaseTitle,
+  taskSheetTitle,
+} from "@/lib/sop/pairing";
 
 const trainingWithRelationsInclude = {
   requirements: {
@@ -148,14 +155,14 @@ export class TrainingService {
       const training1 = await prisma.training.create({
         data: {
           category: data.category,
-          title: data.title + " - Task Sheet",
+          title: taskSheetTitle(data.title),
         },
       });
 
       const training2 = await prisma.training.create({
         data: {
           category: data.category,
-          title: data.title + " - Practical",
+          title: practicalTitle(data.title),
         },
       });
 
@@ -271,7 +278,7 @@ export class TrainingService {
         where: { id },
         data: {
           category: data.category,
-          title: data.title + " - Task Sheet",
+          title: taskSheetTitle(data.title),
           isActive: data.isActive,
           requiresRetrainingOnRevision: data.requiresRetrainingOnRevision,
         },
@@ -281,7 +288,7 @@ export class TrainingService {
       const practicalTraining = await prisma.training.create({
         data: {
           category: data.category,
-          title: data.title + " - Practical",
+          title: practicalTitle(data.title),
           isActive: data.isActive,
           requiresRetrainingOnRevision: data.requiresRetrainingOnRevision,
         },
@@ -367,24 +374,15 @@ export class TrainingService {
     } else if (currentTraining.category === "SOP" && data.category !== "SOP") {
       // SOP → non-SOP: strip suffix, delete sibling, update this record
 
-      // Strip " - Task Sheet" or " - Practical" suffix the admin may have left in
-      let baseTitle = data.title;
-      if (baseTitle.endsWith(" - Task Sheet")) {
-        baseTitle = baseTitle.slice(0, -" - Task Sheet".length);
-      } else if (baseTitle.endsWith(" - Practical")) {
-        baseTitle = baseTitle.slice(0, -" - Practical".length);
-      }
+      // Strip the half-suffix the admin may have left in
+      const baseTitle = sopBaseTitle(data.title);
 
       // Derive sibling title from the current stored title
       let siblingTitle: string | null = null;
-      if (currentTraining.title.endsWith(" - Task Sheet")) {
-        siblingTitle =
-          currentTraining.title.slice(0, -" - Task Sheet".length) +
-          " - Practical";
-      } else if (currentTraining.title.endsWith(" - Practical")) {
-        siblingTitle =
-          currentTraining.title.slice(0, -" - Practical".length) +
-          " - Task Sheet";
+      if (currentTraining.title.endsWith(TASK_SHEET_SUFFIX)) {
+        siblingTitle = practicalTitle(currentTraining.title);
+      } else if (currentTraining.title.endsWith(PRACTICAL_SUFFIX)) {
+        siblingTitle = taskSheetTitle(currentTraining.title);
       }
 
       if (siblingTitle) {
@@ -542,14 +540,10 @@ export class TrainingService {
     let sibling: (typeof currentTraining) | null = null;
     if (deletePair && currentTraining.category === "SOP") {
       let siblingTitle: string | null = null;
-      if (currentTraining.title.endsWith(" - Task Sheet")) {
-        siblingTitle =
-          currentTraining.title.slice(0, -" - Task Sheet".length) +
-          " - Practical";
-      } else if (currentTraining.title.endsWith(" - Practical")) {
-        siblingTitle =
-          currentTraining.title.slice(0, -" - Practical".length) +
-          " - Task Sheet";
+      if (currentTraining.title.endsWith(TASK_SHEET_SUFFIX)) {
+        siblingTitle = practicalTitle(currentTraining.title);
+      } else if (currentTraining.title.endsWith(PRACTICAL_SUFFIX)) {
+        siblingTitle = taskSheetTitle(currentTraining.title);
       }
 
       if (siblingTitle) {

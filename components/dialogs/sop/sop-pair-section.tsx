@@ -33,8 +33,9 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-// Renders inside the edit-training dialog for SOP trainings only.
-// Everything is keyed on the *pair*: content lives on the Task Sheet side.
+// The content half of the SOP editor: procedure PDF, questions, trainers and
+// the assembled download. Everything is keyed on the *pair* — content lives on
+// the Task Sheet side, and the section resolves the pair from either half.
 
 interface SopPair {
   taskSheetId: number;
@@ -82,7 +83,14 @@ function apiError(err: unknown, fallback: string): string {
   return e?.response?.data?.error ?? e?.message ?? fallback;
 }
 
-export function SopPairSection({ trainingId }: { trainingId: number }) {
+export function SopPairSection({
+  trainingId,
+  revisionsToken = 0,
+}: {
+  trainingId: number;
+  /** Bump to re-read revisions after the parent adds or edits one. */
+  revisionsToken?: number;
+}) {
   const [pair, setPair] = useState<SopPair | null | "loading">("loading");
   const [revisions, setRevisions] = useState<RevisionOption[]>([]);
   const [selectedRevisionId, setSelectedRevisionId] = useState<string>("");
@@ -141,7 +149,7 @@ export function SopPairSection({ trainingId }: { trainingId: number }) {
   useEffect(() => {
     if (!taskSheetId) return;
     fetchRevisions();
-  }, [taskSheetId, fetchRevisions]);
+  }, [taskSheetId, fetchRevisions, revisionsToken]);
 
   // 4. Load trainers + the employee list for the picker.
   const fetchTrainers = useCallback(async () => {

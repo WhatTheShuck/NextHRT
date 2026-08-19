@@ -185,10 +185,15 @@ function TrainingForm({
               <RadioGroupItem value="External" id="external" />
               <Label htmlFor="external">External</Label>
             </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="SOP" id="sop" />
-              <Label htmlFor="sop">SOP</Label>
-            </div>
+            {/* SOPs are created from the SOPs list, which sets up both halves
+                and their content. The option only survives here for callers
+                already working in an SOP context (e.g. an employee's SOP tab). */}
+            {defaultCategory === "SOP" && (
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="SOP" id="sop" />
+                <Label htmlFor="sop">SOP</Label>
+              </div>
+            )}
           </RadioGroup>
         </div>
 

@@ -1,5 +1,29 @@
-const TASK_SHEET_SUFFIX = " - Task Sheet";
-const PRACTICAL_SUFFIX = " - Practical";
+export const TASK_SHEET_SUFFIX = " - Task Sheet";
+export const PRACTICAL_SUFFIX = " - Practical";
+
+/**
+ * The SOP's name as people say it, with whichever half-suffix the stored
+ * Training title carries stripped off. Titles without a suffix pass through.
+ */
+export function sopBaseTitle(title: string): string {
+  if (title.endsWith(TASK_SHEET_SUFFIX)) {
+    return title.slice(0, -TASK_SHEET_SUFFIX.length);
+  }
+  if (title.endsWith(PRACTICAL_SUFFIX)) {
+    return title.slice(0, -PRACTICAL_SUFFIX.length);
+  }
+  return title;
+}
+
+/** Stored title of the Task Sheet half. Idempotent on an already-suffixed title. */
+export function taskSheetTitle(baseTitle: string): string {
+  return sopBaseTitle(baseTitle) + TASK_SHEET_SUFFIX;
+}
+
+/** Stored title of the Practical half. Idempotent on an already-suffixed title. */
+export function practicalTitle(baseTitle: string): string {
+  return sopBaseTitle(baseTitle) + PRACTICAL_SUFFIX;
+}
 
 export interface SopTrainingLite {
   id: number;

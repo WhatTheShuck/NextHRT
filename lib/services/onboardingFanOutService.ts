@@ -2,13 +2,15 @@ import "server-only";
 import path from "path";
 import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
-import { mailService, type MailAttachment } from "@/lib/services/mailService";
+import { mailService } from "@/lib/services/mailService";
 import { emailTemplateService } from "@/lib/services/emailTemplateService";
 import { escapeHtml } from "@/lib/email-templates/tokens";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { onboardingService } from "@/lib/services/onboardingService";
 import { parseStoredAttachments } from "@/lib/services/onboardingConfigService";
 import { companyDetails } from "@/lib/data";
+import { formatDateInZone } from "@/lib/dates";
+import { buildCalendarInvite } from "@/lib/calendar-invite";
 import { FILE_UPLOAD_CONFIG, estimateEncodedSize } from "@/lib/file-config";
 import type { OnboardingProgramSelection } from "@/lib/services/onboardingService";
 
@@ -22,12 +24,11 @@ interface ManagerInfo {
   email: string | null;
 }
 
+// Start dates are date-only values stored as local-midnight instants, so they
+// must be read back in the app zone — the container runs as UTC and would
+// otherwise render the previous day. See lib/dates.ts.
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-AU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return formatDateInZone(date);
 }
 
 function displayName(
@@ -37,46 +38,6 @@ function displayName(
   legalLast: string,
 ) {
   return `${preferred ?? legal} ${preferredLast ?? legalLast}`;
-}
-
-// Returns an ICS calendar attachment for an all-day "free" event on startDate.
-// TRANSP:TRANSPARENT means it shows as "not busy" in the recipient's calendar.
-function buildCalendarInvite(
-  requestId: number,
-  startDate: Date,
-  employeeName: string,
-): MailAttachment {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const dateStr =
-    `${startDate.getFullYear()}${pad(startDate.getMonth() + 1)}${pad(startDate.getDate())}`;
-  const nextDay = new Date(startDate);
-  nextDay.setDate(nextDay.getDate() + 1);
-  const nextDateStr =
-    `${nextDay.getFullYear()}${pad(nextDay.getMonth() + 1)}${pad(nextDay.getDate())}`;
-  const now = new Date();
-  const dtstamp =
-    `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}` +
-    `T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
-
-  const ics = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//KSB//HRT//EN",
-    "METHOD:REQUEST",
-    "BEGIN:VEVENT",
-    `UID:onboarding-${requestId}@ksb.com`,
-    `DTSTAMP:${dtstamp}`,
-    `DTSTART;VALUE=DATE:${dateStr}`,
-    `DTEND;VALUE=DATE:${nextDateStr}`,
-    `SUMMARY:First day: ${employeeName}`,
-    `DESCRIPTION:New hire start date for ${employeeName}.`,
-    "STATUS:CONFIRMED",
-    "TRANSP:TRANSPARENT",
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].join("\r\n");
-
-  return { filename: "invite.ics", content: ics, contentType: "text/calendar" };
 }
 
 class OnboardingFanOutService {

@@ -1,5 +1,6 @@
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
 import { visibleItems, type QuizDocument, type QuizItem } from "@/lib/quiz/schema";
+import { formatDateInZone } from "@/lib/dates";
 
 // Answers are stored as { value, wasCorrect? }; wasCorrect is only present for
 // knowledge choice items (choices carrying a correct option).
@@ -148,7 +149,7 @@ export async function renderQuizResponsePdf(input: QuizPdfInput): Promise<Uint8A
   draw(safe(input.trainingTitle), TITLE_SIZE, bold);
   y -= LINE_GAP;
   draw(
-    `${safe(input.employeeName)}  |  ${safe(input.revisionLabel)}  |  Completed ${input.completedAt.toLocaleDateString()}`,
+    `${safe(input.employeeName)}  |  ${safe(input.revisionLabel)}  |  Completed ${formatDateInZone(input.completedAt)}`,
     META_SIZE,
     font,
     MUTED,
