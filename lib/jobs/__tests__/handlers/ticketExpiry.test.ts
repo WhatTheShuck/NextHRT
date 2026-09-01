@@ -40,6 +40,7 @@ vi.mock("@/lib/services/expiryNotificationRecipients", () => ({
   resolveExpiryRecipients,
 }));
 
+import { appSettingService } from "@/lib/services/appSettingService";
 import { ticketExpiryHandler } from "@/lib/jobs/handlers/ticketExpiry";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -309,5 +310,63 @@ describe("ticketExpiryHandler", () => {
     expect(where.ticket).toEqual({ isActive: true });
     expect(enqueue).not.toHaveBeenCalled();
     expect(result).toEqual({ warned: 0, expired: 0 });
+  });
+  it("case 13: unset milestones fall back to the 90/60/30 defaults", async () => {
+    vi.mocked(appSettingService.getSettings).mockResolvedValueOnce({});
+    const rec = {
+      id: 40, employeeId: 40, ticketId: 300,
+      expiryDate: new Date(Date.now() + 75 * DAY),
+      dateIssued: new Date(Date.now() - 290 * DAY),
+      expiryNotificationStage: null, ticket, ticketHolder: holder,
+    };
+    mockPrisma.ticketRecords.findMany
+      .mockResolvedValueOnce([rec])
+      .mockResolvedValueOnce([rec]);
+
+    const result = await ticketExpiryHandler({});
+
+    // 75 days out is inside 90 but outside 60 — the 90-day reminder applies.
+    expect(mockPrisma.ticketRecords.update).toHaveBeenCalledWith({
+      where: { id: 40 },
+      data: { expiryNotificationStage: "90" },
+    });
+    expect(result).toEqual({ warned: 1, expired: 0 });
+  });
+
+  it("case 14: the default horizon stops a year out from being considered", async () => {
+    vi.mocked(appSettingService.getSettings).mockResolvedValueOnce({});
+    mockPrisma.ticketRecords.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await ticketExpiryHandler({});
+
+    const where = mockPrisma.ticketRecords.findMany.mock.calls[0][0].where;
+    const cutoff: Date = where.expiryDate.lte;
+    // 90 days, not the old 365 — a ticket expiring in a year is out of scope.
+    expect(cutoff.getTime()).toBeLessThan(Date.now() + 91 * DAY);
+    expect(cutoff.getTime()).toBeGreaterThan(Date.now() + 89 * DAY);
+  });
+
+  it("case 15: a stage left over from the retired 365-day reminder still warns at 90", async () => {
+    vi.mocked(appSettingService.getSettings).mockResolvedValueOnce({});
+    const rec = {
+      id: 41, employeeId: 41, ticketId: 301,
+      expiryDate: new Date(Date.now() + 80 * DAY),
+      dateIssued: new Date(Date.now() - 285 * DAY),
+      expiryNotificationStage: "365", ticket, ticketHolder: holder,
+    };
+    mockPrisma.ticketRecords.findMany
+      .mockResolvedValueOnce([rec])
+      .mockResolvedValueOnce([rec]);
+
+    const result = await ticketExpiryHandler({});
+
+    expect(enqueue).toHaveBeenCalledWith("SEND_EMAIL", expect.objectContaining({ to: ["mgr@x"] }));
+    expect(mockPrisma.ticketRecords.update).toHaveBeenCalledWith({
+      where: { id: 41 },
+      data: { expiryNotificationStage: "90" },
+    });
+    expect(result).toEqual({ warned: 1, expired: 0 });
   });
 });

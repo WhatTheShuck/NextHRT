@@ -10,7 +10,10 @@ import {
 import { toCalendarDay } from "@/lib/dates";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_MILESTONES = [365, 180, 90, 30];
+// 90/60/30 days. A full year of notice was too far out to be actionable —
+// recipients ignored it and the reminder had lost its meaning by renewal time.
+// Override per-deployment via the `tickets.expiryReminderDays` setting.
+const DEFAULT_MILESTONES = [90, 60, 30];
 
 interface NotificationItem {
   employeeName: string;

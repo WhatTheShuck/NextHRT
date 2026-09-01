@@ -182,7 +182,7 @@ const SETTING_DEFAULTS: SettingDefault[] = [
   {
     key: "tickets.expiryReminderDays",
     envVar: "TICKET_EXPIRY_REMINDER_DAYS",
-    defaultValue: "365,180,90,30",
+    defaultValue: "90,60,30",
     description:
       "Comma-separated day milestones before a ticket's expiry at which to send a renewal-reminder email (one reminder per milestone). The largest value also caps how far ahead expiries are considered.",
   },
