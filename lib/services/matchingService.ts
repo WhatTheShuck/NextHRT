@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { appSettingService } from "./appSettingService";
+import { emailNamePart } from "@/lib/employee-email";
 
 export interface UserMatchCandidate {
   employee: {
@@ -153,8 +154,9 @@ function scoreEmail(
 
   let best = 0;
   for (const { first, last } of nameVariants(employee)) {
-    const firstMatches = capturedFirst === first.toLowerCase();
-    const lastMatches = capturedLast === last.toLowerCase();
+    // Multi-part names drop their spaces in the email ("Di Natale" → "dinatale")
+    const firstMatches = capturedFirst === emailNamePart(first);
+    const lastMatches = capturedLast === emailNamePart(last);
     if (firstMatches && lastMatches) return { score: 100 };
     if (firstMatches || lastMatches) best = Math.max(best, 50);
   }
