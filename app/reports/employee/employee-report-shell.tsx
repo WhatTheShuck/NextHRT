@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Archive } from "lucide-react";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, RowData } from "@/lib/table";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +11,7 @@ import { ExportButtons } from "@/components/ExportButtons";
 import { EmployeeCombobox } from "@/components/combobox/employee-combobox";
 import { EmployeeWithRelations } from "@/lib/types";
 
-interface EmployeeReportShellProps<T> {
+interface EmployeeReportShellProps<T extends RowData> {
   heading: string;
   /** Employees offered in the combobox, already filtered by the toggle. */
   employees: EmployeeWithRelations[];

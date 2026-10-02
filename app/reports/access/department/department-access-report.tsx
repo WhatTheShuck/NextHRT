@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef } from "@/lib/table";
 import { DataTable } from "@/components/table-component";
 import { ExportButtons } from "@/components/ExportButtons";
 

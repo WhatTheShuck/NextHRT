@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, FileText } from "lucide-react";
 import { exportToPDF, exportToExcel } from "@/lib/export-utils";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, RowData } from "@/lib/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface ExportButtonsProps<T> {
+interface ExportButtonsProps<T extends RowData> {
   data: T[];
   columns: ColumnDef<T, unknown>[];
   filename: string;

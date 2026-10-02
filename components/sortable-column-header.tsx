@@ -1,13 +1,13 @@
-import { Column } from "@tanstack/react-table";
+import { Column, RowData } from "@/lib/table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-interface Props<T> {
+interface Props<T extends RowData> {
   column: Column<T, unknown>;
   label: string;
 }
 
-export function SortableColumnHeader<T>({ column, label }: Props<T>) {
+export function SortableColumnHeader<T extends RowData>({ column, label }: Props<T>) {
   const sorted = column.getIsSorted();
   return (
     <Button

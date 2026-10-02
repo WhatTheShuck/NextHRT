@@ -1,6 +1,6 @@
 # syntax=docker.io/docker/dockerfile:1
 #update the image as required for new node versions. Latest LTS will be satisfactory
-FROM node:23-alpine AS base
+FROM node:24-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps

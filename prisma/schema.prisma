@@ -600,8 +600,10 @@ model Account {
   refreshToken         String?   @map("refresh_token")
   accessToken          String?   @map("access_token")
   accessTokenExpiresAt DateTime? @map("expires_at")
+  refreshTokenExpiresAt DateTime?
   scope                String?
   idToken              String?   @map("id_token")
+  password             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -619,6 +621,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ipAddress String?
   userAgent String?
+  impersonatedBy String? // better-auth admin plugin
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef } from "@/lib/table";
 import { Employee } from "@/generated/prisma_client/client";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,6 @@ export const columns: ColumnDef<Employee>[] = [
     meta: {
       headerText: "Start Date",
     },
-    sortingFn: "datetime",
+    sortFn: "datetime",
   },
 ];
