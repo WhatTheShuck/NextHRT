@@ -35,7 +35,7 @@ import {
   PendingLocation,
 } from "@/components/dialogs/location/add-location-dialog";
 import { AlertTriangle, CheckCircle2, Clock, Plus, X } from "lucide-react";
-import { companyDetails } from "@/lib/data";
+import { buildEmployeeEmail } from "@/lib/employee-email";
 import {
   hardwareItemOptions,
   type HardwareNumberOption,
@@ -187,7 +187,7 @@ export function OnboardingForm({
       : legalLastName;
   const computedEmail =
     emailFirstName && emailLastName
-      ? `${emailFirstName.toLowerCase()}.${emailLastName.toLowerCase()}@${companyDetails.domain_extension}`
+      ? buildEmployeeEmail(emailFirstName, emailLastName)
       : "";
 
   // Known hardware items (by name from catalogue seeds) — used for job-family

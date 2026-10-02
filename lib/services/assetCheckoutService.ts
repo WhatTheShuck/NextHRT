@@ -1,5 +1,4 @@
 import { appSettingService } from "@/lib/services/appSettingService";
-import { companyDetails } from "@/lib/data";
 
 /**
  * Client for the AssetCheckout platform's HRT integration API
@@ -84,18 +83,9 @@ export interface OffboardResult {
 
 const REQUEST_TIMEOUT_MS = 10000;
 
-/**
- * The email address an employee is known by in Snipe-IT. Same construction
- * the onboarding fan-out uses for the manager next-steps email: preferred
- * names over the company domain.
- */
-export function buildEmployeeEmail(
-  firstName: string,
-  lastName: string,
-): string {
-  const domain = companyDetails.domain_extension;
-  return `${firstName.trim().toLowerCase()}.${lastName.trim().toLowerCase()}@${domain}`;
-}
+// The email address an employee is known by in Snipe-IT — same construction
+// the onboarding fan-out uses. Re-exported so existing imports keep working.
+export { buildEmployeeEmail } from "@/lib/employee-email";
 
 export class AssetCheckoutService {
   private async getConfig(): Promise<{ baseUrl: string; apiKey: string }> {

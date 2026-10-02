@@ -8,7 +8,7 @@ import { escapeHtml } from "@/lib/email-templates/tokens";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { onboardingService } from "@/lib/services/onboardingService";
 import { parseStoredAttachments } from "@/lib/services/onboardingConfigService";
-import { companyDetails } from "@/lib/data";
+import { buildEmployeeEmail } from "@/lib/employee-email";
 import { formatDateInZone } from "@/lib/dates";
 import { buildCalendarInvite } from "@/lib/calendar-invite";
 import { FILE_UPLOAD_CONFIG, estimateEncodedSize } from "@/lib/file-config";
@@ -478,10 +478,9 @@ class OnboardingFanOutService {
         : Promise.resolve(null),
     ]);
 
-    const domain = companyDetails.domain_extension;
     const preferredFirst = request.preferredFirstName ?? request.legalFirstName;
     const preferredLast = request.preferredLastName ?? request.legalLastName;
-    const employeeEmail = `${preferredFirst.toLowerCase()}.${preferredLast.toLowerCase()}@${domain}`;
+    const employeeEmail = buildEmployeeEmail(preferredFirst, preferredLast);
 
     const vars = this.buildVars(request, employee, managerInfo, employeeEmail);
 
