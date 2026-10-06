@@ -117,6 +117,13 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
   "/forms/my-requests": { label: "My Requests", parent: "/forms" },
   "/approvals": { label: "Approvals" },
   "/admin/logs": { label: "Admin Logs" },
+  "/admin/email": { label: "Email" },
+  "/admin/email/templates": { label: "Templates", parent: "/admin/email" },
+  "/admin/email/log": { label: "Email Log", parent: "/admin/email" },
+  "/admin/email/attachments": {
+    label: "Missing Attachments",
+    parent: "/admin/email",
+  },
   "/admin/org-chart": { label: "Org Chart" },
   "/admin/onboarding": { label: "Onboarding Requests" },
   "/admin/onboarding/[id]": {

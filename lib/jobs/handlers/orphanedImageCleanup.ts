@@ -1,6 +1,19 @@
 import prisma from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
+import { parseStoredAttachments } from "@/lib/services/onboardingConfigService";
+
+// Only these uploads/ subfolders are scanned for unreferenced files — each one
+// has its references gathered below. Anything else under uploads/ (a folder a
+// future feature adds) is left alone rather than wiped for being "unknown".
+const MANAGED_DIRS = ["training", "tickets", "sop-documents", "compliance"];
+
+// Compliance attachments (employment forms / police check) are referenced from
+// AppSetting rows, not a table of their own.
+const COMPLIANCE_SETTING_KEYS = [
+  "onboarding.attachment.employmentForms",
+  "onboarding.attachment.policeCheck",
+];
 
 // Stored paths are relative to uploads/ (e.g. "training/<uuid>.jpg" — that is
 // what fileUploadService returns). The defensive replace also keeps any legacy
@@ -14,14 +27,19 @@ export async function orphanedImageCleanupHandler(
   let orphanedDbRecords = 0;
   let orphanedFiles = 0;
 
-  const [trainingImages, ticketImages, trainingRevisionDocs] = await Promise.all([
-    prisma.trainingImage.findMany({ select: { id: true, imagePath: true } }),
-    prisma.ticketImage.findMany({ select: { id: true, imagePath: true } }),
-    prisma.trainingRevision.findMany({
-      where: { documentPath: { not: null } },
-      select: { documentPath: true },
-    }),
-  ]);
+  const [trainingImages, ticketImages, trainingRevisionDocs, complianceSettings] =
+    await Promise.all([
+      prisma.trainingImage.findMany({ select: { id: true, imagePath: true } }),
+      prisma.ticketImage.findMany({ select: { id: true, imagePath: true } }),
+      prisma.trainingRevision.findMany({
+        where: { documentPath: { not: null } },
+        select: { documentPath: true },
+      }),
+      prisma.appSetting.findMany({
+        where: { key: { in: COMPLIANCE_SETTING_KEYS } },
+        select: { value: true },
+      }),
+    ]);
 
   // DB records whose file is missing on disk
   const missingTrainingImageIds: number[] = [];
@@ -61,6 +79,9 @@ export async function orphanedImageCleanupHandler(
       ...trainingRevisionDocs
         .filter((r): r is { documentPath: string } => r.documentPath !== null)
         .map((r) => resolveUpload(r.documentPath)),
+      ...complianceSettings.flatMap((s) =>
+        parseStoredAttachments(s.value).map((a) => resolveUpload(a.path)),
+      ),
     ]);
 
     const scanDir = (dir: string) => {
@@ -75,7 +96,10 @@ export async function orphanedImageCleanupHandler(
       }
     };
 
-    scanDir(uploadsDir);
+    for (const dir of MANAGED_DIRS) {
+      const fullDir = path.join(uploadsDir, dir);
+      if (fs.existsSync(fullDir)) scanDir(fullDir);
+    }
   }
 
   return { orphanedDbRecords, orphanedFiles };

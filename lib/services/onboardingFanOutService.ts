@@ -219,9 +219,12 @@ class OnboardingFanOutService {
     // Employment forms / police check → email manager with any stored attachments.
     if ((compliance.employmentFormsRequired || compliance.policeCheckRequired) && managerEmail) {
       const attachments: { filename: string; path: string }[] = [];
+      const complianceSlots: ("employmentForms" | "policeCheck")[] = [];
       let rawBytes = 0;
-      const collect = (settingKey: string) => {
-        for (const a of parseStoredAttachments(settings[settingKey])) {
+      const collect = (slot: "employmentForms" | "policeCheck") => {
+        const stored = parseStoredAttachments(settings[`onboarding.attachment.${slot}`]);
+        if (stored.length > 0) complianceSlots.push(slot);
+        for (const a of stored) {
           attachments.push({
             filename: a.name,
             path: path.join(process.cwd(), "uploads", a.path),
@@ -230,10 +233,10 @@ class OnboardingFanOutService {
         }
       };
       if (compliance.employmentFormsRequired) {
-        collect("onboarding.attachment.employmentForms");
+        collect("employmentForms");
       }
       if (compliance.policeCheckRequired) {
-        collect("onboarding.attachment.policeCheck");
+        collect("policeCheck");
       }
 
       // Defensive guard: uploads are size-checked, but legacy/zero-size entries
@@ -259,7 +262,9 @@ class OnboardingFanOutService {
           to: managerEmail,
           subject: rendered.subject,
           html,
-          ...(!oversized && attachments.length > 0 ? { attachments } : {}),
+          ...(!oversized && attachments.length > 0
+            ? { attachments, complianceSlots }
+            : {}),
         });
       }
     }

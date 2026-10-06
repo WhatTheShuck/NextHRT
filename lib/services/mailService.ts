@@ -21,6 +21,12 @@ export interface MailParams {
   bcc?: string | string[];
   replyTo?: string;
   attachments?: MailAttachment[];
+  /**
+   * Onboarding compliance slots whose stored files are in `attachments`. Not
+   * sent over SMTP — it lets an Admin resend a queued/failed email with the
+   * currently-uploaded files if the originals have gone missing.
+   */
+  complianceSlots?: ("employmentForms" | "policeCheck")[];
 }
 
 const DEFAULT_FROM = process.env.MAIL_FROM ?? '"HRT" <HRT@ksb.com>';

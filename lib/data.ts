@@ -30,6 +30,7 @@ import {
   AppWindow,
   Laptop,
   Inbox,
+  Paperclip,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -99,10 +100,10 @@ export const landingPageNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "user:impersonate",
   },
   {
-    title: "Email Templates",
-    description: "Edit the wording of automatic emails",
+    title: "Email",
+    description: "Templates, the sent email log, and delivery problems",
     icon: Mail,
-    href: "/admin/email-templates",
+    href: "/admin/email",
     minimumAllowedPermission: "user:impersonate",
   },
   {
@@ -321,6 +322,30 @@ export const reportsNavigationItems: NavigationItem[] = [
     description: "View access by location",
     icon: Eye,
     href: "/reports/access/location",
+    minimumAllowedPermission: "user:impersonate",
+  },
+];
+
+export const emailNavigationItems: NavigationItem[] = [
+  {
+    title: "Templates",
+    description: "Edit the wording of every automatic email, with preview and test send",
+    icon: FileText,
+    href: "/admin/email/templates",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Email Log",
+    description: "Every email the system has sent, queued, or failed to send",
+    icon: ScrollText,
+    href: "/admin/email/log",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Missing Attachments",
+    description: "Resend onboarding emails whose form attachments have gone missing",
+    icon: Paperclip,
+    href: "/admin/email/attachments",
     minimumAllowedPermission: "user:impersonate",
   },
 ];
