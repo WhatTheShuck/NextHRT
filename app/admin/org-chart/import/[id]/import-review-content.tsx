@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -110,6 +110,15 @@ function treeOrder(rows: WorkdayRow[]): WorkdayRow[] {
   return out;
 }
 
+function readSaved(key: string): { decisions: Record<string, Decision>; choices: Record<string, number> } {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(key) ?? "{}");
+    return { decisions: parsed.decisions ?? {}, choices: parsed.choices ?? {} };
+  } catch {
+    return { decisions: {}, choices: {} };
+  }
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 export function ImportReviewContent({ importId }: { importId: number }) {
@@ -133,6 +142,11 @@ export function ImportReviewContent({ importId }: { importId: number }) {
       .catch(() => setEmployees([]));
   }, []);
 
+  // Ticks and manager choices survive a refresh or code reload: kept per import in this tab's
+  // session storage and restored once the lines are known.
+  const storageKey = `workday-import-${importId}`;
+  const restored = useRef(false);
+
   // State is only set once the request settles, so this is safe to call from an effect.
   const fetchView = useCallback(
     () =>
@@ -143,11 +157,19 @@ export function ImportReviewContent({ importId }: { importId: number }) {
           setView(res.data);
           // Keep ticks for lines that still exist (ids are stable across recalculations).
           const ids = new Set(res.data.lines.map((l) => l.id));
-          setDecisions((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => ids.has(id))));
+          const keep = <T,>(entries: Record<string, T>) => Object.fromEntries(Object.entries(entries).filter(([id]) => ids.has(id)));
+          if (!restored.current) {
+            restored.current = true;
+            const saved = readSaved(storageKey);
+            setDecisions(keep(saved.decisions));
+            setChoices(keep(saved.choices));
+          } else {
+            setDecisions((prev) => keep(prev));
+          }
         })
         .catch((err) => setError(errorMessage(err, "Failed to load the import.")))
         .finally(() => setLoading(false)),
-    [importId],
+    [importId, storageKey],
   );
   const load = useCallback(() => {
     setLoading(true);
@@ -157,6 +179,15 @@ export function ImportReviewContent({ importId }: { importId: number }) {
   useEffect(() => {
     fetchView();
   }, [fetchView]);
+
+  useEffect(() => {
+    if (!restored.current) return;
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify({ decisions, choices }));
+    } catch {
+      // Storage unavailable (private mode, quota): ticks just won't survive a refresh.
+    }
+  }, [storageKey, decisions, choices]);
 
   const rowsByUid = useMemo(() => new Map((view?.rows ?? []).map((r) => [r.uid, r])), [view]);
 
@@ -212,6 +243,27 @@ export function ImportReviewContent({ importId }: { importId: number }) {
   const crossed = Object.entries(decisions).filter(([, d]) => d === "cross").map(([id]) => id);
   const linesById = useMemo(() => new Map((view?.lines ?? []).map((l) => [l.id, l])), [view]);
   const needsChoice = ticked.filter((id) => linesById.get(id)?.options && choices[id] === undefined);
+
+  // Take the reviewer straight to a line that's holding up Apply, even if a filter or search
+  // is hiding it. Repeated clicks step through them.
+  const [jumpIndex, setJumpIndex] = useState(0);
+  const showNextNeedingChoice = () => {
+    if (needsChoice.length === 0) return;
+    const id = needsChoice[jumpIndex % needsChoice.length];
+    setJumpIndex((i) => i + 1);
+    const hidden = !visibleGroups.some((g) => g.lines.some((l) => l.id === id));
+    if (hidden) {
+      setFilter("all");
+      setSearch("");
+    }
+    // Wait for the (possibly re-filtered) list to render before scrolling.
+    setTimeout(() => {
+      const row = document.querySelector<HTMLElement>(`[data-line-id="${CSS.escape(id)}"]`);
+      if (!row) return;
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+      row.querySelector<HTMLElement>('[role="combobox"]')?.focus({ preventScroll: true });
+    }, hidden ? 100 : 0);
+  };
 
   const decide = (ids: string[], decision: Decision | null) =>
     setDecisions((prev) => {
@@ -440,7 +492,15 @@ export function ImportReviewContent({ importId }: { importId: number }) {
               <span className="font-semibold">{ticked.length}</span> ticked to apply ·{" "}
               <span className="font-semibold">{crossed.length}</span> crossed for this import
               {needsChoice.length > 0 && (
-                <span className="text-amber-600 ml-2">· {needsChoice.length} still need a manager chosen</span>
+                <button
+                  type="button"
+                  onClick={showNextNeedingChoice}
+                  className="ml-2 inline-flex items-center gap-1 text-amber-600 underline underline-offset-2 hover:text-amber-700"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {needsChoice.length} still {needsChoice.length === 1 ? "needs" : "need"} a manager chosen: show me
+                  {needsChoice.length > 1 ? " (next)" : ""}
+                </button>
               )}
             </p>
             <div className="flex gap-2">
@@ -620,11 +680,17 @@ function LineRow({
   onChooseOther: () => void;
 }) {
   const flag = isFlag(line.field);
-  const tone =
-    decision === "tick" ? "bg-green-50 dark:bg-green-950/30" : decision === "cross" ? "bg-muted/40 opacity-70" : "";
+  const needsManager = decision === "tick" && !!line.options && choice === undefined;
+  const tone = needsManager
+    ? "bg-amber-50 dark:bg-amber-950/30 ring-2 ring-inset ring-amber-400"
+    : decision === "tick"
+      ? "bg-green-50 dark:bg-green-950/30"
+      : decision === "cross"
+        ? "bg-muted/40 opacity-70"
+        : "";
 
   return (
-    <div className={`flex flex-col gap-2 p-3 sm:flex-row sm:items-start ${tone}`}>
+    <div data-line-id={line.id} className={`flex flex-col gap-2 p-3 sm:flex-row sm:items-start scroll-mt-24 ${tone}`}>
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={flag ? "outline" : "secondary"} className="text-xs">
@@ -652,7 +718,7 @@ function LineRow({
             <span className="text-muted-foreground">{line.current}</span>
             <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
             <Select value={choice !== undefined ? String(choice) : undefined} onValueChange={(v) => onChoose(Number(v))}>
-              <SelectTrigger className="h-8 w-[240px]">
+              <SelectTrigger className={`h-8 w-[240px] ${needsManager ? "border-amber-500" : ""}`}>
                 <SelectValue placeholder="Choose a manager" />
               </SelectTrigger>
               <SelectContent>
@@ -663,6 +729,7 @@ function LineRow({
                 ))}
               </SelectContent>
             </Select>
+            {needsManager && <span className="text-xs text-amber-600">Ticked: choose a manager so it can be applied.</span>}
           </div>
         )}
 
