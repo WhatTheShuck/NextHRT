@@ -106,6 +106,22 @@ Replace `localhost:3000` with your domain for production deployments. The app ne
 
 Uploaded images and PDFs are stored in an `uploads/` directory at the project root (gitignored). In production you'll want to mount a persistent volume or swap out the file storage to something like S3.
 
+## Running against a copy of prod data
+
+A prod snapshot carries real integration settings (the Snipe/AssetCheckout URL is the
+`onboarding.hardwareEndpoint` app setting, stored in the database) and real queued jobs.
+Before running locally against one:
+
+```bash
+cp /path/to/prod.db prisma/dev.db        # prisma/dev.db is gitignored; never use another name in the repo
+HRT_DISABLE_JOBS=true ASSET_CHECKOUT_API_KEY= pnpm dev
+```
+
+`HRT_DISABLE_JOBS=true` stops the background job runner and scheduler, so queued emails,
+Snipe asset check-ins and nightly sweeps never execute. Don't copy a locally used snapshot
+back over prod: it picks up dev accounts and local job state. Move decisions across with
+the Workday import's export/replay instead.
+
 ## Resetting the demo database
 
 ```bash
