@@ -22,6 +22,7 @@ export type LineField =
   | "preferredName"
   | "department"
   | "delegatedAccess"
+  | "staleDelegatedAccess"
   | "externalReportsTo"
   | "externalManagerLeft"
   | "notInHrt"
@@ -41,7 +42,8 @@ export type LineChange =
       scopeManagerEmployeeId: number;
       departmentId: number | null;
       source: "WorkdayStructural" | "WorkdayTitle";
-    };
+    }
+  | { kind: "removeDelegatedAccess"; grantId: number; granteeEmployeeId: number };
 
 export interface LineNote {
   level: "info" | "warning";
@@ -106,7 +108,12 @@ export interface SuggestInput {
   employees: SuggestEmployee[];
   departments: { id: number; name: string; parentDepartmentId: number | null }[];
   ignoreRules: { subjectKey: string; field: string; value: string }[];
-  existingGrants: { granteeEmployeeId: number; scopeManagerEmployeeId: number; departmentId: number | null }[];
+  existingGrants: {
+    id: number;
+    granteeEmployeeId: number;
+    scopeManagerEmployeeId: number;
+    departmentId: number | null;
+  }[];
   /** employeeId → the manager named on the onboarding request that created them (§7.10). */
   onboardingManagers: Map<number, number>;
   /** departmentId → employee ids of users who manage that department today (§7.10). */
@@ -384,6 +391,44 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
         change: { kind: "reportsTo", employeeId: e.id, reportsToId: options.length === 1 ? options[0] : null },
       });
     }
+  }
+
+  // §8.3 Grants left behind: the grantee or the manager they act for has gone, or that manager
+  // no longer has anyone under them. Grants are never removed automatically; this offers it.
+  const activeReports = new Map<number, number>();
+  for (const e of input.employees) {
+    if (e.isActive && e.reportsToId !== null) activeReports.set(e.reportsToId, (activeReports.get(e.reportsToId) ?? 0) + 1);
+  }
+  const gone = (id: number) => !empById.get(id)?.isActive || missing.has(id);
+  for (const g of input.existingGrants) {
+    const grantee = empById.get(g.granteeEmployeeId);
+    if (!grantee) continue;
+    const scopeName = nameOf(empById, g.scopeManagerEmployeeId);
+    let reason: string | null = null;
+    if (gone(g.granteeEmployeeId)) {
+      reason = grantee.isActive
+        ? `${displayName(grantee)} isn't in this Workday export, but still acts at ${scopeName}'s level.`
+        : `${displayName(grantee)} is inactive, but still has a grant to act at ${scopeName}'s level.`;
+    } else if (gone(g.scopeManagerEmployeeId)) {
+      reason = `Acts at ${scopeName}'s level, but ${scopeName} has left. Remove it, and add a grant for whoever now runs that team (a suggestion appears below if one fits).`;
+    } else if (!activeReports.get(g.scopeManagerEmployeeId)) {
+      reason = `Acts at ${scopeName}'s level, but nobody reports to ${scopeName} any more, so it covers no one.`;
+    }
+    if (!reason) continue;
+    add({
+      subjectKey: `emp:${grantee.id}`,
+      field: "staleDelegatedAccess",
+      value: String(g.id),
+      employeeId: grantee.id,
+      workdayUid: null,
+      workdayName: null,
+      current: g.departmentId === null
+        ? `Acts at ${scopeName}'s level`
+        : `Acts at ${scopeName}'s level, ${deptName.get(g.departmentId) ?? "one department"} only`,
+      proposed: "Remove the grant",
+      reason,
+      change: { kind: "removeDelegatedAccess", grantId: g.id, granteeEmployeeId: grantee.id },
+    });
   }
 
   // ── Ignore rules ────────────────────────────────────────────────────────────────

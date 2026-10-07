@@ -26,6 +26,7 @@ const LINE_FIELDS: LineField[] = [
   "preferredName",
   "department",
   "delegatedAccess",
+  "staleDelegatedAccess",
   "externalReportsTo",
   "externalManagerLeft",
   "notInHrt",
@@ -179,7 +180,7 @@ class WorkdayImportService {
       prisma.workdayLink.findMany({ select: { workdayNameKey: true, employeeId: true } }),
       prisma.workdayIgnoreRule.findMany({ select: { subjectKey: true, field: true, value: true } }),
       prisma.delegatedAccess.findMany({
-        select: { granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true },
+        select: { id: true, granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true },
       }),
       prisma.onboardingRequest.findMany({
         where: { status: "Approved", createdEmployeeId: { not: null }, managerEmployeeId: { not: null } },
@@ -403,6 +404,8 @@ class WorkdayImportService {
           return empName.get(value) ?? `#${value}`;
         case "department":
           return deptName.get(value) ?? `#${value}`;
+        case "staleDelegatedAccess":
+          return `Grant #${value}`;
         case "preferredName":
           return value.replace("|", " ");
         case "delegatedAccess": {
@@ -470,7 +473,14 @@ class WorkdayImportService {
       const e = empById.get(eid);
       return e ? displayName(e) : `#${eid}`;
     };
-    const order: LineChange["kind"][] = ["preferredName", "title", "reportsTo", "department", "delegatedAccess"];
+    const order: LineChange["kind"][] = [
+      "preferredName",
+      "title",
+      "reportsTo",
+      "department",
+      "removeDelegatedAccess",
+      "delegatedAccess",
+    ];
     changes.sort((a, b) => order.indexOf(a.change.kind) - order.indexOf(b.change.kind));
 
     const applied: AppliedChange[] = [];
@@ -486,6 +496,20 @@ class WorkdayImportService {
       const managers = toManagerMap(employees.map((e) => ({ id: e.id, reportsToId: e.reportsToId })));
 
       for (const { line, change } of changes) {
+        if (change.kind === "removeDelegatedAccess") {
+          const removed = await deleteGrantInTx(tx, change.grantId, userId);
+          if (removed) {
+            applied.push({
+              lineId: line.id,
+              field: line.field,
+              employeeId: change.granteeEmployeeId,
+              employeeName: nameOf(change.granteeEmployeeId) ?? "",
+              from: line.current,
+              to: null,
+            });
+          }
+          continue;
+        }
         if (change.kind === "delegatedAccess") {
           const grant = await createGrantInTx(tx, {
             granteeEmployeeId: change.granteeEmployeeId,
@@ -611,6 +635,23 @@ export async function createGrantInTx(
     },
   });
   return created;
+}
+
+/** Delete a delegated-access grant inside a transaction, writing History. Null if already gone. */
+export async function deleteGrantInTx(tx: Prisma.TransactionClient, grantId: number, userId: string) {
+  const existing = await tx.delegatedAccess.findUnique({ where: { id: grantId } });
+  if (!existing) return null;
+  await tx.delegatedAccess.delete({ where: { id: grantId } });
+  await tx.history.create({
+    data: {
+      tableName: "DelegatedAccess",
+      recordId: String(grantId),
+      action: "DELETE",
+      oldValues: JSON.stringify(existing),
+      userId,
+    },
+  });
+  return existing;
 }
 
 async function userNames(ids: string[]): Promise<Map<string, string>> {

@@ -209,7 +209,7 @@ describe("buildSuggestions: delegated access", () => {
     const asAdmin = employees.map((e) => (e.id === 5 ? { ...e, userRole: "Admin" } : e));
     expect(fields(buildSuggestions(input(rows, asAdmin, link)).lines, "delegatedAccess")).toEqual([]);
     const granted = input(rows, employees, link, {
-      existingGrants: [{ granteeEmployeeId: 5, scopeManagerEmployeeId: 4, departmentId: null }],
+      existingGrants: [{ id: 1, granteeEmployeeId: 5, scopeManagerEmployeeId: 4, departmentId: null }],
     });
     expect(fields(buildSuggestions(granted).lines, "delegatedAccess")).toEqual([]);
   });
@@ -290,6 +290,40 @@ describe("buildSuggestions: flags and external staff", () => {
       ], { r: 1 }),
     );
     expect(fields(lines, "externalManagerLeft").map((l) => l.employeeId)).toEqual([3]);
+  });
+});
+
+describe("buildSuggestions: delegated access left behind", () => {
+  // Marcos → Joshua (has left) ; Marcos → Sam → techs ; Carolyn acts at Joshua's level
+  const rows = [row("ma", "Marcos Tilly", null), row("sa", "Sam New", "ma"), row("ca", "Carolyn Molony", "ma"), row("t1", "Craig Whelan", "sa")];
+  const base = [
+    emp(1, "Marcos Tilly"),
+    emp(2, "Joshua Noakes"),
+    emp(3, "Sam New", { reportsToId: 1 }),
+    emp(4, "Carolyn Molony", { reportsToId: 1 }),
+    emp(5, "Craig Whelan", { reportsToId: 3 }),
+  ];
+  const link = { ma: 1, sa: 3, ca: 4, t1: 5 };
+  const grant = { id: 9, granteeEmployeeId: 4, scopeManagerEmployeeId: 2, departmentId: null };
+  const stale = (employees: SuggestEmployee[], g = grant) =>
+    fields(buildSuggestions(input(rows, employees, link, { existingGrants: [g] })).lines, "staleDelegatedAccess");
+
+  it("offers to remove a grant whose manager has left", () => {
+    const [line] = stale(base); // Joshua is internal and missing from Workday
+    expect(line.change).toEqual({ kind: "removeDelegatedAccess", grantId: 9, granteeEmployeeId: 4 });
+    expect(line.reason).toMatch(/Joshua Noakes has left/);
+  });
+
+  it("offers to remove a grant whose holder has left", () => {
+    const employees = base.map((e) => (e.id === 4 ? { ...e, isActive: false } : e));
+    const onSam = { ...grant, scopeManagerEmployeeId: 3 };
+    expect(stale(employees, onSam)[0].reason).toMatch(/Carolyn Molony is inactive/);
+  });
+
+  it("offers to remove a grant that covers nobody, and leaves a working grant alone", () => {
+    const onCarolynsPeer = { ...grant, granteeEmployeeId: 5, scopeManagerEmployeeId: 4 }; // Carolyn has no reports
+    expect(stale(base, onCarolynsPeer)[0].reason).toMatch(/nobody reports to Carolyn Molony/);
+    expect(stale(base, { ...grant, scopeManagerEmployeeId: 3 })).toEqual([]); // Sam has Craig
   });
 });
 

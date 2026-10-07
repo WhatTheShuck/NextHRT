@@ -8,6 +8,7 @@ export const FIELD_LABELS: Record<LineField, string> = {
   preferredName: "Preferred name",
   department: "Department",
   delegatedAccess: "Delegated access",
+  staleDelegatedAccess: "Delegated access left behind",
   externalReportsTo: "Reports to (external)",
   externalManagerLeft: "Manager has left",
   notInHrt: "Not in HRT",
@@ -28,6 +29,7 @@ export const FIELD_ORDER: LineField[] = [
   "externalReportsTo",
   "department",
   "delegatedAccess",
+  "staleDelegatedAccess",
   "externalManagerLeft",
   "missingFromWorkday",
 ];

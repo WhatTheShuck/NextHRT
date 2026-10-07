@@ -421,6 +421,23 @@ dropping it (§9.4).
 Like every other line, delegated-access suggestions are ✓ / ✗ / ignore forever. Saying no
 costs nothing; the point is to save clicks.
 
+### 8.3 Grants left behind — DECIDED
+Grants are never removed automatically. Employees are deactivated rather than deleted, so
+`Cascade` never fires and a grant can outlive the situation it was made for. For example,
+Carolyn acts at Joshua's level; Joshua leaves and his team moves to Sam. Carolyn's grant
+still points at Joshua, who now has no one under him, so she silently loses the team she
+coordinates.
+
+Each import shows a **"Delegated access left behind"** line (field `staleDelegatedAccess`,
+value = grant id) when:
+- the grantee is inactive or missing from Workday;
+- the manager they act for is inactive or missing from Workday; or
+- nobody actively reports to that manager any more, so the grant covers no one.
+
+The line is ✓ / ✗ / ignore forever like any other, and starts unticked. ✓ removes the grant
+(writing a `DelegatedAccess` `DELETE` History row). Replacing it isn't automatic: when the
+grantee fits Signal A or B for the new manager, that normal suggestion appears alongside.
+
 ## 9. Line-manager authority (Phase 2)
 
 ### 9.1 Scope
@@ -774,7 +791,7 @@ Earlier decisions:
 | Q1 | **DECIDED.** Mailboxes follow the preferred name. Name lines are never blocked; a mismatched login email is a data-quality warning (§7.3) | — |
 | Q2 | **DECIDED.** Yes, a delegate at the one-up level is eligible. Delegates are shown "approving on behalf of X" (§9.2) | — |
 | Q3 | **DECIDED.** 30 days (§7.8) | — |
-| Q4 | **OPEN.** A delegated grant whose grantee or scope manager has left (inactive, or missing from Workday) keeps its row. Flag it on the import like §7.9 (no automatic removal)? | Flag only |
+| Q4 | **DECIDED.** Grants left behind are flagged on each import as an unticked "remove the grant" line, never removed automatically (§8.3) | — |
 
 ## 15. Review (2026-10-07)
 
