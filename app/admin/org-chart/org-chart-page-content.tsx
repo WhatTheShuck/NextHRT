@@ -20,6 +20,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { MoveDepartmentDialog } from "@/components/dialogs/employee/move-department-dialog";
+import Link from "next/link";
+import { ReportingLinesView } from "./reporting-lines-view";
 import {
   RefreshCw,
   Users,
@@ -34,6 +36,8 @@ import {
   UserCheck,
   Search,
   FolderInput,
+  FileSpreadsheet,
+  Network,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -462,6 +466,7 @@ export function OrgChartPageContent() {
   const [search, setSearch] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
   const [issuesOnly, setIssuesOnly] = useState(false);
+  const [mode, setMode] = useState<"departments" | "lines">("departments");
 
   const fetchData = () => {
     setLoading(true);
@@ -522,14 +527,38 @@ export function OrgChartPageContent() {
               Department hierarchy and employee account linkage
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/org-chart/import">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Workday import
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* View switch */}
+        <div className="inline-flex rounded-md border p-0.5">
+          <Button
+            variant={mode === "departments" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setMode("departments")}
+          >
+            <Building2 className="h-4 w-4 mr-2" />
+            Departments
+          </Button>
+          <Button variant={mode === "lines" ? "secondary" : "ghost"} size="sm" onClick={() => setMode("lines")}>
+            <Network className="h-4 w-4 mr-2" />
+            Reporting lines
           </Button>
         </div>
 
         {/* Stats */}
-        {data && (
+        {mode === "departments" && data && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard
               label="Departments"
@@ -567,16 +596,24 @@ export function OrgChartPageContent() {
               className="pl-8"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Switch id="active-only" checked={activeOnly} onCheckedChange={setActiveOnly} />
-            <Label htmlFor="active-only" className="cursor-pointer text-sm">Active only</Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch id="issues-only" checked={issuesOnly} onCheckedChange={setIssuesOnly} />
-            <Label htmlFor="issues-only" className="cursor-pointer text-sm">Issues only</Label>
-          </div>
+          {mode === "departments" && (
+            <>
+              <div className="flex items-center gap-2">
+                <Switch id="active-only" checked={activeOnly} onCheckedChange={setActiveOnly} />
+                <Label htmlFor="active-only" className="cursor-pointer text-sm">Active only</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch id="issues-only" checked={issuesOnly} onCheckedChange={setIssuesOnly} />
+                <Label htmlFor="issues-only" className="cursor-pointer text-sm">Issues only</Label>
+              </div>
+            </>
+          )}
         </div>
 
+        {mode === "lines" && <ReportingLinesView search={search} />}
+
+        {mode === "departments" && (
+        <>
         {/* Error */}
         {error && (
           <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -672,6 +709,8 @@ export function OrgChartPageContent() {
               </div>
             </CardContent>
           </Card>
+        )}
+        </>
         )}
       </div>
     </OrgChartContext.Provider>

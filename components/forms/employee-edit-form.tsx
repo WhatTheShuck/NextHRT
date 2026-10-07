@@ -25,6 +25,17 @@ import {
 } from "@/generated/prisma_client/client";
 import { Textarea } from "@/components/ui/textarea";
 import { DateSelector } from "@/components/date-selector";
+import { GenericCombobox, type ComboboxItem } from "@/components/ui/generic-combobox";
+import { AxiosError } from "axios";
+
+interface ManagerOption {
+  id: number;
+  legalFirstName: string;
+  legalLastName: string;
+  preferredFirstName: string | null;
+  preferredLastName: string | null;
+  title: string;
+}
 
 interface EmployeeEditFormProps {
   onSuccess?: () => void;
@@ -51,11 +62,14 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const [status, setStatus] = useState<EmployeeStatus>("Permanent");
   const [isActive, setIsActive] = useState(true);
   const [jobFamilyId, setJobFamilyId] = useState("");
+  const [reportsToId, setReportsToId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Options data
   const [departments, setDepartments] = useState<Department[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [jobFamilies, setJobFamilies] = useState<JobFamily[]>([]);
+  const [managers, setManagers] = useState<ComboboxItem[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
 
   // Initialize form with employee data
@@ -75,6 +89,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       setStartDate(employee.startDate || new Date());
       setFinishDate(employee.finishDate || null);
       setJobFamilyId((employee as any).jobFamilyId?.toString() || "");
+      setReportsToId(employee.reportsToId ?? null);
     }
   }, [employee]);
 
@@ -83,15 +98,24 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
     const fetchOptions = async () => {
       try {
         setIsLoadingOptions(true);
-        const [deptResponse, locResponse, jobFamiliesRes] = await Promise.all([
+        const [deptResponse, locResponse, jobFamiliesRes, employeesRes] = await Promise.all([
           api.get<Department[]>("/api/departments?activeOnly=true"),
           api.get<Location[]>("/api/locations?isActive=true"),
           api.get<JobFamily[]>("/api/job-families?activeOnly=true"),
+          api.get<ManagerOption[]>("/api/employees?activeOnly=true"),
         ]);
 
         setDepartments(deptResponse.data);
         setLocations(locResponse.data);
         setJobFamilies(jobFamiliesRes.data);
+        setManagers(
+          employeesRes.data
+            .map((e) => {
+              const label = `${e.preferredFirstName || e.legalFirstName} ${e.preferredLastName || e.legalLastName}`;
+              return { id: e.id, label, value: `${label} ${e.id}`, subtitle: e.title };
+            })
+            .sort((a, b) => a.label.localeCompare(b.label)),
+        );
       } catch (error) {
         console.error("Error fetching options:", error);
       } finally {
@@ -107,6 +131,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
     const updateData = {
       legalFirstName,
@@ -124,6 +149,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       usi,
       isActive,
       jobFamilyId: jobFamilyId ? parseInt(jobFamilyId) : null,
+      reportsToId,
     };
 
     try {
@@ -134,6 +160,11 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       onSuccess?.();
     } catch (error) {
       console.error("Error updating employee:", error);
+      setError(
+        error instanceof AxiosError
+          ? (error.response?.data?.error ?? "Failed to save the employee.")
+          : "Failed to save the employee.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -293,6 +324,29 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="reportsTo">Reports To</Label>
+        <GenericCombobox
+          items={managers.filter((m) => m.id !== employee.id)}
+          selectedItem={managers.find((m) => m.id === reportsToId) ?? null}
+          onSelect={(item) => setReportsToId(item ? Number(item.id) : null)}
+          placeholder={
+            employee.reportsTo && employee.reportsTo.id === reportsToId
+              ? `${employee.reportsTo.preferredFirstName || employee.reportsTo.legalFirstName} ${employee.reportsTo.preferredLastName || employee.reportsTo.legalLastName}`
+              : "No manager"
+          }
+          searchPlaceholder="Search employees…"
+          showSubtitle
+          allowClear
+          clearLabel="No manager"
+          width="w-full"
+          popoverWidth="w-[--radix-popover-trigger-width]"
+        />
+        <p className="text-xs text-muted-foreground">
+          Kept up to date by the Workday import for internal staff. Set it here for external staff.
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="jobFamily">Job Family</Label>
         <Select value={jobFamilyId} onValueChange={(v) => setJobFamilyId(v === "none" ? "" : v)}>
           <SelectTrigger>
@@ -351,6 +405,7 @@ export function EmployeeEditForm({ onSuccess }: EmployeeEditFormProps) {
         />
       </div>
 
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? "Saving..." : "Save Changes"}
       </Button>

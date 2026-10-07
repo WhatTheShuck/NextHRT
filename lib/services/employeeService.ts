@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { toManagerMap, wouldCreateCycle } from "@/lib/org/reportingLine";
 import { UserRole, Prisma, EmployeeStatus } from "@/generated/prisma_client/client";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { auth } from "../auth";
@@ -287,6 +288,9 @@ export class EmployeeService {
         },
       },
       User: true,
+      reportsTo: {
+        select: { id: true, legalFirstName: true, legalLastName: true, preferredFirstName: true, preferredLastName: true },
+      },
     };
 
     if (includeExemptions) {
@@ -353,6 +357,7 @@ export class EmployeeService {
       notes?: string | null;
       usi?: string | null;
       isActive?: boolean;
+      reportsToId?: number | null;
     },
     userId: string,
   ) {
@@ -364,6 +369,7 @@ export class EmployeeService {
     if (!currentEmployee) {
       throw new Error("EMPLOYEE_NOT_FOUND");
     }
+    if (data.reportsToId !== undefined) await assertValidManager(employeeId, data.reportsToId);
 
     // Build update data object only with provided fields
     const updateData: Prisma.EmployeeUpdateInput = {};
@@ -378,6 +384,9 @@ export class EmployeeService {
     if (data.title !== undefined) updateData.title = data.title;
     if (data.usi !== undefined) updateData.usi = data.usi;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.reportsToId !== undefined) {
+      updateData.reportsTo = data.reportsToId ? { connect: { id: data.reportsToId } } : { disconnect: true };
+    }
 
     // Handle date fields
     if (data.startDate !== undefined) {
@@ -457,6 +466,7 @@ export class EmployeeService {
       status?: string;
       isActive?: boolean;
       jobFamilyId?: number | null;
+      reportsToId?: number | null;
     },
     userId: string,
   ) {
@@ -468,6 +478,7 @@ export class EmployeeService {
     if (!currentEmployee) {
       throw new Error("EMPLOYEE_NOT_FOUND");
     }
+    if (data.reportsToId !== undefined) await assertValidManager(employeeId, data.reportsToId);
 
     const updatedEmployee = await prisma.employee.update({
       where: { id: employeeId },
@@ -492,6 +503,9 @@ export class EmployeeService {
         employmentType: deriveEmploymentType((data.status ?? "Permanent") as EmployeeStatus),
         jobFamily: data.jobFamilyId !== undefined
           ? (data.jobFamilyId ? { connect: { id: data.jobFamilyId } } : { disconnect: true })
+          : undefined,
+        reportsTo: data.reportsToId !== undefined
+          ? (data.reportsToId ? { connect: { id: data.reportsToId } } : { disconnect: true })
           : undefined,
       },
     });
@@ -577,6 +591,17 @@ export class EmployeeService {
 
     return { message: "Employee deleted successfully" };
   }
+}
+
+/**
+ * Reject a manager that doesn't exist or would put the employee above themselves in the
+ * reporting line (docs/workday-org-import-spec.md §2: every reportsTo write is checked).
+ */
+async function assertValidManager(employeeId: number, reportsToId: number | null): Promise<void> {
+  if (reportsToId === null) return;
+  const nodes = await prisma.employee.findMany({ select: { id: true, reportsToId: true } });
+  if (!nodes.some((n) => n.id === reportsToId)) throw new Error("MANAGER_NOT_FOUND");
+  if (wouldCreateCycle(employeeId, reportsToId, toManagerMap(nodes))) throw new Error("REPORTING_CYCLE");
 }
 
 export const employeeService = new EmployeeService();

@@ -45,6 +45,17 @@ model Employee {
   sopTrainerAssignments    SopTrainerAssignment[]
   sopAssessments           SopAssessment[]
   quizResponses            QuizResponse[]
+  // Line manager. Workday-owned for internal staff, set by hand for external staff
+  // (docs/workday-org-import-spec.md §4). Every write goes through the cycle check.
+  reportsToId              Int?
+  reportsTo                Employee?                 @relation("ReportsTo", fields: [reportsToId], references: [id], onDelete: SetNull)
+  directReports            Employee[]                @relation("ReportsTo")
+  delegatedAccessGrants    DelegatedAccess[]         @relation("DelegateGrantee")
+  delegatedAccessScopes    DelegatedAccess[]         @relation("DelegateScopeManager")
+  workdayLinks             WorkdayLink[]
+  workdayIgnoreRules       WorkdayIgnoreRule[]
+
+  @@index([reportsToId])
 }
 
 enum EmployeeStatus {
@@ -253,6 +264,7 @@ model Department {
   managers             User[]                @relation("DepartmentManager")
   trainingRequirements TrainingRequirement[]
   ticketRequirements   TicketRequirement[]
+  delegatedAccessGrants DelegatedAccess[]
 }
 
 model Training {
@@ -829,4 +841,70 @@ model Apikey {
   @@index([referenceId])
   @@index([key])
   @@map("apikey")
+}
+
+// ─── Workday org import & delegated access (docs/workday-org-import-spec.md) ───
+
+// "Grantee acts at the level of scopeManager": scopeManager's sub-tree minus the grantee,
+// optionally narrowed to one exact department. Stored and shown in Phase 1; drives
+// authority from Phase 2.
+model DelegatedAccess {
+  id                     Int         @id @default(autoincrement())
+  granteeEmployeeId      Int
+  grantee                Employee    @relation("DelegateGrantee", fields: [granteeEmployeeId], references: [id], onDelete: Cascade)
+  scopeManagerEmployeeId Int
+  scopeManager           Employee    @relation("DelegateScopeManager", fields: [scopeManagerEmployeeId], references: [id], onDelete: Cascade)
+  departmentId           Int? // optional exact-department filter (children not included)
+  department             Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade) // never SetNull: that would silently widen the grant
+  source                 String // Manual | WorkdayStructural | WorkdayTitle | MigratedDeptGrant
+  createdByUserId        String?
+  createdAt              DateTime    @default(now())
+
+  // NULLs are distinct in SQLite, so unfiltered duplicates are checked in delegatedAccessService.
+  @@unique([granteeEmployeeId, scopeManagerEmployeeId, departmentId])
+  @@index([scopeManagerEmployeeId])
+}
+
+// Remembered identity: normalised Workday name -> HRT employee. employeeId null = confirmed
+// "not in HRT". The export has no stable Workday id, so this is the only identity there is.
+model WorkdayLink {
+  id                Int       @id @default(autoincrement())
+  workdayNameKey    String    @unique // lower-case, letters only
+  workdayName       String // as last seen
+  employeeId        Int?
+  employee          Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  confirmedByUserId String?
+  confirmedAt       DateTime  @default(now())
+}
+
+// One uploaded export. Only the parsed rows are stored; suggestion lines are always
+// recomputed from rows + current HRT data so nothing is applied from a stale value.
+model WorkdayImport {
+  id               Int      @id @default(autoincrement())
+  fileName         String
+  uploadedByUserId String
+  uploadedAt       DateTime @default(now())
+  rowCount         Int
+  rows             String // JSON: WorkdayRow[]
+  problems         String? // JSON: tree-validation problems
+  status           String // Open | Superseded | Discarded
+  runs             String   @default("[]") // JSON: one entry per Apply
+
+  @@index([status])
+}
+
+// "Ignore forever". Value-specific: a different Workday value brings the line back.
+model WorkdayIgnoreRule {
+  id              Int       @id @default(autoincrement())
+  subjectKey      String // "emp:<employeeId>" or "wd:<workdayNameKey>"
+  employeeId      Int?
+  employee        Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workdayName     String? // display only
+  field           String // see lib/workday/types.ts LineField
+  value           String    @default("") // normalised suggested value; "" for person-level flags. Never null
+  note            String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+
+  @@unique([subjectKey, field, value])
 }
