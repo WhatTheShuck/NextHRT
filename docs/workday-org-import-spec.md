@@ -754,6 +754,17 @@ Phase 1 is built. Where the build differs from or adds to the sections above:
   department or location change today, only on deactivation. That's an existing gap,
   separate from this feature.
 
+- **§13 step 11 is built as its own page**, `/admin/org-chart/switchover` ("Switch-over
+  readiness"), rather than inside the import review. It's a one-off migration that doesn't
+  depend on any uploaded file. It shows the §9.6 readiness list, any cycles, and what each
+  department-manager grant becomes (covered by the line, needs delegated access, already
+  migrated, blocked by people with no line, or ends because the holder isn't linked or is
+  inactive). Ticked suggestions become `MigratedDeptGrant` grants after a fresh re-check.
+  Scope = the lowest manager above everyone in the department, ∩ that exact department; a
+  level-0 grant becomes one grant per department it reaches today. Holders with no
+  reporting line of their own (often leavers, e.g. Gary Zeidler) are flagged and left out of
+  "Select all".
+
 Built files: `lib/workday/{types,parseOrgChart,matching,suggestions,labels}.ts`,
 `lib/org/reportingLine.ts`, `lib/services/workdayImportService.ts`,
 `app/api/workday-import/**`, `app/api/org-chart/reporting-lines`,

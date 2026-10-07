@@ -31,6 +31,7 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
   "/admin/org-chart/import": { label: "Workday Import", parent: "/admin/org-chart" },
   "/admin/org-chart/import/[id]": { label: "Review", parent: "/admin/org-chart/import" },
   "/admin/org-chart/import/rules": { label: "Ignore Rules", parent: "/admin/org-chart/import" },
+  "/admin/org-chart/switchover": { label: "Switch-over Readiness", parent: "/admin/org-chart" },
   "/admin/api-keys": { label: "API Keys", parent: "/admin/access" },
   "/admin/system": { label: "System" },
   "/admin/settings": { label: "App Settings", parent: "/admin/system" },

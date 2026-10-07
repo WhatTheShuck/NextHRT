@@ -529,6 +529,12 @@ export function OrgChartPageContent() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/org-chart/switchover">
+                <ShieldAlert className="h-4 w-4 mr-2" />
+                Switch-over readiness
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
               <Link href="/admin/org-chart/import">
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
                 Workday import
