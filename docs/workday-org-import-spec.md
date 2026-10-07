@@ -783,6 +783,17 @@ Phase 1 is built. Where the build differs from or adds to the sections above:
     field by hand on prod since the snapshot. The decision was made against Workday, and
     prod is meant to be frozen until go-live.
 
+- **Go-live catch-up (checked against the 2026-10-07 prod snapshot).** Prod is behind main.
+  Beyond `pnpm prisma db push`, exactly one data script is outstanding:
+  `pnpm tsx scripts/migrate-microsoft-account-ids.ts --apply`. All 55 Microsoft accounts
+  still store `sub`, and Better Auth 1.7 on main matches `oid`, so **nobody can sign in with
+  Microsoft until it runs**. The other one-off scripts are already done on prod:
+  `backfill-ticket-expiry` (0 left), `backfill-sop-partners` (0 to link),
+  `seed-it-induction-quiz` (present), `migrate-training-images` (done).
+  `migrate-training-revisions` still lists 32 clusters, but every edition is inactive and
+  every parent exists. It's re-detecting the leftovers of the run that already happened;
+  don't re-run it.
+
 Built files: `lib/workday/{types,parseOrgChart,matching,suggestions,labels}.ts`,
 `lib/org/reportingLine.ts`, `lib/services/workdayImportService.ts`,
 `app/api/workday-import/**`, `app/api/org-chart/reporting-lines`,
