@@ -74,6 +74,77 @@ describe("approvalService.recordDecision", () => {
     mockPrisma.user.findUnique.mockResolvedValue({ id: "user-1", employeeId: 99 }); // not nominated
     mockPrisma.approvalAction.create.mockResolvedValue({});
     mockPrisma.approvalRequest.update.mockResolvedValue({});
+    // Default actor is an admin who is allowed to decide the request.
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: true } as any);
+    mockPrisma.approvalRequest.count.mockResolvedValue(1);
+  });
+
+  const manager = (overrides: Record<string, unknown> = {}) => ({
+    id: "user-1",
+    employeeId: 99,
+    role: "DepartmentManager",
+    canManageChildrenDepartments: false,
+    managedDepartments: [{ id: 5, childDepartments: [] }],
+    ...overrides,
+  });
+
+  it("rejects a user with no approval access", async () => {
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: false } as any);
+    mockPrisma.user.findUnique.mockResolvedValue(manager({ role: "User", managedDepartments: [] }));
+
+    await expect(
+      approvalService.recordDecision({ requestId: 1, userId: "user-1", decision: "Approved", comment: "x" }),
+    ).rejects.toThrow("NOT_AUTHORISED");
+    expect(mockPrisma.approvalAction.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a manager when the request is outside what they can decide", async () => {
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: false } as any);
+    mockPrisma.user.findUnique.mockResolvedValue(manager());
+    mockPrisma.approvalRequest.count.mockResolvedValue(0);
+
+    await expect(
+      approvalService.recordDecision({ requestId: 1, userId: "user-1", decision: "Approved", comment: "x" }),
+    ).rejects.toThrow("NOT_AUTHORISED");
+    expect(mockPrisma.approvalRequest.count).toHaveBeenCalledWith({
+      where: {
+        AND: [
+          { id: 1 },
+          {
+            status: "Pending",
+            OR: [
+              {
+                currentStage: "DepartmentManager",
+                trainingRequest: { employee: { departmentId: { in: [5] } } },
+              },
+            ],
+            NOT: { trainingRequest: { employeeId: 99 } },
+          },
+        ],
+      },
+    });
+    expect(mockPrisma.approvalAction.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects anyone deciding a request about themselves, admins included", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(manager({ role: "Admin", employeeId: 10 }));
+
+    await expect(
+      approvalService.recordDecision({ requestId: 1, userId: "user-1", decision: "Approved", comment: "x" }),
+    ).rejects.toThrow("SELF_APPROVAL");
+    expect(mockPrisma.approvalAction.create).not.toHaveBeenCalled();
+  });
+
+  it("lets a department manager decide a request in a department they manage", async () => {
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: false } as any);
+    mockPrisma.user.findUnique.mockResolvedValue(manager({ employeeId: 42 }));
+    mockPrisma.approvalRequest.findUnique
+      .mockResolvedValueOnce(baseRequest)
+      .mockResolvedValue({ ...baseRequest, actions: [], trainingRequest: null });
+
+    await approvalService.recordDecision({ requestId: 1, userId: "user-1", decision: "Approved" });
+
+    expect(mockPrisma.approvalAction.create).toHaveBeenCalled();
   });
 
   it("throws when onBehalfOf is true and no comment provided", async () => {

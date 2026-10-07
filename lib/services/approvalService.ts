@@ -10,6 +10,23 @@ import {
 
 const STAGE_ORDER: ApprovalStage[] = ["DepartmentManager", "HRManager", "Admin"];
 
+type ApproverUser = Prisma.UserGetPayload<{
+  include: { managedDepartments: { include: { childDepartments: true } } };
+}>;
+
+const pendingRequestInclude = {
+  actions: { include: { user: { select: { id: true, name: true } } } },
+  trainingRequest: {
+    include: {
+      employee: { select: { id: true, legalFirstName: true, legalLastName: true } },
+      training: { select: { id: true, title: true } },
+      trainingCourseRequest: { select: { id: true, name: true } },
+    },
+  },
+  nominatedApproverEmployee: { select: { id: true, legalFirstName: true, legalLastName: true } },
+  submittedByUser: { select: { id: true, name: true } },
+} satisfies Prisma.ApprovalRequestInclude;
+
 class ApprovalService {
   async createRequest(options: {
     requestType: ApprovalRequestType;
@@ -44,7 +61,24 @@ class ApprovalService {
     if (!request) throw new Error("REQUEST_NOT_FOUND");
     if (request.status !== "Pending") throw new Error("REQUEST_NOT_PENDING");
 
-    const actor = await prisma.user.findUnique({ where: { id: userId } });
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { managedDepartments: { include: { childDepartments: true } } },
+    });
+    if (!actor) throw new Error("NOT_AUTHORISED");
+
+    // Nobody decides a request about themselves, admins included.
+    if (actor.employeeId != null && actor.employeeId === request.trainingRequest?.employeeId) {
+      throw new Error("SELF_APPROVAL");
+    }
+
+    // Deciding is allowed on exactly what the approvals list shows this user.
+    const decidable = await this.decidableFilter(actor);
+    if (!decidable) throw new Error("NOT_AUTHORISED");
+    const allowed = await prisma.approvalRequest.count({
+      where: { AND: [{ id: requestId }, decidable] },
+    });
+    if (allowed === 0) throw new Error("NOT_AUTHORISED");
 
     // Compute onBehalfOf
     const onBehalfOf =
@@ -102,13 +136,12 @@ class ApprovalService {
     });
   }
 
-  async getPendingRequestsForUser(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { managedDepartments: { include: { childDepartments: true } } },
-    });
-    if (!user) return [];
-
+  /**
+   * The pending-request filter for what `user` may decide, or null when they have no approval
+   * access. Shared by the approvals list and `recordDecision`, so being able to see a request
+   * and being able to decide it can't drift apart.
+   */
+  private async decidableFilter(user: ApproverUser): Promise<Prisma.ApprovalRequestWhereInput | null> {
     const userRole = user.role ?? "User";
 
     const [canApproveAsHR, canAdminApprove] = await Promise.all([
@@ -120,25 +153,12 @@ class ApprovalService {
       }),
     ]);
 
-    // Admins (adminApprove) can see all pending requests regardless of stage or department.
-    if (canAdminApprove?.success) {
-      return prisma.approvalRequest.findMany({
-        where: { status: "Pending" },
-        include: {
-          actions: { include: { user: { select: { id: true, name: true } } } },
-          trainingRequest: {
-            include: {
-              employee: { select: { id: true, legalFirstName: true, legalLastName: true } },
-              training: { select: { id: true, title: true } },
-              trainingCourseRequest: { select: { id: true, name: true } },
-            },
-          },
-          nominatedApproverEmployee: { select: { id: true, legalFirstName: true, legalLastName: true } },
-          submittedByUser: { select: { id: true, name: true } },
-        },
-        orderBy: { createdAt: "asc" },
-      });
-    }
+    // Never offer a user a request about themselves.
+    const notOwn: Prisma.ApprovalRequestWhereInput =
+      user.employeeId != null ? { NOT: { trainingRequest: { employeeId: user.employeeId } } } : {};
+
+    // Admins (adminApprove) can act on all pending requests regardless of stage or department.
+    if (canAdminApprove?.success) return { status: "Pending", ...notOwn };
 
     const managedDeptIds = user.managedDepartments.map((d) => d.id);
     if (user.canManageChildrenDepartments) {
@@ -162,22 +182,24 @@ class ApprovalService {
     }
 
     // No matching clauses — user has no approval access.
-    if (orClauses.length === 0) return [];
+    if (orClauses.length === 0) return null;
+
+    return { status: "Pending", OR: orClauses, ...notOwn };
+  }
+
+  async getPendingRequestsForUser(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { managedDepartments: { include: { childDepartments: true } } },
+    });
+    if (!user) return [];
+
+    const where = await this.decidableFilter(user);
+    if (!where) return [];
 
     return prisma.approvalRequest.findMany({
-      where: { status: "Pending", OR: orClauses },
-      include: {
-        actions: { include: { user: { select: { id: true, name: true } } } },
-        trainingRequest: {
-          include: {
-            employee: { select: { id: true, legalFirstName: true, legalLastName: true } },
-            training: { select: { id: true, title: true } },
-            trainingCourseRequest: { select: { id: true, name: true } },
-          },
-        },
-        nominatedApproverEmployee: { select: { id: true, legalFirstName: true, legalLastName: true } },
-        submittedByUser: { select: { id: true, name: true } },
-      },
+      where,
+      include: pendingRequestInclude,
       orderBy: { createdAt: "asc" },
     });
   }

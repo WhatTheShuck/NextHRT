@@ -53,6 +53,10 @@ export async function POST(
       switch (error.message) {
         case "COMMENT_REQUIRED":
           return NextResponse.json({ error: "A comment is required for this action" }, { status: 400 });
+        case "NOT_AUTHORISED":
+          return NextResponse.json({ error: "You can't decide this request at its current stage" }, { status: 403 });
+        case "SELF_APPROVAL":
+          return NextResponse.json({ error: "You can't decide a request about yourself" }, { status: 403 });
         case "REQUEST_NOT_FOUND":
           return NextResponse.json({ error: "Request not found" }, { status: 404 });
         case "REQUEST_NOT_PENDING":
