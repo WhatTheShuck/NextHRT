@@ -65,46 +65,11 @@ export const landingPageNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "employee:viewSelf",
   },
   {
-    title: "Training Management",
-    description: "Add and manage training for multiple users",
-    icon: ClipboardList,
-    href: "/bulk-training",
-    minimumAllowedPermission: "user:impersonate", // Temp (xD) permission profile to only allow admins
-  },
-  {
-    title: "Dropdown Items",
-    description: "Edit and manage dropdown menu items",
-    icon: Settings,
-    href: "/admin/field-editor",
-    minimumAllowedPermission: "user:impersonate",
-  },
-  {
-    title: "User Permissions",
-    description: "Manage user roles and permissions",
-    icon: ShieldCheck,
-    href: "/admin/permissions",
-    minimumAllowedPermission: "user:impersonate",
-  },
-  {
     title: "Forms",
     description: "View and fill out forms",
     icon: ListCheck,
     href: "/forms",
     minimumAllowedPermission: "employee:viewSelf",
-  },
-  {
-    title: "App Settings",
-    description: "Configure application behaviour and matching rules",
-    icon: SlidersHorizontal,
-    href: "/admin/settings",
-    minimumAllowedPermission: "user:impersonate",
-  },
-  {
-    title: "Email",
-    description: "Templates, the sent email log, and delivery problems",
-    icon: Mail,
-    href: "/admin/email",
-    minimumAllowedPermission: "user:impersonate",
   },
   {
     title: "Access Check",
@@ -137,20 +102,6 @@ export const landingPageNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "employee:viewSelf",
   },
   {
-    title: "Quiz Results",
-    description: "Review IT induction questionnaire responses",
-    icon: ListCheck,
-    href: "/admin/quiz-results",
-    minimumAllowedPermission: "user:impersonate",
-  },
-  {
-    title: "Background Jobs",
-    description: "Monitor and manage background job processing",
-    icon: Cpu,
-    href: "/admin/jobs",
-    minimumAllowedPermission: "user:impersonate",
-  },
-  {
     title: "Approvals",
     description: "Review and action pending training requests",
     icon: CheckSquare,
@@ -172,24 +123,38 @@ export const landingPageNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "user:impersonate",
   },
   {
-    title: "Admin Logs",
-    description: "View system log messages",
-    icon: ScrollText,
-    href: "/admin/logs",
+    title: "Quiz Results",
+    description: "Review IT induction questionnaire responses",
+    icon: ListCheck,
+    href: "/admin/quiz-results",
     minimumAllowedPermission: "user:impersonate",
   },
   {
-    title: "Org Chart",
-    description: "Visualise department hierarchy and employee-user linkage",
-    icon: Network,
-    href: "/admin/org-chart",
+    title: "Dropdown Items",
+    description: "Edit and manage dropdown menu items",
+    icon: Settings,
+    href: "/admin/field-editor",
     minimumAllowedPermission: "user:impersonate",
   },
   {
-    title: "API Keys",
-    description: "Create and manage bearer tokens for external service access",
-    icon: KeyRound,
-    href: "/admin/api-keys",
+    title: "Email",
+    description: "Templates, the sent email log, and delivery problems",
+    icon: Mail,
+    href: "/admin/email",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Users & Access",
+    description: "Permissions, the org chart, and API keys",
+    icon: ShieldCheck,
+    href: "/admin/access",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "System",
+    description: "App settings, background jobs, and system logs",
+    icon: Cpu,
+    href: "/admin/system",
     minimumAllowedPermission: "user:impersonate",
   },
 ];
@@ -346,6 +311,54 @@ export const emailNavigationItems: NavigationItem[] = [
     description: "Resend onboarding emails whose form attachments have gone missing",
     icon: Paperclip,
     href: "/admin/email/attachments",
+    minimumAllowedPermission: "user:impersonate",
+  },
+];
+
+export const accessNavigationItems: NavigationItem[] = [
+  {
+    title: "User Permissions",
+    description: "Manage user roles and permissions",
+    icon: ShieldCheck,
+    href: "/admin/permissions",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Org Chart",
+    description: "Visualise department hierarchy and employee-user linkage",
+    icon: Network,
+    href: "/admin/org-chart",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "API Keys",
+    description: "Create and manage bearer tokens for external service access",
+    icon: KeyRound,
+    href: "/admin/api-keys",
+    minimumAllowedPermission: "user:impersonate",
+  },
+];
+
+export const systemNavigationItems: NavigationItem[] = [
+  {
+    title: "App Settings",
+    description: "Configure application behaviour and matching rules",
+    icon: SlidersHorizontal,
+    href: "/admin/settings",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Background Jobs",
+    description: "Monitor and manage background job processing",
+    icon: Cpu,
+    href: "/admin/jobs",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    title: "Admin Logs",
+    description: "View system log messages",
+    icon: ScrollText,
+    href: "/admin/logs",
     minimumAllowedPermission: "user:impersonate",
   },
 ];

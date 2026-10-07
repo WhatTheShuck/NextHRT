@@ -435,12 +435,6 @@ Seed the test database with a consistent fixture set before each run (a minimal 
 - **History tab**: changes made in other tabs appear as history entries in chronological order.
 - **User Link tab**: unlinked employee shows suggestion candidates (if any); click "Accept" on a suggestion → user linked.
 
-### Bulk Training
-
-- Navigate to `/bulk-training`; select multiple employees from the selector.
-- Choose a training type and date; submit → training records created; success message displayed.
-- Navigate to each selected employee's profile → new training record visible in Training tab.
-
 ### Reports (Admin role)
 
 - `/reports/employee/list` — table loads; export to Excel and PDF without error.

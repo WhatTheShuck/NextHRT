@@ -25,14 +25,18 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "Training",
     parent: "/admin/field-editor",
   },
-  "/admin/permissions": { label: "Permissions" },
+  "/admin/access": { label: "Users & Access" },
+  "/admin/permissions": { label: "Permissions", parent: "/admin/access" },
+  "/admin/org-chart": { label: "Org Chart", parent: "/admin/access" },
+  "/admin/api-keys": { label: "API Keys", parent: "/admin/access" },
+  "/admin/system": { label: "System" },
+  "/admin/settings": { label: "App Settings", parent: "/admin/system" },
+  "/admin/jobs": { label: "Background Jobs", parent: "/admin/system" },
+  "/admin/logs": { label: "Admin Logs", parent: "/admin/system" },
 
   // Employees
   "/employees": { label: "Employees" },
   "/employees/[id]": { label: "Employee Profile", parent: "/employees" },
-
-  // Bulk Training
-  "/bulk-training": { label: "Bulk Training" },
 
   // Profile
   "/profile": { label: "Profile" },
@@ -116,7 +120,6 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
   },
   "/forms/my-requests": { label: "My Requests", parent: "/forms" },
   "/approvals": { label: "Approvals" },
-  "/admin/logs": { label: "Admin Logs" },
   "/admin/email": { label: "Email" },
   "/admin/email/templates": { label: "Templates", parent: "/admin/email" },
   "/admin/email/log": { label: "Email Log", parent: "/admin/email" },
@@ -124,7 +127,6 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "Missing Attachments",
     parent: "/admin/email",
   },
-  "/admin/org-chart": { label: "Org Chart" },
   "/admin/onboarding": { label: "Onboarding Requests" },
   "/admin/onboarding/[id]": {
     label: "Request Detail",
