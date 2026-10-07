@@ -12,7 +12,14 @@ import {
   type LineField,
   type SuggestEmployee,
 } from "@/lib/workday/suggestions";
-import type { TreeProblem, WorkdayRow } from "@/lib/workday/types";
+import { normaliseText, type TreeProblem, type WorkdayRow } from "@/lib/workday/types";
+import { validateTree } from "@/lib/workday/parseOrgChart";
+import {
+  checkIdentity,
+  DECISION_BUNDLE_FORMAT,
+  type DecisionBundle,
+  type IdentityMismatch,
+} from "@/lib/workday/decisionBundle";
 import { enqueueRequirementsCacheInvalidate } from "./employeeRehire";
 
 /**
@@ -60,6 +67,8 @@ export interface AppliedChange {
   field: LineField;
   employeeId: number;
   employeeName: string;
+  /** The manager picked, for a line with several possible managers (needed to replay it). */
+  choice?: number;
   from: string | null;
   to: string | null;
 }
@@ -70,6 +79,31 @@ export interface ApplyRun {
   applied: AppliedChange[];
   crossed: string[];
   stale: string[];
+}
+
+export class ReplayMismatchError extends Error {
+  constructor(public readonly mismatches: IdentityMismatch[]) {
+    super("REPLAY_MISMATCH");
+  }
+}
+
+export interface SkippedLine {
+  lineId: string;
+  field: string;
+  employeeName: string | null;
+  /** What the line would have set, readable. */
+  value: string;
+  /** alreadyDone: HRT already says this (e.g. applied earlier). changed: HRT differs now; review it. */
+  status: "alreadyDone" | "changed";
+}
+
+export interface ReplayReport {
+  links: number;
+  ignoreRules: number;
+  runs: { fileName: string; at: string; applied: number; skipped: SkippedLine[]; error: string | null }[];
+  grantsCreated: number;
+  grantsSkipped: number;
+  importId: number | null;
 }
 
 export class ApplyCycleError extends Error {
@@ -90,7 +124,13 @@ export interface PersonSummary {
 
 class WorkdayImportService {
   async createImport(data: ArrayBuffer | Uint8Array, fileName: string, userId: string) {
-    const { rows, problems } = parseOrgChart(data);
+    const { rows } = parseOrgChart(data);
+    return this.createImportFromRows(rows, fileName, userId);
+  }
+
+  /** Start a session from already-parsed rows (an upload, or a replayed session). */
+  private async createImportFromRows(rows: WorkdayRow[], fileName: string, userId: string) {
+    const problems = validateTree(rows);
     return prisma.$transaction(async (tx) => {
       await tx.workdayImport.updateMany({ where: { status: "Open" }, data: { status: "Superseded" } });
       return tx.workdayImport.create({
@@ -465,6 +505,7 @@ class WorkdayImportService {
       }
       changes.push({ line, change });
     }
+    const chosen = (lineId: string) => (byId.get(lineId)?.options ? request.choices?.[lineId] : undefined);
 
     const empById = new Map(employees.map((e) => [e.id, e]));
     const deptName = new Map(departments.map((d) => [d.id, d.name]));
@@ -555,7 +596,15 @@ class WorkdayImportService {
           departmentMoves.push(e.id);
           [from, to] = [deptName.get(e.departmentId) ?? null, deptName.get(change.departmentId) ?? null];
         }
-        applied.push({ lineId: line.id, field: line.field, employeeId: e.id, employeeName: displayName(e), from, to });
+        applied.push({
+          lineId: line.id,
+          field: line.field,
+          employeeId: e.id,
+          employeeName: displayName(e),
+          choice: chosen(line.id),
+          from,
+          to,
+        });
       }
 
       // Only loops this apply would create; an existing hand-made loop shouldn't block every import.
@@ -599,6 +648,212 @@ class WorkdayImportService {
     const saved = await prisma.workdayImport.findUniqueOrThrow({ where: { id }, select: { runs: true } });
     const runs = JSON.parse(saved.runs) as ApplyRun[];
     return runs[runs.length - 1];
+  }
+
+  // ── Moving decisions between copies of HRT ──────────────────────────────────────
+
+  /**
+   * Explain replayed lines that weren't applied: already true here (nothing to do), or HRT has
+   * changed since the export (needs a look). Line ids are `subjectKey~field~value` (§7).
+   */
+  private async describeSkipped(lineIds: string[], choices: Record<string, number>): Promise<SkippedLine[]> {
+    if (lineIds.length === 0) return [];
+    const [employees, departments, grants] = await Promise.all([
+      prisma.employee.findMany({
+        select: {
+          id: true,
+          legalFirstName: true,
+          legalLastName: true,
+          preferredFirstName: true,
+          preferredLastName: true,
+          title: true,
+          departmentId: true,
+          reportsToId: true,
+        },
+      }),
+      prisma.department.findMany({ select: { id: true, name: true } }),
+      prisma.delegatedAccess.findMany({ select: { id: true, granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true } }),
+    ]);
+    const empById = new Map(employees.map((e) => [e.id, e]));
+    const deptName = new Map(departments.map((d) => [d.id, d.name]));
+    const nameOf = (id: number) => (empById.get(id) ? displayName(empById.get(id)!) : `Employee #${id}`);
+
+    return lineIds.map((lineId): SkippedLine => {
+      const [subjectKey, field, value = ""] = lineId.split("~");
+      const empId = subjectKey.startsWith("emp:") ? Number(subjectKey.slice(4)) : null;
+      const e = empId !== null ? empById.get(empId) : undefined;
+      let label = value;
+      let done = false;
+      switch (field) {
+        case "reportsTo":
+        case "externalReportsTo": {
+          const target = value === "none" ? null : value.startsWith("pick:") ? (choices[lineId] ?? NaN) : Number(value);
+          label = target === null ? "No manager" : Number.isNaN(target) ? "a chosen manager" : nameOf(target);
+          done = !!e && e.reportsToId === target;
+          break;
+        }
+        case "title":
+          done = !!e && normaliseText(e.title) === value;
+          break;
+        case "preferredName": {
+          const [first, last] = value.split("|");
+          label = `${first} ${last}`;
+          done =
+            !!e &&
+            normaliseText(e.preferredFirstName || e.legalFirstName) === first &&
+            normaliseText(e.preferredLastName || e.legalLastName) === last;
+          break;
+        }
+        case "department":
+          label = deptName.get(Number(value)) ?? `#${value}`;
+          done = !!e && e.departmentId === Number(value);
+          break;
+        case "delegatedAccess": {
+          const [manager, dept] = value.split(":");
+          label = `Acts at ${nameOf(Number(manager))}'s level${dept ? `, ${deptName.get(Number(dept)) ?? `#${dept}`} only` : ""}`;
+          done = grants.some(
+            (g) =>
+              g.granteeEmployeeId === empId &&
+              g.scopeManagerEmployeeId === Number(manager) &&
+              g.departmentId === (dept ? Number(dept) : null),
+          );
+          break;
+        }
+        case "staleDelegatedAccess":
+          label = `Remove grant #${value}`;
+          done = !grants.some((g) => g.id === Number(value));
+          break;
+      }
+      return {
+        lineId,
+        field,
+        employeeName: e ? displayName(e) : null,
+        value: label,
+        status: done ? "alreadyDone" : "changed",
+      };
+    });
+  }
+
+  /** Everything the review produced, for replaying on another copy (e.g. snapshot → prod). */
+  async exportDecisions(): Promise<DecisionBundle> {
+    const [employees, departments, links, rules, grants, imports] = await Promise.all([
+      prisma.employee.findMany({ select: { id: true, legalFirstName: true, legalLastName: true } }),
+      prisma.department.findMany({ select: { id: true, name: true } }),
+      prisma.workdayLink.findMany({ orderBy: { confirmedAt: "asc" } }),
+      prisma.workdayIgnoreRule.findMany({ orderBy: { createdAt: "asc" } }),
+      prisma.delegatedAccess.findMany({ orderBy: { createdAt: "asc" } }),
+      prisma.workdayImport.findMany({ orderBy: { uploadedAt: "asc" } }),
+    ]);
+
+    return {
+      format: DECISION_BUNDLE_FORMAT,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      employees: Object.fromEntries(employees.map((e) => [e.id, `${e.legalFirstName} ${e.legalLastName}`])),
+      departments: Object.fromEntries(departments.map((d) => [d.id, d.name])),
+      links: links.map((l) => ({ workdayNameKey: l.workdayNameKey, workdayName: l.workdayName, employeeId: l.employeeId })),
+      ignoreRules: rules.map((r) => ({
+        subjectKey: r.subjectKey,
+        field: r.field,
+        value: r.value,
+        note: r.note,
+        workdayName: r.workdayName,
+      })),
+      grants: grants.map((g) => ({
+        granteeEmployeeId: g.granteeEmployeeId,
+        scopeManagerEmployeeId: g.scopeManagerEmployeeId,
+        departmentId: g.departmentId,
+        source: g.source,
+      })),
+      sessions: imports
+        .map((i) => ({
+          fileName: i.fileName,
+          uploadedAt: i.uploadedAt.toISOString(),
+          rows: JSON.parse(i.rows) as WorkdayRow[],
+          runs: (JSON.parse(i.runs) as ApplyRun[])
+            .filter((r) => r.applied.length > 0)
+            .map((r) => ({
+              at: r.at,
+              applied: r.applied.map((a) => a.lineId),
+              choices: Object.fromEntries(r.applied.filter((a) => a.choice !== undefined).map((a) => [a.lineId, a.choice!])),
+            })),
+        }))
+        .filter((s) => s.runs.length > 0),
+    };
+  }
+
+  /**
+   * Replay an exported bundle here. Refuses to touch anything unless this is a copy of the same
+   * HRT (same ids and names). Each apply is re-run in order through the normal apply path, so
+   * anything that changed since the export is skipped and reported, never forced.
+   */
+  async replayDecisions(bundle: DecisionBundle, userId: string): Promise<ReplayReport> {
+    const [employees, departments] = await Promise.all([
+      prisma.employee.findMany({ select: { id: true, legalFirstName: true, legalLastName: true } }),
+      prisma.department.findMany({ select: { id: true, name: true } }),
+    ]);
+    const mismatches = checkIdentity(bundle, {
+      employees: new Map(employees.map((e) => [e.id, `${e.legalFirstName} ${e.legalLastName}`])),
+      departments: new Map(departments.map((d) => [d.id, d.name])),
+    });
+    if (mismatches.length > 0) throw new ReplayMismatchError(mismatches);
+
+    // Identity and ignore rules first, so the replayed lines come out the same as they did there.
+    for (const link of bundle.links) {
+      await this.setLink(link.workdayNameKey, link.workdayName, link.employeeId, userId);
+    }
+    for (const rule of bundle.ignoreRules) await this.addIgnoreRule(rule, userId);
+
+    const report: ReplayReport = {
+      links: bundle.links.length,
+      ignoreRules: bundle.ignoreRules.length,
+      runs: [],
+      grantsCreated: 0,
+      grantsSkipped: 0,
+      importId: null,
+    };
+
+    for (const session of bundle.sessions) {
+      const { id } = await this.createImportFromRows(session.rows, `${session.fileName} (replayed)`, userId);
+      report.importId = id;
+      for (const run of session.runs) {
+        try {
+          const result = await this.apply(id, { ticked: run.applied, crossed: [], choices: run.choices }, userId);
+          report.runs.push({
+            fileName: session.fileName,
+            at: run.at,
+            applied: result.applied.length,
+            skipped: await this.describeSkipped(result.stale, run.choices),
+            error: null,
+          });
+        } catch (error) {
+          const message =
+            error instanceof ApplyCycleError
+              ? `Would create a reporting loop: ${error.people.map((l) => l.join(" → ")).join("; ")}`
+              : error instanceof Error
+                ? error.message
+                : String(error);
+          report.runs.push({
+            fileName: session.fileName,
+            at: run.at,
+            applied: 0,
+            skipped: await this.describeSkipped(run.applied, run.choices),
+            error: message,
+          });
+        }
+      }
+    }
+
+    // Grants made outside the import (switch-over page) and any the runs didn't recreate.
+    await prisma.$transaction(async (tx) => {
+      for (const g of bundle.grants) {
+        const created = await createGrantInTx(tx, { ...g, createdByUserId: userId });
+        if (created) report.grantsCreated++;
+        else report.grantsSkipped++;
+      }
+    });
+
+    return report;
   }
 }
 

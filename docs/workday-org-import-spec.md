@@ -765,6 +765,24 @@ Phase 1 is built. Where the build differs from or adds to the sections above:
   reporting line of their own (often leavers, e.g. Gary Zeidler) are flagged and left out of
   "Select all".
 
+- **Release plan: review on a prod snapshot, then replay on prod (DECIDED 2026-10-07).** The
+  owner wants the whole feature to land at once. The real-import review (§13 Phase 2
+  gate) happens on a snapshot of prod with `HRT_DISABLE_JOBS=true` and no
+  `ASSET_CHECKOUT_API_KEY`, because the Snipe URL lives in the database. **Don't copy the
+  snapshot back over prod:** prod keeps writing (nightly jobs, logins, records) and the
+  snapshot picks up local-only rows (dev accounts, job state). Instead, *Export decisions* on
+  the snapshot and *Replay decisions* on prod (Workday Import page):
+  - The bundle holds links, ignore rules, delegated grants, and each session's rows with the
+    applied line ids (plus manager choices) in order. It also holds every employee and
+    department id → name.
+  - Replay refuses to write anything unless every exported id exists on the target under
+    the same name (people added since are fine).
+  - It then re-runs each apply through the normal apply path. Skipped lines are reported as
+    *already in place* or *changed since the export*, with names.
+  - A line that still differs from the Workday file is applied even if someone edited that
+    field by hand on prod since the snapshot. The decision was made against Workday, and
+    prod is meant to be frozen until go-live.
+
 Built files: `lib/workday/{types,parseOrgChart,matching,suggestions,labels}.ts`,
 `lib/org/reportingLine.ts`, `lib/services/workdayImportService.ts`,
 `app/api/workday-import/**`, `app/api/org-chart/reporting-lines`,
