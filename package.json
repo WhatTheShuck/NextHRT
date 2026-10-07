@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "db:deploy": "pnpm prisma migrate deploy && pnpm prisma generate",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:auth": "tsx scripts/dev-auth.ts"
   },
   "dependencies": {
     "@better-auth/api-key": "^1.7.7",

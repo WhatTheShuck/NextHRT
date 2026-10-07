@@ -79,6 +79,19 @@ pnpm prisma studio
 
 Find your user in the `User` table and set `role` to `Admin`. After that you can manage other users from the app's permissions page.
 
+### Local sign-in without Microsoft (dev only)
+
+For local testing, password sign-in can be enabled on the dev server:
+
+```bash
+echo 'NEXT_PUBLIC_DEV_AUTH=true' >> .env.local
+pnpm dev:auth                              # creates dev-admin/manager/warden/user@dev.local
+pnpm dev:auth --email someone@ksb.com      # also lets you sign in as an existing user
+pnpm dev                                   # /auth now shows a "Dev sign-in" panel
+```
+
+The password is `password123` (override with `DEV_AUTH_PASSWORD`). It only works under `pnpm dev` — production builds always have `NODE_ENV=production`, which keeps password sign-in disabled whatever the env says. From scripts/curl: `POST /api/auth/sign-in/email` with `{"email","password"}` returns the session cookie.
+
 ## Microsoft Entra setup
 
 Create an app registration in the Azure portal and add the following as a redirect URI:

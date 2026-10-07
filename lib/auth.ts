@@ -12,11 +12,15 @@ import {
   fireWardenRole,
   userRole,
 } from "@/lib/permissions";
+import { devAuthEnabled } from "@/lib/dev-auth";
 const dbUrl = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
 const prisma = new PrismaClient({
   adapter: new PrismaBetterSqlite3({ url: dbUrl.replace(/^file:/, "") }),
 });
 export const auth = betterAuth({
+  // Dev-only password sign-in (see lib/dev-auth.ts). Sign-up stays disabled —
+  // accounts come from `pnpm dev:auth`, which writes them straight to the DB.
+  emailAndPassword: { enabled: devAuthEnabled, disableSignUp: true },
   socialProviders: {
     microsoft: {
       clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID as string,
