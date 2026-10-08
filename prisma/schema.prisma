@@ -54,6 +54,7 @@ model Employee {
   delegatedAccessScopes    DelegatedAccess[]         @relation("DelegateScopeManager")
   workdayLinks             WorkdayLink[]
   workdayIgnoreRules       WorkdayIgnoreRule[]
+  approvalsActedFor        ApprovalAction[]          @relation("ApprovalActingFor")
 
   @@index([reportsToId])
 }
@@ -755,6 +756,9 @@ model ApprovalAction {
   decision   ApprovalDecision
   comment    String?
   onBehalfOf Boolean          @default(false)
+  // Set when a delegate decides at the level of the manager they act for (line-manager authority).
+  actingForEmployeeId Int?
+  actingFor           Employee? @relation("ApprovalActingFor", fields: [actingForEmployeeId], references: [id], onDelete: SetNull)
   createdAt  DateTime         @default(now())
 }
 

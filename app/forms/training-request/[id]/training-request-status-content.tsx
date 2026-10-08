@@ -31,6 +31,13 @@ interface ApprovalAction {
   onBehalfOf: boolean;
   createdAt: string;
   user: { id: string; name: string | null };
+  /** Line-manager authority: the manager a delegate decided for. */
+  actingFor: {
+    legalFirstName: string;
+    legalLastName: string;
+    preferredFirstName: string | null;
+    preferredLastName: string | null;
+  } | null;
 }
 
 interface TrainingRequestDetail {
@@ -63,7 +70,7 @@ function statusBadgeVariant(status: string): "default" | "secondary" | "destruct
 }
 
 function stageLabel(stage: string): string {
-  if (stage === "DepartmentManager") return "Department Manager";
+  if (stage === "DepartmentManager") return "Manager";
   if (stage === "HRManager") return "HR Manager";
   return stage;
 }
@@ -277,7 +284,13 @@ export function TrainingRequestStatusContent({ requestId }: { requestId: number 
                         {decisionIcon(action.decision)}
                         <span className="font-medium">
                           {action.user.name ?? "Unknown"}{" "}
-                          {action.onBehalfOf && (
+                          {action.actingFor && (
+                            <span className="text-muted-foreground font-normal">
+                              (on behalf of {action.actingFor.preferredFirstName || action.actingFor.legalFirstName}{" "}
+                              {action.actingFor.preferredLastName || action.actingFor.legalLastName})
+                            </span>
+                          )}
+                          {action.onBehalfOf && !action.actingFor && (
                             <span className="text-muted-foreground font-normal">(on behalf)</span>
                           )}
                         </span>

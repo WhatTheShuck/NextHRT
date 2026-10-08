@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getAuthorityMode, getExpiryRecipientEmployeeIds } from "./authorityService";
 
 export interface ExpiryRecipients {
   to: string[];
@@ -7,7 +8,8 @@ export interface ExpiryRecipients {
 
 /**
  * Recipients for a ticket-expiry notification about `employeeId` (spec §5.6):
- *   To = managers of the employee's department,
+ *   To = managers of the employee's department (under line-manager authority: their direct
+ *        manager plus anyone acting at that manager's level, spec §9.3),
  *   Cc = admins who have not opted out (receivesExpiryNotifications),
  *   never the employee.
  * If there are no managers, admins are promoted to To so the mail still goes somewhere.
@@ -21,9 +23,12 @@ export async function resolveExpiryRecipients(
   });
   if (!employee) return { to: [], cc: [] };
 
+  const lineMode = (await getAuthorityMode()) === "lineManager";
   const managers = await prisma.user.findMany({
     where: {
-      managedDepartments: { some: { id: employee.departmentId } },
+      ...(lineMode
+        ? { employeeId: { in: await getExpiryRecipientEmployeeIds(employeeId) } }
+        : { managedDepartments: { some: { id: employee.departmentId } } }),
       email: { not: null },
     },
     select: { email: true },

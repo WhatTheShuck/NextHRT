@@ -33,10 +33,25 @@ vi.mock("@/lib/auth", () => ({ auth: { api: { userHasPermission: vi.fn() } } }))
 vi.mock("../auth", () => ({ auth: { api: { userHasPermission: vi.fn() } } }));
 vi.mock("@/lib/services/logService", () => ({ logService: mockLogService }));
 
+// Department mode unless a test says otherwise.
+const { mockAuthority } = vi.hoisted(() => ({
+  mockAuthority: {
+    getApprovableForUser: vi.fn(),
+    getApproversFor: vi.fn(),
+    getAuthorityMode: vi.fn(),
+  },
+}));
+vi.mock("../authorityService", () => mockAuthority);
+
 import { approvalService } from "@/lib/services/approvalService";
 import { auth } from "../../auth";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockAuthority.getApprovableForUser.mockResolvedValue(null);
+  mockAuthority.getApproversFor.mockResolvedValue([]);
+  mockAuthority.getAuthorityMode.mockResolvedValue("department");
+});
 
 describe("approvalService.createRequest", () => {
   it("creates an ApprovalRequest with Pending status at DepartmentManager stage", async () => {
@@ -317,5 +332,74 @@ describe("approvalService.reevaluatePendingRequests", () => {
       "Warning",
       "REEVALUATE_PENDING_APPROVALS",
     );
+  });
+});
+
+describe("approvalService under line-manager authority", () => {
+  const request = {
+    id: 1,
+    status: "Pending",
+    currentStage: "DepartmentManager",
+    nominatedApproverEmployeeId: null,
+    submittedByUserId: "submitter-1",
+    trainingRequest: { employeeId: 9 }, // Craig Whelan
+  };
+  const carolyn = { id: "user-carolyn", employeeId: 10, role: "FireWarden", canManageChildrenDepartments: false, managedDepartments: [] };
+
+  beforeEach(() => {
+    mockPrisma.approvalRequest.findUnique.mockResolvedValueOnce(request).mockResolvedValue({ ...request, actions: [], trainingRequest: null });
+    mockPrisma.approvalRequest.count.mockResolvedValue(1);
+    mockPrisma.approvalAction.create.mockResolvedValue({});
+    mockPrisma.approvalRequest.update.mockResolvedValue({});
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: false } as any);
+  });
+
+  it("offers manager-stage requests for the people in the approver's line", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(carolyn);
+    mockAuthority.getApprovableForUser.mockResolvedValue(new Map([[9, 8]])); // acts for Joshua (8)
+    await approvalService.recordDecision({ requestId: 1, userId: "user-carolyn", decision: "Approved" });
+
+    expect(mockPrisma.approvalRequest.count).toHaveBeenCalledWith({
+      where: {
+        AND: [
+          { id: 1 },
+          {
+            status: "Pending",
+            OR: [{ currentStage: "DepartmentManager", trainingRequest: { employeeId: { in: [9] } } }],
+            NOT: { trainingRequest: { employeeId: 10 } },
+          },
+        ],
+      },
+    });
+  });
+
+  it("records a delegate as acting for the manager, with no comment needed", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(carolyn);
+    mockAuthority.getApprovableForUser.mockResolvedValue(new Map([[9, 8]]));
+    await approvalService.recordDecision({ requestId: 1, userId: "user-carolyn", decision: "Approved" });
+
+    expect(mockPrisma.approvalAction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ onBehalfOf: false, actingForEmployeeId: 8 }),
+    });
+  });
+
+  it("treats an admin outside the line as stepping in: on behalf, comment required", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ ...carolyn, id: "admin", employeeId: 50, role: "Admin" });
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: true } as any);
+    mockAuthority.getApprovableForUser.mockResolvedValue(new Map());
+
+    await expect(
+      approvalService.recordDecision({ requestId: 1, userId: "admin", decision: "Approved" }),
+    ).rejects.toThrow("COMMENT_REQUIRED");
+  });
+
+  it("warns about a manager-stage request nobody in the line can approve", async () => {
+    mockAuthority.getAuthorityMode.mockResolvedValue("lineManager");
+    mockPrisma.approvalRequest.findMany.mockResolvedValue([{ ...request, requestType: "Training", trainingRequest: { employeeId: 9, employee: { departmentId: 33 } } }]);
+    mockAuthority.getApproversFor.mockResolvedValue([{ employeeId: 8, actingFor: null, relation: "manager" }]);
+    (mockPrisma.user as any).count = vi.fn().mockResolvedValue(0);
+
+    await approvalService.reevaluatePendingRequests();
+    expect(mockLogService.log).toHaveBeenCalledWith(expect.stringContaining("no line manager"), "Warning", "REEVALUATE_PENDING_APPROVALS");
   });
 });

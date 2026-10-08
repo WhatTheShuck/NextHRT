@@ -10,7 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { GrantMigration, GrantOutcome, SwitchoverReport } from "@/lib/org/switchover";
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { AuthorityMode } from "@/lib/org/authority";
+import { AlertTriangle, CheckCircle2, Loader2, Power, RefreshCw } from "lucide-react";
 
 const OUTCOME: Record<GrantOutcome, { label: string; tone: "good" | "warn" | "muted" }> = {
   coveredByLine: { label: "Covered by reporting line", tone: "good" },
@@ -41,18 +50,38 @@ export function SwitchoverContent() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [mode, setMode] = useState<AuthorityMode | null>(null);
+  const [confirmMode, setConfirmMode] = useState<AuthorityMode | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   const fetchReport = useCallback(
     () =>
-      api
-        .get<SwitchoverReport>("/api/org-chart/switchover", { timeout: 60000 })
-        .then((res) => {
+      Promise.all([
+        api.get<SwitchoverReport>("/api/org-chart/switchover", { timeout: 60000 }),
+        api.get<{ mode: AuthorityMode }>("/api/org-chart/switchover/mode"),
+      ])
+        .then(([reportRes, modeRes]) => {
           setError(null);
-          setReport(res.data);
+          setReport(reportRes.data);
+          setMode(modeRes.data.mode);
         })
         .catch(() => setError("Failed to load the readiness report.")),
     [],
   );
+
+  const switchMode = async (next: AuthorityMode) => {
+    setSwitching(true);
+    try {
+      await api.put("/api/org-chart/switchover/mode", { mode: next });
+      setMode(next);
+      setConfirmMode(null);
+      toast.success(next === "lineManager" ? "Line-manager authority is on" : "Back to department-manager authority");
+    } catch {
+      toast.error("Failed to switch.");
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   useEffect(() => {
     fetchReport();
@@ -120,7 +149,7 @@ export function SwitchoverContent() {
           <h1 className="text-2xl font-bold">Switch-over readiness</h1>
           <p className="text-sm text-muted-foreground mt-0.5 max-w-3xl">
             Before line managers take over from department managers, everyone needs a reporting line, and every department grant
-            that someone still needs has to be carried across as delegated access. Nothing on this page changes permissions.
+            that someone still needs has to be carried across as delegated access. Only the switch below changes permissions.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchReport}>
@@ -128,6 +157,60 @@ export function SwitchoverContent() {
           Refresh
         </Button>
       </div>
+
+      <Card className={mode === "lineManager" ? "border-green-300 dark:border-green-800" : ""}>
+        <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold flex items-center gap-2">
+              <Power className="h-4 w-4" />
+              Authority: {mode === "lineManager" ? "line managers" : "department managers"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
+              {mode === "lineManager"
+                ? "Who can see, manage and approve for whom follows reporting lines and delegated access. Department-manager grants are ignored but kept, so you can switch back."
+                : "Department-manager grants decide who can see, manage and approve for whom. Switching to line managers takes effect on everyone's next page load."}
+            </p>
+          </div>
+          {mode && (
+            <Button
+              variant={mode === "lineManager" ? "outline" : "default"}
+              onClick={() => setConfirmMode(mode === "lineManager" ? "department" : "lineManager")}
+            >
+              {mode === "lineManager" ? "Switch back to department managers" : "Switch to line-manager authority"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={confirmMode !== null} onOpenChange={(o) => !o && !switching && setConfirmMode(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmMode === "lineManager" ? "Switch to line-manager authority?" : "Switch back to department managers?"}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmMode === "lineManager"
+                ? "From everyone's next page load, managers see and approve for the people in their reporting line and delegated access, and expiry emails go to line managers. Department-manager grants stop counting."
+                : "Department-manager grants decide authority again from everyone's next page load. Reporting lines and delegated access are kept."}
+            </DialogDescription>
+          </DialogHeader>
+          {confirmMode === "lineManager" && !report.ready && (
+            <p className="text-sm text-amber-600">
+              Not everything below is resolved ({blocking} item{blocking === 1 ? "" : "s"}). People with no reporting line will only
+              be visible to admins until they get one, and their requests will need an admin to step in.
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmMode(null)} disabled={switching}>
+              Cancel
+            </Button>
+            <Button onClick={() => confirmMode && switchMode(confirmMode)} disabled={switching}>
+              {switching && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Switch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {report.ready ? (
         <Alert>

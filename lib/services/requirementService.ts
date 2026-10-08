@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getLineScopeForUser } from "@/lib/services/authorityService";
 import { auth } from "@/lib/auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { UserRole } from "@/generated/prisma_client/client";
@@ -29,6 +30,10 @@ export class RequirementService {
       },
     });
     if (canViewDepartment.success) {
+      // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+      const lineScope = await getLineScopeForUser(userId, { includeSelf: true });
+      if (lineScope) return lineScope;
+
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },

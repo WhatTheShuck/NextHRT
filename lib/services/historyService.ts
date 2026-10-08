@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getLineScopeForUser } from "@/lib/services/authorityService";
 import { auth } from "../auth";
 import { UserRole } from "@/generated/prisma_client/client";
 
@@ -49,7 +50,22 @@ export class HistoryService {
       body: { role: userRole as UserRole, permissions: { employee: ["viewAll"] } },
     });
 
-    if (isDepartmentScoped.success && !isUnrestricted.success) {
+    // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+    const lineScope =
+      isDepartmentScoped.success && !isUnrestricted.success ? await getLineScopeForUser(userId, { includeSelf: true }) : null;
+    if (lineScope) {
+      if (!tableName || tableName === "Employee") {
+        whereClause.AND = [
+          { ...whereClause },
+          {
+            OR: [
+              { tableName: { not: "Employee" } },
+              { AND: [{ tableName: "Employee" }, { recordId: { in: lineScope.map(String) } }] },
+            ],
+          },
+        ];
+      }
+    } else if (isDepartmentScoped.success && !isUnrestricted.success) {
       const managedDepartments = await prisma.user.findUnique({
         where: { id: userId },
         include: {

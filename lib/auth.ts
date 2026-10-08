@@ -3,7 +3,8 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma_client/client";
 import { nextCookies } from "better-auth/next-js";
-import { admin } from "better-auth/plugins";
+import { admin, customSession } from "better-auth/plugins";
+import { resolveSessionRole } from "@/lib/services/authorityService";
 import { apiKey } from "@better-auth/api-key";
 import {
   ac,
@@ -70,6 +71,14 @@ export const auth = betterAuth({
       defaultRole: "User",
     }),
     apiKey({ enableSessionForAPIKeys: true }),
+    // Line-manager authority: a session acts with its effective role (stored role plus manager
+    // permissions for anyone with people in scope). `baseRole` keeps the stored one for display.
+    // Identity in department mode. See docs/workday-org-import-spec.md §9.1.
+    customSession(async ({ user, session }) => {
+      // The admin plugin adds `role` at runtime; this callback's type doesn't know about it.
+      const baseRole = (user as { role?: string | null }).role ?? null;
+      return { user: { ...user, role: await resolveSessionRole(user.id, baseRole), baseRole }, session };
+    }),
 
     nextCookies(),
   ],

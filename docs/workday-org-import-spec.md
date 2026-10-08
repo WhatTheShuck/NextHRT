@@ -794,6 +794,40 @@ Phase 1 is built. Where the build differs from or adds to the sections above:
   every parent exists. It's re-detecting the leftovers of the run that already happened;
   don't re-run it.
 
+- **Phase 2 built (2026-10-09)**, behind one switch so go-live is a single flip after the
+  replay. **DECIDED (owner): readiness warns but doesn't block.** Anyone left without a line is
+  fixed by hand on day 1.
+  - **The switch:** `authority.mode` app setting (`department` | `lineManager`, default
+    `department`), flipped on the Switch-over readiness page with a confirm. `authority.*` keys
+    are hidden from and ignored by the generic settings API, because the Matching settings
+    page saves every setting it loaded and would otherwise revert the switch from a stale copy.
+  - **Derived manager role (§9.1):** a Better Auth `customSession` gives each session its
+    *effective* role: `DepartmentManager` for anyone with people in their line or delegated
+    scope, `FireWarden,DepartmentManager` for a Fire Warden with scope (Better Auth ORs
+    comma-separated roles), and a stored `DepartmentManager` with no scope acts as `User`.
+    Admins are unchanged. `user.baseRole` keeps the stored role. The existing role-based
+    permission checks needed no changes.
+  - **Scoping:** the line-manager branch is `getLineScopeForUser` (whole sub-tree plus
+    delegated scopes, plus self for lists), used in `hasAccessToEmployee`, employee lists,
+    requirements, exemptions, training and ticket records, history and Access Check (with new
+    "Line Manager" / "Delegated" reasons). In department mode every site runs its old code
+    unchanged.
+  - **Approvals (§9.2):** the manager stage is decided by the direct manager, one up, or a
+    delegate acting for either, inside the grant's scope. A delegate's decision records
+    `ApprovalAction.actingForEmployeeId` and shows "on behalf of X" (new column; `db push`).
+    An admin outside the line goes through the on-behalf-of path with a required comment.
+    Suggested approvers on the training request form come from
+    `/api/employees/[id]/approvers`. The stage enum is **not** renamed, because existing rows
+    would need migrating; the label is "Manager" in both modes instead.
+  - **Expiry emails (§9.3):** direct manager plus delegates acting at that level; admin Cc and
+    fallback unchanged.
+  - **Not done in this release:**
+    - §13 step 16 (retire `canManageChildrenDepartments` and department grants as authority).
+      Department mode stays as the rollback until line-manager authority has run on prod for
+      a while.
+    - The team account-status view (`accountOnboardingService`, owner's in-progress work) is
+      still scoped by department.
+
 Built files: `lib/workday/{types,parseOrgChart,matching,suggestions,labels}.ts`,
 `lib/org/reportingLine.ts`, `lib/services/workdayImportService.ts`,
 `app/api/workday-import/**`, `app/api/org-chart/reporting-lines`,

@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getLineScopeForUser } from "@/lib/services/authorityService";
 import { toManagerMap, wouldCreateCycle } from "@/lib/org/reportingLine";
 import { UserRole, Prisma, EmployeeStatus } from "@/generated/prisma_client/client";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
@@ -114,6 +115,16 @@ export class EmployeeService {
       },
     });
     if (canViewDepartment.success) {
+      // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+      const lineScope = await getLineScopeForUser(userId, { includeSelf: true });
+      if (lineScope) {
+        return await prisma.employee.findMany({
+          where: { ...whereClause, id: { in: lineScope } },
+          include: { department: true, location: true },
+          orderBy: { legalLastName: "asc" },
+        });
+      }
+
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },

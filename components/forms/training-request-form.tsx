@@ -50,6 +50,8 @@ interface UserForApprover {
   name: string | null;
   employeeId: number | null;
   employee?: { id: number; legalFirstName: string; legalLastName: string } | null;
+  /** Why they're suggested, e.g. "Manager" or "On behalf of Joshua Noakes". */
+  note?: string;
 }
 
 function approverDisplayName(u: UserForApprover): string {
@@ -83,6 +85,7 @@ function SuggestedApproverList({ approvers, selectedUserId, onSelect }: Suggeste
                 }`}
               />
               <span className="font-medium">{approverDisplayName(user)}</span>
+              {user.note && <span className="ml-2 text-xs text-muted-foreground">{user.note}</span>}
             </CommandItem>
           ))}
         </CommandGroup>
@@ -218,7 +221,6 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
   // --- Employee ---
   const [ownEmployee, setOwnEmployee] = useState<Employee | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const [selectedEmployeeDeptId, setSelectedEmployeeDeptId] = useState<number | null>(null);
   const [isOnBehalf, setIsOnBehalf] = useState(false);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
 
@@ -275,7 +277,6 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         if (linkedEmployee) {
           setOwnEmployee(linkedEmployee);
           setSelectedEmployeeId(linkedEmployee.id.toString());
-          setSelectedEmployeeDeptId(linkedEmployee.departmentId);
         }
       } catch (err) {
         console.error("Error loading form data:", err);
@@ -297,17 +298,18 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
       .catch((err) => console.error("Error loading employees:", err));
   }, [isOnBehalf, allEmployees.length]);
 
-  // Load suggested approvers when the selected employee's department changes
+  // Load suggested approvers when the selected employee changes (department managers, or their
+  // line managers under line-manager authority).
   useEffect(() => {
-    if (!selectedEmployeeDeptId) {
+    if (!selectedEmployeeId) {
       setSuggestedApprovers([]);
       return;
     }
     api
-      .get<UserForApprover[]>(`/api/departments/${selectedEmployeeDeptId}/managers`)
+      .get<UserForApprover[]>(`/api/employees/${selectedEmployeeId}/approvers`)
       .then((res) => setSuggestedApprovers(res.data))
-      .catch((err) => console.error("Error loading managers:", err));
-  }, [selectedEmployeeDeptId]);
+      .catch((err) => console.error("Error loading approvers:", err));
+  }, [selectedEmployeeId]);
 
   // Load all users when override mode is activated (lazy, load once) — used for
   // the "no user account" warning check.
@@ -342,12 +344,6 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
 
   const handleEmployeeSelect = (employeeId: string) => {
     setSelectedEmployeeId(employeeId);
-    const emp = allEmployees.find((e) => e.id.toString() === employeeId);
-    if (emp) {
-      setSelectedEmployeeDeptId(emp.departmentId);
-    } else {
-      setSelectedEmployeeDeptId(null);
-    }
     // Reset approver when employee changes
     setSelectedApproverUserId(null);
     setSelectedApproverEmployeeId(null);
@@ -524,7 +520,6 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
                 setIsOnBehalf(!!checked);
                 if (!checked && ownEmployee) {
                   setSelectedEmployeeId(ownEmployee.id.toString());
-                  setSelectedEmployeeDeptId(ownEmployee.departmentId);
                   setSelectedApproverUserId(null);
                   setSelectedApproverEmployeeId(null);
                   setOverrideApproverEmployeeId(null);

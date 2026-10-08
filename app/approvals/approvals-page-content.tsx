@@ -13,6 +13,16 @@ import { CheckCircle, XCircle, ChevronDown, ChevronUp, AlertTriangle } from "luc
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface PersonName {
+  legalFirstName: string;
+  legalLastName: string;
+  preferredFirstName: string | null;
+  preferredLastName: string | null;
+}
+
+const personName = (p: PersonName) =>
+  `${p.preferredFirstName || p.legalFirstName} ${p.preferredLastName || p.legalLastName}`;
+
 interface PendingApproval {
   id: number; // approvalRequest.id
   status: string;
@@ -28,7 +38,12 @@ interface PendingApproval {
     onBehalfOf: boolean;
     createdAt: string;
     user: { id: string; name: string | null };
+    actingFor: PersonName | null;
   }[];
+  /** Line-manager authority: the manager this approver acts for as a delegate. */
+  actingFor: { id: number; name: string } | null;
+  /** Line-manager authority: an admin deciding a manager-stage request outside their line. */
+  adminSteppingIn: boolean;
   trainingRequest: {
     id: number;
     justification: string | null;
@@ -44,7 +59,7 @@ interface PendingApproval {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function stageLabel(stage: string): string {
-  if (stage === "DepartmentManager") return "Department Manager";
+  if (stage === "DepartmentManager") return "Manager";
   if (stage === "HRManager") return "HR Manager";
   return stage;
 }
@@ -185,7 +200,10 @@ function ApprovalCard({
                     )}
                     <div>
                       <span className="font-medium">{a.user.name ?? "Unknown"}</span>
-                      {a.onBehalfOf && (
+                      {a.actingFor && (
+                        <span className="text-muted-foreground ml-1">(on behalf of {personName(a.actingFor)})</span>
+                      )}
+                      {a.onBehalfOf && !a.actingFor && (
                         <span className="text-muted-foreground ml-1">(on behalf)</span>
                       )}
                       <span className="text-muted-foreground ml-1">
@@ -217,6 +235,23 @@ function ApprovalCard({
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Your Decision
             </p>
+            {approval.actingFor && (
+              <Alert>
+                <AlertDescription>
+                  You&apos;re deciding on behalf of <strong>{approval.actingFor.name}</strong>, through your delegated access.
+                  {" "}They&apos;ll see it was you.
+                </AlertDescription>
+              </Alert>
+            )}
+            {approval.adminSteppingIn && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  You&apos;re not in {employeeName}&apos;s reporting line, so you&apos;re stepping in as an admin. A comment is
+                  required.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -242,7 +277,7 @@ function ApprovalCard({
             <div className="space-y-1">
               <Label htmlFor={`comment-${approval.id}`} className="text-xs">
                 Comment{decision === "Rejected" ? " *" : ""}
-                {approval.nominatedApproverEmployee ? " * (required — acting on behalf)" : ""}
+                {approval.nominatedApproverEmployee || approval.adminSteppingIn ? " * (required — acting on behalf)" : ""}
               </Label>
               <Textarea
                 id={`comment-${approval.id}`}

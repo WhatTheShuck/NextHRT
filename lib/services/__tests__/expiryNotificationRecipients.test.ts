@@ -10,9 +10,17 @@ const { mockPrisma } = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 
+const { mockAuthority } = vi.hoisted(() => ({
+  mockAuthority: { getAuthorityMode: vi.fn(), getExpiryRecipientEmployeeIds: vi.fn() },
+}));
+vi.mock("@/lib/services/authorityService", () => mockAuthority);
+
 import { resolveExpiryRecipients } from "@/lib/services/expiryNotificationRecipients";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockAuthority.getAuthorityMode.mockResolvedValue("department");
+});
 
 describe("resolveExpiryRecipients", () => {
   it("returns dept managers as To and opted-in admins as Cc, excluding opt-outs", async () => {
@@ -71,5 +79,21 @@ describe("resolveExpiryRecipients", () => {
 
     expect(r.to).toEqual(["both@x.com"]);
     expect(r.cc).toEqual(["admin1@x.com"]);
+  });
+});
+
+describe("resolveExpiryRecipients under line-manager authority", () => {
+  it("addresses the direct manager and their delegates instead of department managers", async () => {
+    mockAuthority.getAuthorityMode.mockResolvedValue("lineManager");
+    mockAuthority.getExpiryRecipientEmployeeIds.mockResolvedValue([8, 10]); // Joshua and Carolyn
+    mockPrisma.employee.findUnique.mockResolvedValue({ id: 9, departmentId: 33 });
+    mockPrisma.user.findMany
+      .mockResolvedValueOnce([{ email: "joshua@x.com" }, { email: "carolyn@x.com" }])
+      .mockResolvedValueOnce([{ email: "admin1@x.com" }]);
+
+    const r = await resolveExpiryRecipients(9);
+
+    expect(mockPrisma.user.findMany.mock.calls[0][0].where).toEqual({ employeeId: { in: [8, 10] }, email: { not: null } });
+    expect(r).toEqual({ to: ["joshua@x.com", "carolyn@x.com"], cc: ["admin1@x.com"] });
   });
 });

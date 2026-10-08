@@ -33,7 +33,7 @@ function statusBadgeVariant(
 }
 
 function stageLabel(stage: string): string {
-  if (stage === "DepartmentManager") return "Dept. Manager";
+  if (stage === "DepartmentManager") return "Manager";
   if (stage === "HRManager") return "HR Manager";
   return stage; // "Admin" falls through — the Prisma enum value is literally "Admin" per schema
 }

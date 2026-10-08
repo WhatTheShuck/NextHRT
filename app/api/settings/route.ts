@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
   }
 
   const settings = await appSettingService.getSettings();
-  return NextResponse.json(settings);
+  return NextResponse.json(
+    Object.fromEntries(Object.entries(settings).filter(([key]) => !isReservedSetting(key))),
+  );
 }
 
 export async function PUT(request: NextRequest) {
@@ -40,7 +42,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    await appSettingService.bulkUpdateSettings(updates, session.user.id);
+    // Pages here save everything they loaded; never let a stale copy flip a reserved switch.
+    await appSettingService.bulkUpdateSettings(
+      updates.filter((u) => !isReservedSetting(u.key)),
+      session.user.id,
+    );
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
@@ -51,4 +57,9 @@ export async function PUT(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+/** Settings owned by a dedicated page (e.g. the line-manager authority switch), not this API. */
+function isReservedSetting(key: string): boolean {
+  return key.startsWith("authority.");
 }
