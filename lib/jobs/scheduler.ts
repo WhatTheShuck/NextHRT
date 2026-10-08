@@ -29,5 +29,12 @@ export function startScheduler(): void {
     console.log("[Scheduler] Enqueued Snipe phone sync");
   });
 
+  // Weekly Monday at 8am — one digest of everyone still waiting to be linked,
+  // rather than an email per sign-in when a whole team comes online at once
+  cron.schedule("0 8 * * 1", async () => {
+    await enqueue("ACCOUNT_LINK_DIGEST");
+    console.log("[Scheduler] Enqueued account link digest");
+  });
+
   console.log("[Scheduler] Started");
 }

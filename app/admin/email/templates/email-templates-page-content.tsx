@@ -75,6 +75,7 @@ const GROUP_BLURBS: Record<TemplateGroup, string> = {
   IT: "Requests and summaries sent to the IT team.",
   Tickets: "Automatic reminders about expiring tickets and credentials.",
   SOP: "Notifications about SOP assessments.",
+  Accounts: "Sent when someone first signs in, and when their access is ready.",
   Advanced:
     "Building blocks used inside the emails above — the shared layout and the row formats for generated lists.",
 };

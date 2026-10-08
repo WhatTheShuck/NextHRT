@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMediaQuery } from "usehooks-ts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import {
 import { Search, LinkIcon, Link2Off } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import api from "@/lib/axios";
 import { AxiosError } from "axios";
 import { EmployeeWithRelations } from "@/lib/types";
@@ -100,7 +102,10 @@ export function UserEmployeeMapping() {
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const searchParams = useSearchParams();
+  const [unlinkedOnly, setUnlinkedOnly] = useState(
+    searchParams.get("filter") === "unlinked",
+  );
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(
     null,
@@ -118,7 +123,6 @@ export function UserEmployeeMapping() {
           "/api/users?includeEmployee=true",
         );
         setUsers(usersResponse.data);
-        setFilteredUsers(usersResponse.data);
 
         const employeesResponse = await api.get<EmployeeWithRelations[]>(
           "/api/employees?activeOnly=true",
@@ -145,20 +149,16 @@ export function UserEmployeeMapping() {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredUsers(users);
-      return;
-    }
-
-    const lowercasedSearchTerm = searchTerm.toLowerCase();
-    const filtered = users.filter(
+  const filteredUsers = useMemo(() => {
+    const lowercasedSearchTerm = searchTerm.trim().toLowerCase();
+    return users.filter(
       (user) =>
-        user.name?.toLowerCase().includes(lowercasedSearchTerm) ||
-        user.email?.toLowerCase().includes(lowercasedSearchTerm),
+        (!unlinkedOnly || user.employeeId === null) &&
+        (!lowercasedSearchTerm ||
+          user.name?.toLowerCase().includes(lowercasedSearchTerm) ||
+          user.email?.toLowerCase().includes(lowercasedSearchTerm)),
     );
-    setFilteredUsers(filtered);
-  }, [searchTerm, users]);
+  }, [searchTerm, unlinkedOnly, users]);
 
   const handleMapUser = (user: User) => {
     setSelectedUserId(user.id);
@@ -336,6 +336,14 @@ export function UserEmployeeMapping() {
             className="pl-8"
           />
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Switch
+            id="unlinked-only"
+            checked={unlinkedOnly}
+            onCheckedChange={setUnlinkedOnly}
+          />
+          <Label htmlFor="unlinked-only">Unlinked only</Label>
+        </div>
       </div>
 
       <div className="border rounded-md">
@@ -352,8 +360,8 @@ export function UserEmployeeMapping() {
             {filteredUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-4">
-                  {searchTerm
-                    ? "No users found matching your search"
+                  {searchTerm || unlinkedOnly
+                    ? "No users found matching your filters"
                     : "No users found"}
                 </TableCell>
               </TableRow>

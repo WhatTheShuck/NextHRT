@@ -10,6 +10,7 @@ export type TemplateGroup =
   | "Tickets"
   | "SOP"
   | "IT"
+  | "Accounts"
   | "Advanced";
 
 /**
@@ -65,6 +66,14 @@ export const TOKEN_DESCRIPTIONS: Record<string, string> = {
   trainerName: "The designated trainer's name",
   // --- IT quiz ---
   summaryUrl: "Deep link to the questionnaire results",
+  // --- Accounts ---
+  userList: "The people waiting, built from the row template below",
+  userCount: "How many people are waiting",
+  userName: "Name on the Microsoft account that signed in",
+  userEmail: "Email address of the Microsoft account that signed in",
+  waitingFor: 'How long since they first signed in, e.g. "3 days"',
+  suggestedMatch: "Best-guess employee record for the account, if any",
+  linkUrl: "Deep link into HRT for the next step",
   // --- Programs row ---
   programName: "Name of the requested program",
   ticketUrl: "Link to the IT service-catalogue request, if the program has one",
@@ -111,6 +120,12 @@ export const SAMPLE_TOKEN_VALUES: Record<string, string> = {
   sopTitle: "Pump Teardown & Inspection",
   trainerName: "Dana Example",
   summaryUrl: "https://hrt.example.com/it-induction/responses/123",
+  userCount: "2",
+  userName: "Jono Sample",
+  userEmail: "jono.sample@example.com",
+  waitingFor: "3 days",
+  suggestedMatch: "Jono Sample — Service Technician, Service (Brisbane)",
+  linkUrl: "https://hrt.example.com/admin/permissions?tab=suggestions",
   programName: "AutoCAD",
   ticketUrl: "https://itsp.example.com/serviceOfferings/1234",
   infoRequired: "Licence seat type",
@@ -277,6 +292,27 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
       "Sends IT the summary of a completed induction questionnaire before the session.",
     tokens: ["employeeName", "summaryUrl"],
   },
+  "account.waitingDigest": {
+    group: "Accounts",
+    kind: "email",
+    blurb:
+      "Weekly summary to admins of everyone who signed in more than a day ago and still isn't linked to an employee record. Not sent when nobody is waiting.",
+    tokens: ["userList", "userCount", "linkUrl"],
+  },
+  "account.waitingDigest.row": {
+    group: "Advanced",
+    kind: "fragment",
+    blurb:
+      "One person in the {userList} of the weekly waiting-for-access email. Wrap optional parts in {#token}…{/token}.",
+    tokens: ["userName", "userEmail", "waitingFor", "suggestedMatch"],
+  },
+  "account.linked": {
+    group: "Accounts",
+    kind: "email",
+    blurb:
+      "Tells the person their account is linked to their employee record and ready to use.",
+    tokens: ["preferredFirstName", "employeeName", "linkUrl"],
+  },
   "email.layout": {
     group: "Advanced",
     kind: "fragment",
@@ -314,6 +350,11 @@ export const LIST_TOKENS: Record<string, ListTokenSource> = {
     rowKey: "ticket.expired.row",
     wrapper: "<ul>{rows}</ul>",
   },
+  "account.waitingDigest": {
+    token: "userList",
+    rowKey: "account.waitingDigest.row",
+    wrapper: "<ul>{rows}</ul>",
+  },
   "it.programs": {
     token: "programs",
     rowKey: "it.programs.row",
@@ -332,6 +373,7 @@ export const GROUP_ORDER: readonly TemplateGroup[] = [
   "IT",
   "Tickets",
   "SOP",
+  "Accounts",
   "Advanced",
 ];
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { NavigationCard } from "@/components/navigation-card";
 import { accessNavigationItems } from "@/lib/data";
+import { accountOnboardingService } from "@/lib/services/accountOnboardingService";
 
 export default async function AccessPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -11,6 +12,8 @@ export default async function AccessPage() {
   if (session.user?.role !== "Admin") {
     redirect("/");
   }
+
+  const unlinkedUserCount = await accountOnboardingService.countUnlinkedUsers();
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -25,7 +28,13 @@ export default async function AccessPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {accessNavigationItems.map((item) => (
-            <NavigationCard key={item.href} {...item} />
+            <NavigationCard
+              key={item.href}
+              {...item}
+              badge={
+                item.href === "/admin/permissions" ? unlinkedUserCount : undefined
+              }
+            />
           ))}
         </div>
       </div>

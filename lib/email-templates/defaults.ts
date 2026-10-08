@@ -241,6 +241,29 @@ export const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
 <p>Nothing in the questionnaire is graded — the summary flags where a hand or a tip would help.</p>`,
   },
   {
+    key: "account.waitingDigest",
+    name: "People waiting for access — weekly (to admins)",
+    subject: "{userCount} waiting for HRT access",
+    body: `<p>Hi,</p>
+<p>These people have signed in to HRT but aren't linked to an employee record yet, so they can't see anything:</p>
+{userList}
+<p><a href="{linkUrl}">Review and link them</a></p>`,
+  },
+  {
+    key: "account.waitingDigest.row",
+    name: "— one waiting person",
+    subject: "",
+    body: `<li><strong>{userName}</strong> ({userEmail}) — waiting {waitingFor}{#suggestedMatch}. Likely match: {suggestedMatch}{/suggestedMatch}</li>`,
+  },
+  {
+    key: "account.linked",
+    name: "Account ready (to the employee)",
+    subject: "Your HRT account is ready",
+    body: `<p>Hi {preferredFirstName},</p>
+<p>Your HRT account is now linked to your employee record, so you can view your training, tickets and SOPs, and submit requests.</p>
+<p><a href="{linkUrl}">Open HRT</a></p>`,
+  },
+  {
     key: "email.layout",
     name: "Shared email layout",
     subject: "",
@@ -253,6 +276,20 @@ export const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
  * row fragment, so an admin editing a row template sees their own markup.
  */
 export const SAMPLE_LIST_ROWS: Record<string, Record<string, string>[]> = {
+  "account.waitingDigest.row": [
+    {
+      userName: "Jono Sample",
+      userEmail: "jono.sample@example.com",
+      waitingFor: "3 days",
+      suggestedMatch: "Jonathan Sample — Service Technician, Service (Brisbane)",
+    },
+    {
+      userName: "Priya Example",
+      userEmail: "priya.example@example.com",
+      waitingFor: "1 day",
+      suggestedMatch: "",
+    },
+  ],
   "ticket.expiryWarning.row": [
     {
       employeeName: "Jono Sample",

@@ -46,6 +46,13 @@ const SCHEDULED_JOBS: ScheduledJob[] = [
     schedule: "Daily at 3am",
   },
   {
+    type: "ACCOUNT_LINK_DIGEST",
+    label: "Account Link Digest",
+    description:
+      "Emails admins a list of people who signed in over a day ago and still aren't linked to an employee record. Sends nothing if nobody is waiting.",
+    schedule: "Weekly — Monday at 8am",
+  },
+  {
     type: "ORPHANED_IMAGE_CLEANUP",
     label: "Orphaned Image Cleanup",
     description: "Removes image records and files no longer linked to any record.",

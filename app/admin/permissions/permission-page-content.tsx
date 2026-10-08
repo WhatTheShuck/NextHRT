@@ -112,7 +112,8 @@ export function PermissionPageContent() {
                 <p>
                   Click <strong className="text-foreground">Link</strong> to
                   confirm a pairing. The user will immediately be associated
-                  with that employee record. If none of the suggestions look
+                  with that employee record and emailed that their account is
+                  ready. If none of the suggestions look
                   right, use the{" "}
                   <strong className="text-foreground">
                     User-Employee Mapping

@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma_client/client";
+import { accountOnboardingService } from "./accountOnboardingService";
 
 export interface GetUsersOptions {
   includeEmployee?: boolean;
@@ -266,10 +267,13 @@ export class UserService {
       throw new Error("EMPLOYEE_ALREADY_LINKED");
     }
 
+    const isNewLink = currentUser.employeeId !== employeeId;
+
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
         employeeId,
+        ...(isNewLink && { employeeLinkedAt: new Date() }),
       },
       include: {
         employee: {
@@ -294,6 +298,16 @@ export class UserService {
       },
     });
 
+    // Only a first link is news to the person — a re-point from one record
+    // to another is an admin correction they needn't be emailed about.
+    if (isNewLink && currentUser.employeeId === null) {
+      try {
+        await accountOnboardingService.notifyUserLinked(id);
+      } catch (err) {
+        console.error(`[userService] linked notification failed for user ${id}:`, err);
+      }
+    }
+
     return updatedUser;
   }
 
@@ -315,6 +329,7 @@ export class UserService {
       where: { id },
       data: {
         employeeId: null,
+        employeeLinkedAt: null,
       },
       include: {
         employee: true,

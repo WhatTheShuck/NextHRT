@@ -43,8 +43,8 @@ async function setPassword(userId: string, hash: string) {
 async function main() {
   const hash = await hashPassword(PASSWORD);
 
-  // Written via Prisma rather than better-auth so the new-user hook (which
-  // emails admins) doesn't fire for throwaway dev accounts.
+  // Written via Prisma rather than better-auth: sign-up is disabled, and
+  // these throwaway accounts needn't go through any auth hooks.
   for (const p of DEV_PERSONAS) {
     const user = await prisma.user.upsert({
       where: { email: p.email },
