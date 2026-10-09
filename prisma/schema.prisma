@@ -55,6 +55,8 @@ model Employee {
   workdayLinks             WorkdayLink[]
   workdayIgnoreRules       WorkdayIgnoreRule[]
   approvalsActedFor        ApprovalAction[]          @relation("ApprovalActingFor")
+  documentSubmissions      DocumentSubmission[]
+  missingDocumentReminders MissingDocumentReminder[]
 
   @@index([reportsToId])
 }
@@ -288,6 +290,7 @@ model Training {
   sopPartner            Training?              @relation("SopPair", fields: [sopPartnerId], references: [id])
   sopPartnerOf          Training?              @relation("SopPair")
   sopTrainerAssignments SopTrainerAssignment[]
+  documentSubmissions DocumentSubmission[]
 }
 
 model TrainingRevision {
@@ -452,6 +455,7 @@ model Ticket {
   ticketRecords    TicketRecords[]
   requirements     TicketRequirement[]
   ticketExemptions TrainingTicketExemption[]
+  documentSubmissions DocumentSubmission[]
 }
 
 model TicketRecords {
@@ -463,7 +467,8 @@ model TicketRecords {
   ticketId      Int
   licenseNumber String? // Optional unique number for the actual license instance
   expiryDate    DateTime?
-  expiryNotificationStage String? // null | "<milestoneDays>" (e.g. "365"/"90") | "ExpiredSent" — idempotency anchor for the TICKET_EXPIRY job: the last reminder milestone sent. NOT compliance state.
+  expiryNotificationStage String? // null | "<milestoneDays>" (e.g. "365"/"90") | "ExpiredSent" — idempotency anchor for the employee track of the TICKET_EXPIRY job: the last reminder milestone sent. NOT compliance state.
+  managerExpiryNotificationStage String? // manager track of TICKET_EXPIRY; expiryNotificationStage is now the employee track
   images        TicketImage[]
 
   @@index([employeeId])
@@ -480,6 +485,79 @@ model TicketImage {
   uploadedAt     DateTime      @default(now())
 
   @@index([ticketRecordId])
+}
+
+enum DocumentSubmissionKind {
+  Ticket
+  Training
+}
+
+enum DocumentSubmissionStatus {
+  Pending
+  ChangesRequested
+  Approved
+  Cancelled
+}
+
+// Employee/manager-submitted ticket or External training evidence, held until an admin
+// approves it (docs/superpowers/specs/2026-10-09-document-upload-design.md). Approval creates
+// the record; its image rows point at these same files under uploads/submissions/.
+model DocumentSubmission {
+  id                Int                      @id @default(autoincrement())
+  employeeId        Int
+  employee          Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  submittedByUserId String?
+  submittedByUser   User?                    @relation("DocumentSubmissions", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  kind              DocumentSubmissionKind
+  ticketId          Int?
+  ticket            Ticket?                  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  trainingId        Int?
+  training          Training?                @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  dateIssued        DateTime                 // ticket dateIssued / training dateCompleted
+  expiryDate        DateTime?                // tickets only
+  licenseNumber     String?                  // tickets only
+  provider          String?                  // training only → TrainingRecords.trainer
+  status            DocumentSubmissionStatus @default(Pending)
+  reviewComment     String?
+  reviewedByUserId  String?
+  reviewedByUser    User?                    @relation("DocumentSubmissionReviews", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime?
+  resultRecordId    Int?                     // TicketRecords.id or TrainingRecords.id, per kind (polymorphic, no FK)
+  files             DocumentSubmissionFile[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+model DocumentSubmissionFile {
+  id           Int                @id @default(autoincrement())
+  submission   DocumentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submissionId Int
+  filePath     String             // relative to uploads/: "submissions/<uuid>.<ext>"
+  fileType     String
+  originalName String
+  uploadedAt   DateTime           @default(now())
+
+  @@index([submissionId])
+  @@index([filePath])
+}
+
+// Cadence anchor for MISSING_DOCUMENT_REMINDER: one row per open gap. Deleted when the gap
+// closes so a reopened gap gets a fresh first notice.
+model MissingDocumentReminder {
+  id              Int           @id @default(autoincrement())
+  employeeId      Int
+  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  itemType        CacheItemType
+  itemId          Int
+  firstNotifiedAt DateTime?
+  lastNotifiedAt  DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@unique([employeeId, itemType, itemId])
+  @@index([employeeId])
 }
 
 model TicketRequirement {
@@ -568,6 +646,8 @@ model User {
   orgRequestReviews            OrgRequest[]           @relation("OrgRequestReviews")
   approvalActions              ApprovalAction[]       @relation("ApprovalActions")
   courseRequests               TrainingCourseRequest[] @relation("CourseRequests")
+  documentSubmissions          DocumentSubmission[]   @relation("DocumentSubmissions")
+  documentSubmissionReviews    DocumentSubmission[]   @relation("DocumentSubmissionReviews")
   apiKeys                      Apikey[]
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
@@ -702,6 +782,7 @@ enum JobType {
   ASSET_CHECKIN
   SNIPE_PHONE_SYNC
   ACCOUNT_LINK_DIGEST
+  MISSING_DOCUMENT_REMINDER
 }
 
 enum JobStatus {
