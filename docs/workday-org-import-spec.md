@@ -429,7 +429,8 @@ still points at Joshua, who now has no one under him, so she silently loses the 
 coordinates.
 
 Each import shows a **"Delegated access left behind"** line (field `staleDelegatedAccess`,
-value = grant id) when:
+value = `<scopeManagerId>:<deptId or blank>`, the grant's content rather than its id, which
+differs between copies of HRT) when:
 - the grantee is inactive or missing from Workday;
 - the manager they act for is inactive or missing from Workday; or
 - nobody actively reports to that manager any more, so the grant covers no one.
@@ -661,8 +662,8 @@ unique index, so a nullable column in `@@unique` doesn't stop duplicates where i
   flags), and `subjectKey` is always set.
 - `DelegatedAccess.departmentId` must stay nullable, since it's a real foreign key. The
   `@@unique` still blocks duplicate *filtered* grants; for unfiltered grants
-  `delegatedAccessService` looks for an existing row inside the write transaction before
-  inserting (SQLite serialises writes, so this is safe).
+  `createGrantInTx` (in `workdayImportService`) looks for an existing row inside the write
+  transaction before inserting (SQLite serialises writes, so this is safe).
 
 Ignore rules are **value-specific**: `Kerrod Ward · title · "workshop forman"` hides only that
 value. If Workday later shows a different title, the line comes back. Rules about an HRT
@@ -685,8 +686,8 @@ be applied from a stale stored value (§10). A superseded or discarded session s
   links, ignore rules → lines). Signals A and B live here.
 - `lib/services/workdayImportService.ts`: sessions, apply transaction, History, cache
   invalidation.
-- `lib/services/delegatedAccessService.ts`: grants CRUD (duplicate check for unfiltered
-  grants, §11), History rows.
+- Grants: `createGrantInTx` / `deleteGrantInTx` in `workdayImportService.ts` (duplicate check
+  for unfiltered grants, §11, and History rows), shared with the switch-over page.
 - `lib/org/reportingLine.ts`: pure `descendants()` (visited set), `wouldCreateCycle()`, and
   later `scope()`. Used by the employee form, the apply step, the readiness check (§9.6) and
   Phase 2.
@@ -749,6 +750,32 @@ Phase 1 is built. Where the build differs from or adds to the sections above:
   existing hand-made loop can't block every import. The employee form and API also reject a
   manager change that would create a loop (`REPORTING_CYCLE`).
 - **Signal B** excludes "Document Controller" from the oversight word "controller".
+- **Blocked delegated-access lines:** a Signal A or B suggestion whose manager row isn't linked
+  shows as blocked ("Link X first", or why it can't be: not in HRT, inactive match) instead of
+  being dropped. Blocked lines name what's in the way, for reports-to lines too.
+- **Several roots:** the "No manager (top of the tree)" line is only offered when the file has
+  exactly one root, and every root's team (and its direct reports' teams) is suppressed for
+  Signals A and B. A file with no root gets no delegated-access suggestions.
+- **Rows that share a name** are linked by name plus manager (`johnsmith_patroot`), then
+  name plus title if the manager matches too (`rowLinkKeys`). The link key is also the `wd:`
+  subject key. Rows Workday doesn't tell apart at all can't be linked: they show as one blocked
+  line with no link actions, and the links API refuses their key. A link whose name isn't
+  in the current file doesn't hide its employee, so someone Workday has renamed is still
+  offered as a candidate.
+- **Unreadable rows:** a row with no Unique Identifier, no Name, or a repeated Unique
+  Identifier rejects the whole upload, since rows are resolved by uid and a collision would
+  mix two people's data.
+- **Department impact** comes from `requirementService.getEmployeeRequirements` run with the
+  new department (exemptions, ticket expiry and revision retraining included). "Outstanding" =
+  newly required and not satisfied. Authority follows `authority.mode`: in department mode
+  seeing (`apiRBAC`), approving (`approvalService`, including `canManageChildrenDepartments`)
+  and expiry emails (exact department) are shown separately, with admins left out of the
+  first two; in line-manager mode, only department-limited delegated grants.
+- **Edits before ticking:** a name line's split can be moved (applied only if it's the same
+  Workday name re-divided), and a Signal B line's department filter can be changed. Both are
+  recorded on the run and carried by the decision export.
+- **Remembered links** for everyone in the file are listed on the review page with *Undo
+  link*, including people with nothing left to review.
 - **Requirement cache:** a department move from the importer queues
   `REQUIREMENTS_CACHE_INVALIDATE`. The ordinary employee edit path doesn't do this for a
   department or location change today, only on deactivation. That's an existing gap,

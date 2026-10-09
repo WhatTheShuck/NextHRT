@@ -60,6 +60,21 @@ describe("parseOrgChart", () => {
     expect(() => parseOrgChart(new TextEncoder().encode(""))).toThrow(WorkdayParseError);
   });
 
+  it("refuses rows with a blank or repeated Unique Identifier, or no name", () => {
+    const data = workbook([
+      HEADER,
+      ["0_Pat_Root", "Pat Root", "", "", "", "", ""],
+      ["", "A Person", "0_Pat_Root", "", "", "", ""],
+      ["5", "B Person", "0_Pat_Root", "", "", "", ""],
+      ["5", "C Person", "0_Pat_Root", "", "", "", ""],
+      ["6", "", "0_Pat_Root", "", "", "", ""],
+    ]);
+    expect(() => parseOrgChart(data)).toThrow(WorkdayParseError);
+    expect(() => parseOrgChart(data)).toThrow(
+      /row 3 has no Unique Identifier; rows 4 and 5 share the Unique Identifier "5"; row 6 has no Name/,
+    );
+  });
+
   it("skips blank rows", () => {
     const data = workbook([HEADER, ["0_A", "Pat Root", ""], ["", "", ""], ["1_B", "Sam Lead", "0_A"]]);
     expect(parseOrgChart(data).rows).toHaveLength(2);

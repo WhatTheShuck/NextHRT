@@ -61,10 +61,20 @@ export function parseOrgChart(data: ArrayBuffer | Uint8Array): ParsedOrgChart {
 
   const cell = (row: unknown[], i: number) => (i === -1 ? "" : String(row[i] ?? "").trim());
   const rows: WorkdayRow[] = [];
-  for (const raw of grid.slice(1)) {
+  const unreadable: string[] = [];
+  const rowOfUid = new Map<string, number>();
+  grid.slice(1).forEach((raw, i) => {
+    // SheetJS records each row's position in the sheet; blank rows are skipped, so `i` isn't it.
+    const sheetRow = ((raw as { __rowNum__?: number }).__rowNum__ ?? i + 1) + 1;
     const name = cell(raw, idx.name).replace(/\s+/g, " ");
     const uid = cell(raw, idx.uid);
-    if (!name && !uid) continue;
+    if (!name && !uid) return;
+    // Rows are matched and resolved by uid, so a blank or repeated one would silently mix two
+    // people's data up. Refuse the file rather than guess.
+    if (!uid) unreadable.push(`row ${sheetRow} has no Unique Identifier`);
+    else if (rowOfUid.has(uid)) unreadable.push(`rows ${rowOfUid.get(uid)} and ${sheetRow} share the Unique Identifier "${uid}"`);
+    if (!normaliseNameKey(name)) unreadable.push(`row ${sheetRow} has no Name`);
+    rowOfUid.set(uid, rowOfUid.get(uid) ?? sheetRow);
     rows.push({
       uid,
       name,
@@ -72,6 +82,11 @@ export function parseOrgChart(data: ArrayBuffer | Uint8Array): ParsedOrgChart {
       managerUid: cell(raw, idx.reportsTo) || null,
       title: cell(raw, idx.title).replace(/\s+/g, " "),
     });
+  });
+  if (unreadable.length > 0) {
+    const shown = unreadable.slice(0, 5).join("; ");
+    const more = unreadable.length > 5 ? ` (and ${unreadable.length - 5} more)` : "";
+    throw new WorkdayParseError(`Some rows can't be read: ${shown}${more}.`);
   }
 
   return { rows, problems: validateTree(rows) };

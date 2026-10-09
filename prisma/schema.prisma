@@ -867,7 +867,7 @@ model DelegatedAccess {
   createdByUserId        String?
   createdAt              DateTime    @default(now())
 
-  // NULLs are distinct in SQLite, so unfiltered duplicates are checked in delegatedAccessService.
+  // NULLs are distinct in SQLite, so unfiltered duplicates are checked in createGrantInTx.
   @@unique([granteeEmployeeId, scopeManagerEmployeeId, departmentId])
   @@index([scopeManagerEmployeeId])
 }
@@ -876,7 +876,7 @@ model DelegatedAccess {
 // "not in HRT". The export has no stable Workday id, so this is the only identity there is.
 model WorkdayLink {
   id                Int       @id @default(autoincrement())
-  workdayNameKey    String    @unique // lower-case, letters only
+  workdayNameKey    String    @unique // rowLinkKeys(): lower-case letters, plus "_manager[_title]" for shared names
   workdayName       String // as last seen
   employeeId        Int?
   employee          Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)

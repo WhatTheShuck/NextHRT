@@ -48,7 +48,16 @@ export const decisionBundleSchema = z.object({
       fileName: z.string(),
       uploadedAt: z.string(),
       rows: z.array(rowSchema),
-      runs: z.array(z.object({ at: z.string(), applied: z.array(z.string()), choices: z.record(z.string(), z.number().int()) })),
+      runs: z.array(
+        z.object({
+          at: z.string(),
+          applied: z.array(z.string()),
+          choices: z.record(z.string(), z.number().int()),
+          /** Edited name splits and department filters (absent in older exports). */
+          names: z.record(z.string(), z.object({ first: z.string(), last: z.string() })).optional(),
+          departments: z.record(z.string(), z.number().int()).optional(),
+        }),
+      ),
     }),
   ),
 });

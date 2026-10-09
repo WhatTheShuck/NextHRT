@@ -7,6 +7,8 @@ const bodySchema = z.object({
   ticked: z.array(z.string()),
   crossed: z.array(z.string()).default([]),
   choices: z.record(z.string(), z.number().int()).optional(),
+  names: z.record(z.string(), z.object({ first: z.string().max(100), last: z.string().max(100) })).optional(),
+  departments: z.record(z.string(), z.number().int()).optional(),
 });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

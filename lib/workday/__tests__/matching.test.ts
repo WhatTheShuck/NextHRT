@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { matchRows, rankCandidates, type MatchEmployee } from "../matching";
-import { normaliseNameKey, type WorkdayRow } from "../types";
+import { normaliseNameKey, rowLinkKeys, type WorkdayRow } from "../types";
 
 let nextId = 1;
 const emp = (
@@ -84,14 +84,21 @@ describe("matchRows", () => {
     });
   });
 
-  it("never offers an employee already linked to someone else", () => {
+  it("never offers an employee linked to another row in the file", () => {
     const michael = emp("Michael Smith");
     const results = matchRows(
-      [row("Michael Smith")],
+      [row("Michael Smith"), row("Mike Smith")],
       [michael],
       [{ workdayNameKey: "mikesmith", employeeId: michael.id }],
     );
     expect(results.get("Michael Smith")).toEqual({ kind: "unmatched", candidates: [] });
+    expect(results.get("Mike Smith")).toEqual({ kind: "linked", employeeId: michael.id, via: "link" });
+  });
+
+  it("still finds someone Workday has renamed since they were linked", () => {
+    const frederik = emp("Frederik Botma");
+    const results = matchRows([row("Frederick Botma")], [frederik], [{ workdayNameKey: "fredbotma", employeeId: frederik.id }]);
+    expect(results.get("Frederick Botma")).toMatchObject({ kind: "unmatched", candidates: [{ employeeId: frederik.id, score: 80 }] });
   });
 
   it("marks duplicate row names ambiguous instead of guessing", () => {
@@ -99,6 +106,50 @@ describe("matchRows", () => {
     const results = matchRows([row("Michael Smith", "a"), row("Michael Smith", "b")], [michael], []);
     expect(results.get("a")?.kind).toBe("ambiguous");
     expect(results.get("b")?.kind).toBe("ambiguous");
+  });
+
+  it("links rows that share a name by name plus manager", () => {
+    const [a, b] = [emp("John Smith"), emp("John Smith")];
+    const rows = [
+      { ...row("Pat Root", "p") },
+      { ...row("Sam Lead", "s"), managerUid: "p" },
+      { ...row("John Smith", "j1"), managerUid: "p" },
+      { ...row("John Smith", "j2"), managerUid: "s" },
+    ];
+    expect(rowLinkKeys(rows).get("j1")).toBe("johnsmith_patroot");
+    expect(rowLinkKeys(rows).get("j2")).toBe("johnsmith_samlead");
+
+    const results = matchRows(rows, [a, b], [{ workdayNameKey: "johnsmith_patroot", employeeId: b.id }]);
+    expect(results.get("j1")).toEqual({ kind: "linked", employeeId: b.id, via: "link" });
+    // The other row is still unresolved, and only the unclaimed namesake is offered.
+    expect(results.get("j2")).toMatchObject({ kind: "ambiguous", candidates: [{ employeeId: a.id }] });
+  });
+
+  it("falls back to the title, and can't link rows Workday doesn't tell apart", () => {
+    const rows = [
+      { ...row("John Smith", "j1"), title: "Fitter" },
+      { ...row("John Smith", "j2"), title: "Welder" },
+      { ...row("Ann Lee", "a1"), title: "Clerk" },
+      { ...row("Ann Lee", "a2"), title: "Clerk" },
+    ];
+    const keys = rowLinkKeys(rows);
+    expect([keys.get("j1"), keys.get("j2")]).toEqual(["johnsmith_top_fitter", "johnsmith_top_welder"]);
+    expect(keys.get("a1")).toBe(keys.get("a2"));
+
+    const ann = emp("Ann Lee");
+    const results = matchRows(rows, [ann], [{ workdayNameKey: keys.get("a1")!, employeeId: ann.id }]);
+    expect(results.get("a1")?.kind).toBe("ambiguous");
+  });
+
+  it("doesn't let a link on a shared key hide its employee from other rows", () => {
+    const rows = [
+      { ...row("Ann Lee", "a1"), title: "Clerk" },
+      { ...row("Ann Lee", "a2"), title: "Clerk" },
+      row("Annie Lee", "x"),
+    ];
+    const ann = emp("Ann Lee", { preferred: "Annie Lee" });
+    const results = matchRows(rows, [ann], [{ workdayNameKey: rowLinkKeys(rows).get("a1")!, employeeId: ann.id }]);
+    expect(results.get("x")).toEqual({ kind: "linked", employeeId: ann.id, via: "exact" });
   });
 
   it("marks a row ambiguous when two active employees share the name", () => {

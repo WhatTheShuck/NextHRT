@@ -7,12 +7,17 @@ import {
   buildSuggestions,
   displayName,
   FLAG_FIELDS,
+  isSplitOf,
+  preferredNameChange,
   type Line,
   type LineChange,
   type LineField,
   type SuggestEmployee,
 } from "@/lib/workday/suggestions";
-import { normaliseText, type TreeProblem, type WorkdayRow } from "@/lib/workday/types";
+import { normaliseText, rowLinkKeys, type TreeProblem, type WorkdayRow } from "@/lib/workday/types";
+import { buildOrgGraph, delegatedScope, type AuthorityMode } from "@/lib/org/authority";
+import { getAuthorityMode } from "./authorityService";
+import { requirementService } from "./requirementService";
 import { validateTree } from "@/lib/workday/parseOrgChart";
 import {
   checkIdentity,
@@ -46,11 +51,13 @@ export interface DepartmentImpact {
   trainingsRemoved: string[];
   ticketsAdded: string[];
   ticketsRemoved: string[];
-  /** Newly required items the employee has no record of. */
-  notCompleted: string[];
-  /** Department managers who would start / stop covering this person. */
-  managersGained: string[];
-  managersLost: string[];
+  /**
+   * Newly required items they haven't satisfied (no record, an expired ticket, or a revision
+   * needing retraining; exemptions excluded), so overdue as soon as they move.
+   */
+  outstanding: string[];
+  /** Who would start / stop having authority over them, one entry per rule that applies today. */
+  authority: { label: string; gained: string[]; lost: string[] }[];
 }
 
 export type ImportLine = Line & { impact?: DepartmentImpact };
@@ -60,6 +67,10 @@ export interface ApplyRequest {
   crossed: string[];
   /** lineId → chosen manager, for externalReportsTo lines with several options. */
   choices?: Record<string, number>;
+  /** lineId → an edited first/last split, for preferredName lines (§7.3). */
+  names?: Record<string, { first: string; last: string }>;
+  /** lineId → an edited department filter, for Signal B delegatedAccess lines (§8.2). */
+  departments?: Record<string, number>;
 }
 
 export interface AppliedChange {
@@ -69,6 +80,10 @@ export interface AppliedChange {
   employeeName: string;
   /** The manager picked, for a line with several possible managers (needed to replay it). */
   choice?: number;
+  /** An edited name split (needed to replay it). */
+  split?: { first: string; last: string };
+  /** An edited department filter on a delegated grant (needed to replay it). */
+  departmentFilter?: number;
   from: string | null;
   to: string | null;
 }
@@ -104,6 +119,16 @@ export interface ReplayReport {
   grantsCreated: number;
   grantsSkipped: number;
   importId: number | null;
+}
+
+/** A remembered Workday identity for a row in the session's file. */
+export interface RememberedLink {
+  key: string;
+  workdayName: string;
+  /** Null = confirmed "not in HRT". */
+  employeeId: number | null;
+  employeeName: string | null;
+  employeeActive: boolean | null;
 }
 
 export class ApplyCycleError extends Error {
@@ -186,18 +211,49 @@ class WorkdayImportService {
         lines: [] as ImportLine[],
         ignoredCount: 0,
         people: {} as Record<number, PersonSummary>,
-        linkedKeys: [] as string[],
+        linkKeys: {} as Record<string, string>,
+        links: [] as RememberedLink[],
+        departments: [] as { id: number; name: string }[],
+        authorityMode: "department" as AuthorityMode,
       };
     }
 
-    const { lines, ignoredCount, people, links } = await this.computeLines(rows);
-    const rowKeys = new Set(rows.map((r) => r.nameKey));
-    const linkedKeys = links.filter((l) => rowKeys.has(l.workdayNameKey)).map((l) => l.workdayNameKey);
-    return { ...meta, rows, lines, ignoredCount, people, linkedKeys };
+    const { lines, ignoredCount, people, links, employees, departments, authorityMode } = await this.computeLines(rows, {
+      impact: true,
+    });
+    const linkKeyByUid = rowLinkKeys(rows);
+    const rowNameByKey = new Map(rows.map((r) => [linkKeyByUid.get(r.uid)!, r.name]));
+    const empById = new Map(employees.map((e) => [e.id, e]));
+    // Every remembered link for a row in this file, so any of them can be undone (§6), even
+    // for people with nothing left to review.
+    const remembered: RememberedLink[] = links
+      .filter((l) => rowNameByKey.has(l.workdayNameKey))
+      .map((l) => {
+        const e = l.employeeId !== null ? empById.get(l.employeeId) : undefined;
+        return {
+          key: l.workdayNameKey,
+          workdayName: rowNameByKey.get(l.workdayNameKey)!,
+          employeeId: l.employeeId,
+          employeeName: e ? displayName(e) : null,
+          employeeActive: e?.isActive ?? null,
+        };
+      })
+      .sort((a, b) => a.workdayName.localeCompare(b.workdayName));
+    return {
+      ...meta,
+      rows,
+      lines,
+      ignoredCount,
+      people,
+      linkKeys: Object.fromEntries(linkKeyByUid),
+      links: remembered,
+      departments: departments.map((d) => ({ id: d.id, name: d.name })).sort((a, b) => a.name.localeCompare(b.name)),
+      authorityMode,
+    };
   }
 
-  private async computeLines(rows: WorkdayRow[]) {
-    const [employees, departments, links, ignoreRules, existingGrants, onboarding, deptManagers] = await Promise.all([
+  private async computeLines(rows: WorkdayRow[], options: { impact: boolean }) {
+    const [employees, departments, links, ignoreRules, existingGrants, onboarding, deptManagers, authorityMode] = await Promise.all([
       prisma.employee.findMany({
         select: {
           id: true,
@@ -231,6 +287,7 @@ class WorkdayImportService {
         where: { employeeId: { not: null }, managedDepartments: { some: {} } },
         select: { employeeId: true, managedDepartments: { select: { id: true } } },
       }),
+      getAuthorityMode(),
     ]);
 
     const suggestEmployees: SuggestEmployee[] = employees.map((e) => ({
@@ -256,6 +313,7 @@ class WorkdayImportService {
       existingGrants,
       onboardingManagers,
       departmentManagers,
+      lineManagerAuthority: authorityMode === "lineManager",
       now: new Date(),
     });
 
@@ -282,91 +340,155 @@ class WorkdayImportService {
       l.candidates?.forEach((c) => mention(c.employeeId));
     }
 
-    const lines: ImportLine[] = await this.withDepartmentImpact(result.lines, empById, departments);
-    return { lines, ignoredCount: result.ignoredCount, people, employees, departments, links };
+    const lines: ImportLine[] = options.impact
+      ? await this.withDepartmentImpact(result.lines, employees, departments, authorityMode)
+      : result.lines;
+    return { lines, ignoredCount: result.ignoredCount, people, employees, departments, links, authorityMode };
   }
 
-  /** §7.4: what a department move changes for training, tickets and (until Phase 2) managers. */
+  /**
+   * §7.4: what a department move changes. Training comes from requirementService itself, run
+   * as a dry run with the new department. Authority follows whichever mode is on: department
+   * mode shows each of today's rules separately (they differ, §3); line-manager mode only
+   * department-filtered delegated grants depend on the department.
+   */
   private async withDepartmentImpact(
     lines: Line[],
-    empById: Map<number, { id: number; departmentId: number; locationId: number }>,
+    employees: { id: number; departmentId: number; reportsToId: number | null; isActive: boolean }[],
     departments: { id: number; name: string; parentDepartmentId: number | null }[],
+    mode: AuthorityMode,
   ): Promise<ImportLine[]> {
     const deptLines = lines.filter((l) => l.change?.kind === "department");
     if (deptLines.length === 0) return lines;
 
-    const employeeIds = deptLines.map((l) => l.employeeId!);
-    const [trainingReqs, ticketReqs, managers, trainingDone, ticketsHeld] = await Promise.all([
-      prisma.trainingRequirement.findMany({
-        where: { training: { isActive: true } },
-        select: { departmentId: true, locationId: true, trainingId: true, training: { select: { title: true } } },
-      }),
-      prisma.ticketRequirement.findMany({
-        where: { ticket: { isActive: true } },
-        select: { departmentId: true, locationId: true, ticketId: true, ticket: { select: { ticketName: true } } },
-      }),
-      prisma.user.findMany({
-        where: { managedDepartments: { some: {} } },
-        select: { name: true, managedDepartments: { select: { id: true, level: true } } },
-      }),
-      prisma.trainingRecords.findMany({ where: { employeeId: { in: employeeIds } }, select: { employeeId: true, trainingId: true } }),
-      prisma.ticketRecords.findMany({ where: { employeeId: { in: employeeIds } }, select: { employeeId: true, ticketId: true } }),
-    ]);
-    const parentOf = new Map(departments.map((d) => [d.id, d.parentDepartmentId]));
+    const authorityChanges = mode === "lineManager"
+      ? await this.lineManagerImpact(employees)
+      : await this.departmentModeImpact(departments);
 
-    const required = <T extends { departmentId: number; locationId: number }>(reqs: T[], dept: number, loc: number) =>
-      reqs.filter((r) => (r.departmentId === dept || r.departmentId === -1) && (r.locationId === loc || r.locationId === -1));
-    // Who covers a department today, using the broadest current rule: managers of it, or of its
-    // level-0 parent (RBAC and employee scoping give level-0 managers their children).
-    const coveringManagers = (dept: number) => {
-      const parent = parentOf.get(dept) ?? null;
-      return new Set(
-        managers
-          .filter((m) => m.managedDepartments.some((d) => d.id === dept || (parent !== null && d.id === parent && d.level === 0)))
-          .map((m) => m.name ?? "(unnamed)"),
-      );
-    };
-    const added = <K>(before: Map<K, string>, after: Map<K, string>) => [...after].filter(([k]) => !before.has(k));
+    const out: ImportLine[] = [];
+    for (const line of lines) {
+      if (line.change?.kind !== "department") {
+        out.push(line);
+        continue;
+      }
+      const { employeeId, departmentId: to } = line.change;
+      const from = employees.find((e) => e.id === employeeId)?.departmentId;
+      if (from === undefined) {
+        out.push(line);
+        continue;
+      }
+      const [before, after] = await Promise.all([
+        requirementService.getEmployeeRequirements(employeeId),
+        requirementService.getEmployeeRequirements(employeeId, { departmentId: to }),
+      ]);
+      const trainings = (r: typeof before) => new Map(r.allTrainingRequirements.map((q) => [q.trainingId, q.training.title]));
+      const tickets = (r: typeof before) => new Map(r.allTicketRequirements.map((q) => [q.ticketId, q.ticket.ticketName]));
+      const [oldTraining, newTraining, oldTickets, newTickets] = [trainings(before), trainings(after), tickets(before), tickets(after)];
+      const added = <K,>(was: Map<K, string>, now: Map<K, string>) => [...now].filter(([k]) => !was.has(k)).map(([, name]) => name).sort();
 
-    return lines.map((line) => {
-      if (line.change?.kind !== "department") return line;
-      const e = empById.get(line.change.employeeId);
-      if (!e) return line;
-      const from = e.departmentId;
-      const to = line.change.departmentId;
+      out.push({
+        ...line,
+        impact: {
+          trainingsAdded: added(oldTraining, newTraining),
+          trainingsRemoved: added(newTraining, oldTraining),
+          ticketsAdded: added(oldTickets, newTickets),
+          ticketsRemoved: added(newTickets, oldTickets),
+          outstanding: [
+            ...new Map(after.trainingRequired.filter((q) => !oldTraining.has(q.trainingId)).map((q) => [q.trainingId, q.training.title])).values(),
+            ...new Map(after.ticketRequired.filter((q) => !oldTickets.has(q.ticketId)).map((q) => [q.ticketId, q.ticket.ticketName])).values(),
+          ].sort(),
+          authority: authorityChanges(employeeId, from, to),
+        },
+      });
+    }
+    return out;
+  }
 
-      const oldTraining = new Map(required(trainingReqs, from, e.locationId).map((r) => [r.trainingId, r.training.title]));
-      const newTraining = new Map(required(trainingReqs, to, e.locationId).map((r) => [r.trainingId, r.training.title]));
-      const oldTickets = new Map(required(ticketReqs, from, e.locationId).map((r) => [r.ticketId, r.ticket.ticketName]));
-      const newTickets = new Map(required(ticketReqs, to, e.locationId).map((r) => [r.ticketId, r.ticket.ticketName]));
-      const done = new Set(trainingDone.filter((r) => r.employeeId === e.id).map((r) => r.trainingId));
-      const held = new Set(ticketsHeld.filter((r) => r.employeeId === e.id).map((r) => r.ticketId));
-
-      const trainingsAdded = added(oldTraining, newTraining);
-      const ticketsAdded = added(oldTickets, newTickets);
-      const managersBefore = coveringManagers(from);
-      const managersAfter = coveringManagers(to);
-
-      const impact: DepartmentImpact = {
-        trainingsAdded: trainingsAdded.map(([, t]) => t).sort(),
-        trainingsRemoved: added(newTraining, oldTraining).map(([, t]) => t).sort(),
-        ticketsAdded: ticketsAdded.map(([, t]) => t).sort(),
-        ticketsRemoved: added(newTickets, oldTickets).map(([, t]) => t).sort(),
-        notCompleted: [
-          ...trainingsAdded.filter(([tid]) => !done.has(tid)).map(([, t]) => t),
-          ...ticketsAdded.filter(([tid]) => !held.has(tid)).map(([, t]) => t),
-        ].sort(),
-        managersGained: [...managersAfter].filter((m) => !managersBefore.has(m)).sort(),
-        managersLost: [...managersBefore].filter((m) => !managersAfter.has(m)).sort(),
-      };
-      return { ...line, impact };
+  /**
+   * Department mode: who sees, approves and gets expiry emails for someone, by department, using
+   * each site's own rule (§3). Admins see and approve everyone, so they're left out of those two.
+   */
+  private async departmentModeImpact(departments: { id: number; parentDepartmentId: number | null }[]) {
+    const users = await prisma.user.findMany({
+      where: { managedDepartments: { some: {} } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        employeeId: true,
+        canManageChildrenDepartments: true,
+        managedDepartments: { select: { id: true, level: true } },
+      },
     });
+    const childrenOf = new Map<number, number[]>();
+    for (const d of departments) {
+      if (d.parentDepartmentId !== null) childrenOf.set(d.parentDepartmentId, [...(childrenOf.get(d.parentDepartmentId) ?? []), d.id]);
+    }
+    const label = (u: (typeof users)[number]) => u.name ?? u.email ?? u.id;
+    // apiRBAC.hasAccessToEmployee: DepartmentManager role; level 0 → itself and its children, level 1 → itself.
+    const sees = (u: (typeof users)[number], dept: number) =>
+      u.role === "DepartmentManager" &&
+      u.managedDepartments.some((m) => (m.level === 0 && (m.id === dept || childrenOf.get(m.id)?.includes(dept))) || (m.level === 1 && m.id === dept));
+    // approvalService.decidableFilter: any user managing the department; children only with canManageChildrenDepartments.
+    const approves = (u: (typeof users)[number], dept: number) =>
+      u.role !== "Admin" &&
+      u.managedDepartments.some((m) => m.id === dept || (u.canManageChildrenDepartments && childrenOf.get(m.id)?.includes(dept)));
+    // expiryNotificationRecipients: managers of the exact department.
+    const emailed = (u: (typeof users)[number], dept: number) => !!u.email && u.managedDepartments.some((m) => m.id === dept);
+
+    return (employeeId: number, from: number, to: number) =>
+      (
+        [
+          ["See and manage their records", sees],
+          ["Approve their training requests (manager stage)", approves],
+          ["Get their ticket expiry emails", emailed],
+        ] as const
+      ).map(([text, rule]) => {
+        const eligible = users.filter((u) => u.employeeId !== employeeId);
+        return {
+          label: text,
+          gained: eligible.filter((u) => rule(u, to) && !rule(u, from)).map(label).sort(),
+          lost: eligible.filter((u) => rule(u, from) && !rule(u, to)).map(label).sort(),
+        };
+      });
+  }
+
+  /** Line-manager mode: only grants limited to a department change with someone's department (§8.1). */
+  private async lineManagerImpact(employees: { id: number; departmentId: number; reportsToId: number | null; isActive: boolean }[]) {
+    const active = employees.filter((e) => e.isActive);
+    const [grants, names] = await Promise.all([
+      prisma.delegatedAccess.findMany({
+        where: { departmentId: { not: null }, grantee: { isActive: true }, scopeManager: { isActive: true } },
+        select: { granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true },
+      }),
+      prisma.employee.findMany({
+        select: { id: true, legalFirstName: true, legalLastName: true, preferredFirstName: true, preferredLastName: true },
+      }),
+    ]);
+    const nameOf = new Map(names.map((e) => [e.id, displayName(e)]));
+
+    return (employeeId: number, _from: number, to: number) => {
+      const graph = buildOrgGraph(active);
+      const moved = buildOrgGraph(active.map((e) => (e.id === employeeId ? { ...e, departmentId: to } : e)));
+      const covering = (g: typeof graph) =>
+        new Set(grants.filter((grant) => delegatedScope(grant, g).has(employeeId)).map((grant) => grant.granteeEmployeeId));
+      const [before, after] = [covering(graph), covering(moved)];
+      const people = (ids: number[]) => ids.map((id) => nameOf.get(id) ?? `#${id}`).sort();
+      return [
+        {
+          label: "Delegated access limited to a department (acts with that manager's authority over them)",
+          gained: people([...after].filter((id) => !before.has(id))),
+          lost: people([...before].filter((id) => !after.has(id))),
+        },
+      ];
+    };
   }
 
   // ── Links (saved immediately, §6) ───────────────────────────────────────────────
 
   async setLink(workdayNameKey: string, workdayName: string, employeeId: number | null, userId: string) {
-    if (!/^[a-z]+$/.test(workdayNameKey)) throw new Error("INVALID_NAME_KEY");
+    if (!/^[a-z_]+$/.test(workdayNameKey)) throw new Error("INVALID_NAME_KEY");
     if (employeeId !== null) {
       const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { id: true } });
       if (!employee) throw new Error("EMPLOYEE_NOT_FOUND");
@@ -377,6 +499,18 @@ class WorkdayImportService {
       where: { workdayNameKey },
       create: { workdayNameKey, workdayName, employeeId, confirmedByUserId: userId },
       update: { workdayName, employeeId, confirmedByUserId: userId, confirmedAt: new Date() },
+    });
+  }
+
+  /**
+   * Can a link on this key identify anyone? Not when several rows in the open session share it:
+   * matching ignores such a link (§13a), and saving it would only drop the employee's real link.
+   */
+  async isLinkableKey(workdayNameKey: string): Promise<boolean> {
+    const open = await prisma.workdayImport.findMany({ where: { status: "Open" }, select: { rows: true } });
+    return open.every((session) => {
+      const keys = [...rowLinkKeys(JSON.parse(session.rows) as WorkdayRow[]).values()];
+      return keys.filter((k) => k === workdayNameKey).length <= 1;
     });
   }
 
@@ -392,7 +526,7 @@ class WorkdayImportService {
   ) {
     if (!LINE_FIELDS.includes(rule.field as LineField)) throw new Error("INVALID_FIELD");
     const empMatch = rule.subjectKey.match(/^emp:(\d+)$/);
-    if (!empMatch && !/^wd:[a-z]+$/.test(rule.subjectKey)) throw new Error("INVALID_SUBJECT");
+    if (!empMatch && !/^wd:[a-z_]+$/.test(rule.subjectKey)) throw new Error("INVALID_SUBJECT");
     const employeeId = empMatch ? Number(empMatch[1]) : null;
 
     return prisma.workdayIgnoreRule.upsert({
@@ -433,7 +567,8 @@ class WorkdayImportService {
     const valueLabel = (field: string, value: string): string => {
       if (value === "") return "";
       if (value === "none") return "No manager";
-      if (value.startsWith("wd:")) return `Workday: ${value.slice(3)}`;
+      // A line blocked on an unlinked row stores its link key (delegated access adds ":<dept>").
+      if (value.startsWith("wd:")) return `Workday: ${value.slice(3).replace(/:\d*$/, "")}`;
       if (value.startsWith("pick:")) {
         return `One of ${value.slice(5).split(",").map((id) => empName.get(id) ?? `#${id}`).join(", ")}`;
       }
@@ -444,14 +579,14 @@ class WorkdayImportService {
           return empName.get(value) ?? `#${value}`;
         case "department":
           return deptName.get(value) ?? `#${value}`;
-        case "staleDelegatedAccess":
-          return `Grant #${value}`;
         case "preferredName":
           return value.replace("|", " ");
-        case "delegatedAccess": {
+        case "delegatedAccess":
+        case "staleDelegatedAccess": {
           const [manager, dept] = value.split(":");
           const scope = `Acts at ${empName.get(manager) ?? `#${manager}`}'s level`;
-          return dept ? `${scope}, ${deptName.get(dept) ?? `#${dept}`} only` : scope;
+          const grant = dept ? `${scope}, ${deptName.get(dept) ?? `#${dept}`} only` : scope;
+          return field === "staleDelegatedAccess" ? `Remove: ${grant}` : grant;
         }
         default:
           return value;
@@ -482,8 +617,9 @@ class WorkdayImportService {
     if (session.status !== "Open") throw new Error("IMPORT_NOT_OPEN");
 
     const rows = JSON.parse(session.rows) as WorkdayRow[];
-    const { lines, employees, departments } = await this.computeLines(rows);
+    const { lines, employees, departments } = await this.computeLines(rows, { impact: false });
     const byId = new Map(lines.map((l) => [l.id, l]));
+    const deptIds = new Set(departments.map((d) => d.id));
 
     // Re-check every ticked line against the fresh calculation; never apply a stored value.
     const stale: string[] = [];
@@ -503,9 +639,29 @@ class WorkdayImportService {
         }
         change = { ...change, reportsToId: choice };
       }
+      // An edited split must be the same Workday name, re-divided; anything else is refused.
+      const split = request.names?.[lineId];
+      if (split && change.kind === "preferredName") {
+        const subjectId = change.employeeId;
+        const e = employees.find((x) => x.id === subjectId);
+        if (!e || !line.workdayName || !isSplitOf(line.workdayName, split.first, split.last)) {
+          stale.push(lineId);
+          continue;
+        }
+        change = { ...change, ...preferredNameChange(e, split.first, split.last) };
+      }
+      const filter = request.departments?.[lineId];
+      if (filter !== undefined && change.kind === "delegatedAccess") {
+        if (!line.departmentEditable || !deptIds.has(filter)) {
+          stale.push(lineId);
+          continue;
+        }
+        change = { ...change, departmentId: filter };
+      }
       changes.push({ line, change });
     }
     const chosen = (lineId: string) => (byId.get(lineId)?.options ? request.choices?.[lineId] : undefined);
+    const editedSplit = (lineId: string) => (byId.get(lineId)?.split ? request.names?.[lineId] : undefined);
 
     const empById = new Map(employees.map((e) => [e.id, e]));
     const deptName = new Map(departments.map((d) => [d.id, d.name]));
@@ -559,15 +715,22 @@ class WorkdayImportService {
             source: change.source,
             createdByUserId: userId,
           });
+          const filter = line.departmentEditable ? request.departments?.[line.id] : undefined;
           if (grant) {
+            const scope = nameOf(change.scopeManagerEmployeeId);
             applied.push({
               lineId: line.id,
               field: line.field,
               employeeId: change.granteeEmployeeId,
               employeeName: nameOf(change.granteeEmployeeId) ?? "",
+              departmentFilter: filter,
               from: null,
-              to: line.proposed,
+              to: change.departmentId === null
+                ? `Acts at ${scope}'s level`
+                : `Acts at ${scope}'s level, ${deptName.get(change.departmentId) ?? "one department"} only`,
             });
+          } else {
+            stale.push(line.id); // an identical grant already exists (e.g. the edited filter)
           }
           continue;
         }
@@ -602,6 +765,7 @@ class WorkdayImportService {
           employeeId: e.id,
           employeeName: displayName(e),
           choice: chosen(line.id),
+          split: change.kind === "preferredName" ? editedSplit(line.id) : undefined,
           from,
           to,
         });
@@ -656,7 +820,12 @@ class WorkdayImportService {
    * Explain replayed lines that weren't applied: already true here (nothing to do), or HRT has
    * changed since the export (needs a look). Line ids are `subjectKey~field~value` (§7).
    */
-  private async describeSkipped(lineIds: string[], choices: Record<string, number>): Promise<SkippedLine[]> {
+  private async describeSkipped(
+    lineIds: string[],
+    choices: Record<string, number>,
+    names: Record<string, { first: string; last: string }> = {},
+    filters: Record<string, number> = {},
+  ): Promise<SkippedLine[]> {
     if (lineIds.length === 0) return [];
     const [employees, departments, grants] = await Promise.all([
       prisma.employee.findMany({
@@ -696,7 +865,7 @@ class WorkdayImportService {
           done = !!e && normaliseText(e.title) === value;
           break;
         case "preferredName": {
-          const [first, last] = value.split("|");
+          const [first, last] = names[lineId] ? [normaliseText(names[lineId].first), normaliseText(names[lineId].last)] : value.split("|");
           label = `${first} ${last}`;
           done =
             !!e &&
@@ -708,21 +877,21 @@ class WorkdayImportService {
           label = deptName.get(Number(value)) ?? `#${value}`;
           done = !!e && e.departmentId === Number(value);
           break;
-        case "delegatedAccess": {
-          const [manager, dept] = value.split(":");
-          label = `Acts at ${nameOf(Number(manager))}'s level${dept ? `, ${deptName.get(Number(dept)) ?? `#${dept}`} only` : ""}`;
-          done = grants.some(
+        case "delegatedAccess":
+        case "staleDelegatedAccess": {
+          const [manager, stored] = value.split(":");
+          const dept = field === "delegatedAccess" && filters[lineId] !== undefined ? String(filters[lineId]) : stored;
+          const grant = `Acts at ${nameOf(Number(manager))}'s level${dept ? `, ${deptName.get(Number(dept)) ?? `#${dept}`} only` : ""}`;
+          const exists = grants.some(
             (g) =>
               g.granteeEmployeeId === empId &&
               g.scopeManagerEmployeeId === Number(manager) &&
               g.departmentId === (dept ? Number(dept) : null),
           );
+          label = field === "staleDelegatedAccess" ? `Remove: ${grant}` : grant;
+          done = field === "staleDelegatedAccess" ? !exists : exists;
           break;
         }
-        case "staleDelegatedAccess":
-          label = `Remove grant #${value}`;
-          done = !grants.some((g) => g.id === Number(value));
-          break;
       }
       return {
         lineId,
@@ -776,6 +945,10 @@ class WorkdayImportService {
               at: r.at,
               applied: r.applied.map((a) => a.lineId),
               choices: Object.fromEntries(r.applied.filter((a) => a.choice !== undefined).map((a) => [a.lineId, a.choice!])),
+              names: Object.fromEntries(r.applied.filter((a) => a.split !== undefined).map((a) => [a.lineId, a.split!])),
+              departments: Object.fromEntries(
+                r.applied.filter((a) => a.departmentFilter !== undefined).map((a) => [a.lineId, a.departmentFilter!]),
+              ),
             })),
         }))
         .filter((s) => s.runs.length > 0),
@@ -818,12 +991,16 @@ class WorkdayImportService {
       report.importId = id;
       for (const run of session.runs) {
         try {
-          const result = await this.apply(id, { ticked: run.applied, crossed: [], choices: run.choices }, userId);
+          const result = await this.apply(
+            id,
+            { ticked: run.applied, crossed: [], choices: run.choices, names: run.names, departments: run.departments },
+            userId,
+          );
           report.runs.push({
             fileName: session.fileName,
             at: run.at,
             applied: result.applied.length,
-            skipped: await this.describeSkipped(result.stale, run.choices),
+            skipped: await this.describeSkipped(result.stale, run.choices, run.names, run.departments),
             error: null,
           });
         } catch (error) {
@@ -837,7 +1014,7 @@ class WorkdayImportService {
             fileName: session.fileName,
             at: run.at,
             applied: 0,
-            skipped: await this.describeSkipped(run.applied, run.choices),
+            skipped: await this.describeSkipped(run.applied, run.choices, run.names, run.departments),
             error: message,
           });
         }

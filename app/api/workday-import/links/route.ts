@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/api-admin";
 import { workdayImportService } from "@/lib/services/workdayImportService";
 
 const bodySchema = z.object({
-  workdayNameKey: z.string().regex(/^[a-z]+$/),
+  workdayNameKey: z.string().regex(/^[a-z_]+$/),
   workdayName: z.string().min(1),
   employeeId: z.number().int().nullable(),
 });
@@ -17,6 +17,12 @@ export async function PUT(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
   const { workdayNameKey, workdayName, employeeId } = parsed.data;
+  if (!(await workdayImportService.isLinkableKey(workdayNameKey))) {
+    return NextResponse.json(
+      { error: `Workday lists identical rows for ${workdayName}, so they can't be linked until Workday tells them apart.` },
+      { status: 409 },
+    );
+  }
   try {
     return NextResponse.json(
       await workdayImportService.setLink(workdayNameKey, workdayName, employeeId, guard.session.user.id),
@@ -33,7 +39,7 @@ export async function DELETE(request: NextRequest) {
   const guard = await requireAdmin(request);
   if ("response" in guard) return guard.response;
   const key = new URL(request.url).searchParams.get("workdayNameKey");
-  if (!key || !/^[a-z]+$/.test(key)) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  if (!key || !/^[a-z_]+$/.test(key)) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   await workdayImportService.removeLink(key);
   return NextResponse.json({ ok: true });
 }

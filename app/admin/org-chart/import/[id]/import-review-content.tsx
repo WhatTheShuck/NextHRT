@@ -26,7 +26,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { FIELD_LABELS, FIELD_ORDER, FLAG_FIELDS } from "@/lib/workday/labels";
 import type { LineField } from "@/lib/workday/suggestions";
 import type { WorkdayRow, TreeProblem } from "@/lib/workday/types";
-import type { ApplyRun, ImportLine, PersonSummary } from "@/lib/services/workdayImportService";
+import type { ApplyRun, ImportLine, PersonSummary, RememberedLink } from "@/lib/services/workdayImportService";
 import {
   AlertTriangle,
   ArrowRight,
@@ -61,8 +61,14 @@ interface ImportView {
   lines: ImportLine[];
   ignoredCount: number;
   people: Record<number, PersonSummary>;
-  linkedKeys: string[];
+  /** Workday uid → the key its link is stored under. */
+  linkKeys: Record<string, string>;
+  links: RememberedLink[];
+  departments: { id: number; name: string }[];
+  authorityMode: "department" | "lineManager";
 }
+
+type NameSplit = { first: string; last: string };
 
 type Decision = "tick" | "cross";
 
@@ -110,12 +116,19 @@ function treeOrder(rows: WorkdayRow[]): WorkdayRow[] {
   return out;
 }
 
-function readSaved(key: string): { decisions: Record<string, Decision>; choices: Record<string, number> } {
+interface Saved {
+  decisions: Record<string, Decision>;
+  choices: Record<string, number>;
+  names: Record<string, NameSplit>;
+  filters: Record<string, number>;
+}
+
+function readSaved(key: string): Saved {
   try {
     const parsed = JSON.parse(sessionStorage.getItem(key) ?? "{}");
-    return { decisions: parsed.decisions ?? {}, choices: parsed.choices ?? {} };
+    return { decisions: parsed.decisions ?? {}, choices: parsed.choices ?? {}, names: parsed.names ?? {}, filters: parsed.filters ?? {} };
   } catch {
-    return { decisions: {}, choices: {} };
+    return { decisions: {}, choices: {}, names: {}, filters: {} };
   }
 }
 
@@ -127,6 +140,9 @@ export function ImportReviewContent({ importId }: { importId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [choices, setChoices] = useState<Record<string, number>>({});
+  // Edits made on a line before ticking: a different name split (§7.3), a different department filter (§8.2).
+  const [names, setNames] = useState<Record<string, NameSplit>>({});
+  const [filters, setFilters] = useState<Record<string, number>>({});
   const [filter, setFilter] = useState<LineField | "all">("all");
   const [search, setSearch] = useState("");
   const [ignoreTarget, setIgnoreTarget] = useState<ImportLine | null>(null);
@@ -163,6 +179,8 @@ export function ImportReviewContent({ importId }: { importId: number }) {
             const saved = readSaved(storageKey);
             setDecisions(keep(saved.decisions));
             setChoices(keep(saved.choices));
+            setNames(keep(saved.names));
+            setFilters(keep(saved.filters));
           } else {
             setDecisions((prev) => keep(prev));
           }
@@ -183,11 +201,11 @@ export function ImportReviewContent({ importId }: { importId: number }) {
   useEffect(() => {
     if (!restored.current) return;
     try {
-      sessionStorage.setItem(storageKey, JSON.stringify({ decisions, choices }));
+      sessionStorage.setItem(storageKey, JSON.stringify({ decisions, choices, names, filters }));
     } catch {
       // Storage unavailable (private mode, quota): ticks just won't survive a refresh.
     }
-  }, [storageKey, decisions, choices]);
+  }, [storageKey, decisions, choices, names, filters]);
 
   const rowsByUid = useMemo(() => new Map((view?.rows ?? []).map((r) => [r.uid, r])), [view]);
 
@@ -320,10 +338,11 @@ export function ImportReviewContent({ importId }: { importId: number }) {
   const apply = async () => {
     setApplying(true);
     try {
-      const chosen = Object.fromEntries(ticked.filter((id) => choices[id] !== undefined).map((id) => [id, choices[id]]));
+      const pick = <T,>(edits: Record<string, T>) =>
+        Object.fromEntries(ticked.filter((id) => edits[id] !== undefined).map((id) => [id, edits[id]]));
       const res = await api.post<ApplyRun>(
         `/api/workday-import/${importId}/apply`,
-        { ticked, crossed, choices: chosen },
+        { ticked, crossed, choices: pick(choices), names: pick(names), departments: pick(filters) },
         { timeout: 60000 },
       );
       setLastRun(res.data);
@@ -466,7 +485,13 @@ export function ImportReviewContent({ importId }: { importId: number }) {
                 group={g}
                 person={g.employeeId !== null ? view.people[g.employeeId] : undefined}
                 people={view.people}
-                linked={!!g.row && view.linkedKeys.includes(g.row.nameKey)}
+                linkKey={g.row ? view.linkKeys[g.row.uid] : undefined}
+                linked={!!g.row && view.links.some((l) => l.key === view.linkKeys[g.row!.uid])}
+                departments={view.departments}
+                names={names}
+                filters={filters}
+                onEditName={(id, split) => setNames((prev) => ({ ...prev, [id]: split }))}
+                onEditFilter={(id, departmentId) => setFilters((prev) => ({ ...prev, [id]: departmentId }))}
                 decisions={decisions}
                 choices={choices}
                 onToggle={toggle}
@@ -481,6 +506,8 @@ export function ImportReviewContent({ importId }: { importId: number }) {
           </div>
         </>
       )}
+
+      {isOpen && view.links.length > 0 && <RememberedLinks links={view.links} onUnlink={removeLink} />}
 
       {view.runs.length > 0 && <RunHistory runs={view.runs} />}
 
@@ -519,6 +546,7 @@ export function ImportReviewContent({ importId }: { importId: number }) {
         open={confirmApply}
         onOpenChange={setConfirmApply}
         lines={ticked.map((id) => linesById.get(id)).filter((l): l is ImportLine => !!l)}
+        authorityMode={view.authorityMode}
         applying={applying}
         onConfirm={apply}
       />
@@ -561,7 +589,13 @@ function PersonCard({
   group,
   person,
   people,
+  linkKey,
   linked,
+  departments,
+  names,
+  filters,
+  onEditName,
+  onEditFilter,
   decisions,
   choices,
   onToggle,
@@ -575,7 +609,13 @@ function PersonCard({
   group: Group;
   person: PersonSummary | undefined;
   people: Record<number, PersonSummary>;
+  linkKey: string | undefined;
   linked: boolean;
+  departments: { id: number; name: string }[];
+  names: Record<string, NameSplit>;
+  filters: Record<string, number>;
+  onEditName: (id: string, split: NameSplit) => void;
+  onEditFilter: (id: string, departmentId: number) => void;
   decisions: Record<string, Decision>;
   choices: Record<string, number>;
   onToggle: (id: string, d: Decision) => void;
@@ -616,8 +656,8 @@ function PersonCard({
             </div>
           </div>
           <div className="flex items-center gap-1">
-            {linked && group.row && (
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onUnlink(group.row!.nameKey, group.row!.name)}>
+            {linked && group.row && linkKey && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onUnlink(linkKey, group.row!.name)}>
                 <Unlink className="h-3.5 w-3.5 mr-1" />
                 Undo link
               </Button>
@@ -645,6 +685,11 @@ function PersonCard({
               people={people}
               decision={decisions[line.id]}
               choice={choices[line.id]}
+              departments={departments}
+              nameEdit={names[line.id]}
+              filterEdit={filters[line.id]}
+              onEditName={(split) => onEditName(line.id, split)}
+              onEditFilter={(departmentId) => onEditFilter(line.id, departmentId)}
               onToggle={(d) => onToggle(line.id, d)}
               onChoose={(employeeId) => onChoose(line.id, employeeId)}
               onIgnore={() => onIgnore(line)}
@@ -663,6 +708,11 @@ function LineRow({
   people,
   decision,
   choice,
+  departments,
+  nameEdit,
+  filterEdit,
+  onEditName,
+  onEditFilter,
   onToggle,
   onChoose,
   onIgnore,
@@ -673,6 +723,11 @@ function LineRow({
   people: Record<number, PersonSummary>;
   decision: Decision | undefined;
   choice: number | undefined;
+  departments: { id: number; name: string }[];
+  nameEdit: NameSplit | undefined;
+  filterEdit: number | undefined;
+  onEditName: (split: NameSplit) => void;
+  onEditFilter: (departmentId: number) => void;
   onToggle: (d: Decision) => void;
   onChoose: (employeeId: number) => void;
   onIgnore: () => void;
@@ -705,7 +760,28 @@ function LineRow({
           )}
         </div>
 
-        {(line.current !== null || line.proposed !== null) && !line.options && (
+        {line.split && <NameSplitEditor line={line} split={nameEdit ?? line.split} edited={!!nameEdit} onChange={onEditName} />}
+
+        {line.departmentEditable && line.change?.kind === "delegatedAccess" && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Limited to</span>
+            <Select value={String(filterEdit ?? line.change.departmentId)} onValueChange={(v) => onEditFilter(Number(v))}>
+              <SelectTrigger className="h-7 w-[220px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)} className="text-xs">
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {filterEdit !== undefined && filterEdit !== line.change.departmentId && <span className="text-muted-foreground">(changed)</span>}
+          </div>
+        )}
+
+        {(line.current !== null || line.proposed !== null) && !line.options && !line.split && (
           <p className="text-sm flex flex-wrap items-center gap-1.5">
             {line.current !== null && <span className="text-muted-foreground line-through decoration-muted-foreground/50">{line.current}</span>}
             {line.current !== null && line.proposed !== null && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />}
@@ -743,7 +819,7 @@ function LineRow({
         {line.impact && <ImpactPanel impact={line.impact} />}
 
         {/* Identity actions */}
-        {(line.field === "notInHrt" || line.field === "inactiveMatch") && (
+        {(line.field === "notInHrt" || line.field === "inactiveMatch") && !line.blocked && (
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
             {line.candidates?.slice(0, 4).map((c) => {
               const p = people[c.employeeId];
@@ -859,7 +935,7 @@ function ImpactPanel({ impact }: { impact: NonNullable<ImportLine["impact"]> }) 
   const [open, setOpen] = useState(false);
   const changes =
     impact.trainingsAdded.length + impact.trainingsRemoved.length + impact.ticketsAdded.length + impact.ticketsRemoved.length;
-  const managerChanges = impact.managersGained.length + impact.managersLost.length;
+  const authorityChanges = impact.authority.reduce((n, a) => n + a.gained.length + a.lost.length, 0);
   const list = (label: string, items: string[], tone = "") =>
     items.length > 0 && (
       <p className={tone}>
@@ -872,20 +948,125 @@ function ImpactPanel({ impact }: { impact: NonNullable<ImportLine["impact"]> }) 
       <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
         {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         Impact: {changes === 0 ? "no training changes" : `${changes} training/ticket change${changes === 1 ? "" : "s"}`}
-        {impact.notCompleted.length > 0 && <span className="text-amber-600">, {impact.notCompleted.length} not yet completed</span>}
-        {managerChanges > 0 && `, ${managerChanges} manager change${managerChanges === 1 ? "" : "s"}`}
+        {impact.outstanding.length > 0 && <span className="text-amber-600">, {impact.outstanding.length} overdue on moving</span>}
+        {authorityChanges > 0 && `, ${authorityChanges} authority change${authorityChanges === 1 ? "" : "s"}`}
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-1.5 space-y-0.5 rounded-md bg-muted/40 p-2 text-xs">
         {list("Training added", impact.trainingsAdded)}
         {list("Training removed", impact.trainingsRemoved)}
         {list("Tickets added", impact.ticketsAdded)}
         {list("Tickets removed", impact.ticketsRemoved)}
-        {list("Newly required and not completed", impact.notCompleted, "text-amber-600")}
-        {list("Managers who would start seeing and approving for them", impact.managersGained)}
-        {list("Managers who would stop", impact.managersLost)}
-        {changes === 0 && managerChanges === 0 && <p>Nothing changes for training or managers.</p>}
+        {list("Newly required and not satisfied (overdue as soon as they move)", impact.outstanding, "text-amber-600")}
+        {impact.authority.map((a) => (
+          <div key={a.label}>
+            {list(`${a.label}: would start`, a.gained)}
+            {list(`${a.label}: would stop`, a.lost)}
+          </div>
+        ))}
+        {changes === 0 && authorityChanges === 0 && <p>Nothing changes for training or authority.</p>}
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/** §7.3: Workday's single Name, divided into first and last; the reviewer can move the split. */
+function NameSplitEditor({
+  line,
+  split,
+  edited,
+  onChange,
+}: {
+  line: ImportLine;
+  split: NameSplit;
+  edited: boolean;
+  onChange: (split: NameSplit) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const words = (line.workdayName ?? `${split.first} ${split.last}`).trim().split(/\s+/);
+  const firstWords = split.first.trim().split(/\s+/).filter(Boolean).length;
+
+  return (
+    <div className="space-y-1">
+      <p className="text-sm flex flex-wrap items-center gap-1.5">
+        {line.current !== null && <span className="text-muted-foreground line-through decoration-muted-foreground/50">{line.current}</span>}
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="font-medium">
+          {split.first} <span className="text-muted-foreground font-normal">|</span> {split.last}
+        </span>
+        {edited && <span className="text-xs text-muted-foreground">(split changed)</span>}
+        {words.length > 2 && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            onClick={() => setEditing((v) => !v)}
+          >
+            {editing ? "Done" : "Change split"}
+          </button>
+        )}
+      </p>
+      {editing && (
+        <div className="flex flex-wrap gap-1">
+          {words.slice(1).map((_, i) => {
+            const n = i + 1;
+            const option = { first: words.slice(0, n).join(" "), last: words.slice(n).join(" ") };
+            return (
+              <Button
+                key={n}
+                variant={n === firstWords ? "secondary" : "outline"}
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onChange(option)}
+              >
+                {option.first} | {option.last}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+      {edited && <p className="text-xs text-muted-foreground">The email notes below are for the suggested split.</p>}
+    </div>
+  );
+}
+
+function RememberedLinks({ links, onUnlink }: { links: RememberedLink[]; onUnlink: (key: string, name: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <Collapsible open={open} onOpenChange={setOpen}>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-semibold">
+            {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            Remembered links ({links.length})
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3">
+            <p className="text-xs text-muted-foreground mb-2">
+              Confirmed links for people in this file. Undo one to have that person matched afresh.
+            </p>
+            <ul className="divide-y rounded-md border text-sm">
+              {links.map((l) => (
+                <li key={l.key} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                  <span className="min-w-0">
+                    {l.workdayName} <ArrowRight className="inline h-3.5 w-3.5 text-muted-foreground" />{" "}
+                    {l.employeeId === null ? (
+                      <span className="text-muted-foreground">Not in HRT</span>
+                    ) : (
+                      <Link href={`/employees/${l.employeeId}`} className="underline-offset-2 hover:underline">
+                        {l.employeeName ?? `#${l.employeeId}`}
+                      </Link>
+                    )}
+                    {l.employeeActive === false && <Badge variant="destructive" className="ml-1.5 text-[10px] py-0">Inactive</Badge>}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs shrink-0" onClick={() => onUnlink(l.key, l.workdayName)}>
+                    <Unlink className="h-3.5 w-3.5 mr-1" />
+                    Undo link
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -893,12 +1074,14 @@ function ApplyDialog({
   open,
   onOpenChange,
   lines,
+  authorityMode,
   applying,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lines: ImportLine[];
+  authorityMode: ImportView["authorityMode"];
   applying: boolean;
   onConfirm: () => void;
 }) {
@@ -926,8 +1109,11 @@ function ApplyDialog({
         </ul>
         {departmentMoves > 0 && (
           <p className="text-xs text-amber-600">
-            {departmentMoves} department change{departmentMoves === 1 ? "" : "s"} will change required training, and who can see and
-            approve for {departmentMoves === 1 ? "that person" : "those people"}.
+            {departmentMoves} department change{departmentMoves === 1 ? "" : "s"} will change required training
+            {authorityMode === "lineManager"
+              ? ", and any delegated access limited to a department"
+              : `, and who can see, approve and get expiry emails for ${departmentMoves === 1 ? "that person" : "those people"}`}
+            . Each line&apos;s impact shows the details.
           </p>
         )}
         <DialogFooter>

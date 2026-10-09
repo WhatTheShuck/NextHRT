@@ -2,7 +2,7 @@ import { deriveEmploymentType } from "@/lib/employment";
 import { emailNamePart } from "@/lib/employee-email";
 import type { EmployeeStatus } from "@/generated/prisma_client/client";
 import type { MatchCandidate, MatchResult } from "./matching";
-import { normaliseText, type WorkdayRow } from "./types";
+import { normaliseNameKey, normaliseText, rowLinkKeys, type WorkdayRow } from "./types";
 
 /**
  * The suggestion engine (docs/workday-org-import-spec.md §7–8). Pure: everything it needs is
@@ -84,6 +84,10 @@ export interface Line {
   options?: LinePerson[];
   /** notInHrt only: someone already confirmed this row isn't in HRT. */
   confirmedNotInHrt?: boolean;
+  /** preferredName only: the suggested first/last split of Workday's name, editable before ticking (§7.3). */
+  split?: { first: string; last: string };
+  /** delegatedAccess (Signal B) only: the department filter can be changed before ticking (§8.2). */
+  departmentEditable?: boolean;
 }
 
 export interface SuggestEmployee {
@@ -118,6 +122,8 @@ export interface SuggestInput {
   onboardingManagers: Map<number, number>;
   /** departmentId → employee ids of users who manage that department today (§7.10). */
   departmentManagers: Map<number, number[]>;
+  /** Line-manager authority is switched on, so a delegated grant takes effect when applied. */
+  lineManagerAuthority?: boolean;
   now: Date;
 }
 
@@ -141,6 +147,8 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
   const empById = new Map(input.employees.map((e) => [e.id, e]));
   const deptName = new Map(input.departments.map((d) => [d.id, d.name]));
   const rowByUid = new Map(rows.map((r) => [r.uid, r]));
+  const linkKeyByUid = rowLinkKeys(rows);
+  const roots = rows.filter((r) => r.managerUid === null);
   const childrenByUid = new Map<string, WorkdayRow[]>();
   for (const r of rows) {
     if (r.managerUid) childrenByUid.set(r.managerUid, [...(childrenByUid.get(r.managerUid) ?? []), r]);
@@ -186,16 +194,50 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
       return e ? [{ employeeId: e.id, name: displayName(e), reason: c.reason, score: c.score }] : [];
     });
 
+  // Rows Workday doesn't tell apart (same name, manager and title) share a link key, and a link on
+  // a shared key is ignored (§13a), so they can't be linked at all.
+  const rowsByLinkKey = new Map<string, number>();
+  for (const key of linkKeyByUid.values()) rowsByLinkKey.set(key, (rowsByLinkKey.get(key) ?? 0) + 1);
+  const unlinkable = (uid: string) => (rowsByLinkKey.get(linkKeyByUid.get(uid)!) ?? 0) > 1;
+
+  /** Why a line that needs this row's employee can't be applied yet. */
+  const linkFirst = (r: WorkdayRow): string => {
+    const m = matches.get(r.uid);
+    if (unlinkable(r.uid)) return `${r.name} can't be linked: Workday lists identical rows for them`;
+    if (m?.kind === "notInHrt") return `${r.name} is marked as not in HRT. Undo that link if they are`;
+    if (m?.kind === "inactive") return `${r.name} only matches an inactive employee. Rehire them or link someone else first`;
+    return `Link ${r.name} first`;
+  };
+
   // ── Rows: identity flags and per-person field lines ─────────────────────────────
+  const unlinkableShown = new Set<string>();
   for (const row of rows) {
     const match = matches.get(row.uid);
     const base = { workdayUid: row.uid, workdayName: row.name };
+
+    if (unlinkable(row.uid)) {
+      // One line for the whole group: the rows are identical, so so would their lines be.
+      const key = linkKeyByUid.get(row.uid)!;
+      if (unlinkableShown.has(key)) continue;
+      unlinkableShown.add(key);
+      add({
+        ...base,
+        subjectKey: `wd:${key}`,
+        field: "notInHrt",
+        value: "",
+        employeeId: null,
+        reason: `Workday lists ${rowsByLinkKey.get(key)} people called ${row.name} with the same manager and title.`,
+        blocked: "They can't be linked until Workday tells them apart (e.g. by title).",
+        candidates: [],
+      });
+      continue;
+    }
 
     if (!match || match.kind === "unmatched" || match.kind === "ambiguous" || match.kind === "notInHrt") {
       const confirmed = match?.kind === "notInHrt";
       add({
         ...base,
-        subjectKey: `wd:${row.nameKey}`,
+        subjectKey: `wd:${linkKeyByUid.get(row.uid)}`,
         field: "notInHrt",
         value: "",
         employeeId: null,
@@ -214,7 +256,7 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
       const e = empById.get(match.employeeId);
       add({
         ...base,
-        subjectKey: `wd:${row.nameKey}`,
+        subjectKey: `wd:${linkKeyByUid.get(row.uid)}`,
         field: "inactiveMatch",
         value: "",
         employeeId: match.employeeId,
@@ -235,7 +277,8 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
 
     // §7.1 Reports to
     if (row.managerUid === null) {
-      if (e.reportsToId !== null) {
+      // Only when the file has a single top; with several, a root may just be a broken branch.
+      if (e.reportsToId !== null && roots.length === 1) {
         add({
           ...person,
           field: "reportsTo",
@@ -261,10 +304,10 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
         add({
           ...person,
           field: "reportsTo",
-          value: `wd:${managerRow.nameKey}`,
+          value: `wd:${linkKeyByUid.get(managerRow.uid)}`,
           current: e.reportsToId === null ? "(none)" : nameOf(empById, e.reportsToId),
           proposed: managerRow.name,
-          blocked: `Link ${managerRow.name} first`,
+          blocked: linkFirst(managerRow),
         });
       }
     }
@@ -315,7 +358,7 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
   }
 
   // §8.2 Delegated access
-  for (const line of delegatedAccessLines(rows, childrenByUid, linkedEmp, input, deptName)) add(line);
+  for (const line of delegatedAccessLines(rows, childrenByUid, linkedEmp, linkFirst, linkKeyByUid, input, deptName)) add(line);
 
   // ── HRT-side flags ──────────────────────────────────────────────────────────────
   const graceCutoff = new Date(now.getTime() - MISSING_FROM_WORKDAY_GRACE_DAYS * 86_400_000);
@@ -418,7 +461,8 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
     add({
       subjectKey: `emp:${grantee.id}`,
       field: "staleDelegatedAccess",
-      value: String(g.id),
+      // The grant's content, not its id: ids differ between copies of HRT (decision replay).
+      value: `${g.scopeManagerEmployeeId}:${g.departmentId ?? ""}`,
       employeeId: grantee.id,
       workdayUid: null,
       workdayName: null,
@@ -439,15 +483,13 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
 }
 
 /** §7.3: suggest preferred first/last from Workday's name; never touch legal names. */
-function preferredNameLine(row: WorkdayRow, e: SuggestEmployee): Pick<Line, "field" | "value" | "current" | "proposed" | "notes" | "change"> | null {
+function preferredNameLine(row: WorkdayRow, e: SuggestEmployee): Pick<Line, "field" | "value" | "current" | "proposed" | "notes" | "split" | "change"> | null {
   const [first, last] = splitWorkdayName(row.name, [e.preferredLastName, e.legalLastName]);
   const currentFirst = e.preferredFirstName || e.legalFirstName;
   const currentLast = e.preferredLastName || e.legalLastName;
   if (normaliseText(first) === normaliseText(currentFirst) && normaliseText(last) === normaliseText(currentLast)) return null;
 
-  // A part equal to the legal part clears the preferred part instead of copying it.
-  const preferredFirstName = normaliseText(first) === normaliseText(e.legalFirstName) ? null : tidyCase(first);
-  const preferredLastName = normaliseText(last) === normaliseText(e.legalLastName) ? null : tidyCase(last);
+  const { preferredFirstName, preferredLastName } = preferredNameChange(e, first, last);
 
   const notes: LineNote[] = [];
   const before = emailLocalPart(currentFirst, currentLast);
@@ -467,8 +509,26 @@ function preferredNameLine(row: WorkdayRow, e: SuggestEmployee): Pick<Line, "fie
     current: `${currentFirst} ${currentLast}`,
     proposed: `${preferredFirstName ?? e.legalFirstName} ${preferredLastName ?? e.legalLastName}`,
     notes,
+    split: { first, last },
     change: { kind: "preferredName", employeeId: e.id, preferredFirstName, preferredLastName },
   };
+}
+
+/** The preferred parts to store for a first/last split. A part equal to the legal part clears the preferred part instead of copying it. */
+export function preferredNameChange(
+  e: Pick<SuggestEmployee, "legalFirstName" | "legalLastName">,
+  first: string,
+  last: string,
+): { preferredFirstName: string | null; preferredLastName: string | null } {
+  return {
+    preferredFirstName: normaliseText(first) === normaliseText(e.legalFirstName) ? null : tidyCase(first),
+    preferredLastName: normaliseText(last) === normaliseText(e.legalLastName) ? null : tidyCase(last),
+  };
+}
+
+/** Is `first`/`last` just another split of Workday's `name` (same letters, both parts present)? */
+export function isSplitOf(name: string, first: string, last: string): boolean {
+  return !!normaliseNameKey(first) && !!normaliseNameKey(last) && normaliseNameKey(`${first}${last}`) === normaliseNameKey(name);
 }
 
 /**
@@ -495,42 +555,53 @@ function delegatedAccessLines(
   rows: WorkdayRow[],
   childrenByUid: Map<string, WorkdayRow[]>,
   linkedEmp: (uid: string | null | undefined) => SuggestEmployee | undefined,
+  linkFirst: (row: WorkdayRow) => string,
+  linkKeyByUid: Map<string, string>,
   input: SuggestInput,
   deptName: Map<number, string>,
 ): Omit<Line, "id" | "employeeName">[] {
   const out: Omit<Line, "id" | "employeeName">[] = [];
-  const root = rows.find((r) => r.managerUid === null);
+  const roots = new Set(rows.filter((r) => r.managerUid === null).map((r) => r.uid));
   const existing = new Set(
     input.existingGrants.map((g) => `${g.granteeEmployeeId}:${g.scopeManagerEmployeeId}:${g.departmentId ?? ""}`),
   );
   const hasReports = (r: WorkdayRow) => (childrenByUid.get(r.uid)?.length ?? 0) > 0;
   const eligible = (e: SuggestEmployee | undefined): e is SuggestEmployee => !!e && e.isActive && e.userRole !== "Admin";
 
-  const push = (grantee: SuggestEmployee, row: WorkdayRow, scope: SuggestEmployee, scopeName: string, departmentId: number | null, source: "WorkdayStructural" | "WorkdayTitle", reason: string) => {
-    if (existing.has(`${grantee.id}:${scope.id}:${departmentId ?? ""}`)) return;
+  const note = input.lineManagerAuthority
+    ? "Takes effect as soon as it's applied: line-manager authority is on."
+    : "Stored now; it only grants access once line-manager authority is switched on.";
+  /** `scopeRow` is the manager acted for; until it's linked the line is shown blocked (§7). */
+  const push = (grantee: SuggestEmployee, row: WorkdayRow, scopeRow: WorkdayRow, departmentId: number | null, source: "WorkdayStructural" | "WorkdayTitle", reason: string) => {
+    const scope = linkedEmp(scopeRow.uid);
+    if (scope && existing.has(`${grantee.id}:${scope.id}:${departmentId ?? ""}`)) return;
     out.push({
       subjectKey: `emp:${grantee.id}`,
       field: "delegatedAccess",
-      value: `${scope.id}:${departmentId ?? ""}`,
+      value: `${scope ? scope.id : `wd:${linkKeyByUid.get(scopeRow.uid)}`}:${departmentId ?? ""}`,
       employeeId: grantee.id,
       workdayUid: row.uid,
       workdayName: row.name,
       current: null,
       proposed: departmentId === null
-        ? `Acts at ${scopeName}'s level`
-        : `Acts at ${scopeName}'s level, ${deptName.get(departmentId) ?? "their department"} only`,
+        ? `Acts at ${scopeRow.name}'s level`
+        : `Acts at ${scopeRow.name}'s level, ${deptName.get(departmentId) ?? "their department"} only`,
       reason,
-      notes: [{ level: "info", text: "Stored now; it only grants access once line-manager authority is switched on." }],
-      blocked: null,
-      change: { kind: "delegatedAccess", granteeEmployeeId: grantee.id, scopeManagerEmployeeId: scope.id, departmentId, source },
+      notes: [{ level: "info", text: note }],
+      blocked: scope ? null : linkFirst(scopeRow),
+      departmentEditable: scope && source === "WorkdayTitle" ? true : undefined,
+      change: scope
+        ? { kind: "delegatedAccess", granteeEmployeeId: grantee.id, scopeManagerEmployeeId: scope.id, departmentId, source }
+        : undefined,
     });
   };
 
   for (const managerRow of rows) {
     const team = childrenByUid.get(managerRow.uid) ?? [];
     if (team.length === 0) continue;
-    // Suppressed: the root's team and the teams of the root's direct reports.
-    if (!root || managerRow.uid === root.uid || managerRow.managerUid === root.uid) continue;
+    // Suppressed: the root's team and the teams of the root's direct reports. With no root at
+    // all (the file is a loop, reported as a tree problem) nothing can be ranked, so nothing is shown.
+    if (roots.size === 0 || roots.has(managerRow.uid) || (managerRow.managerUid !== null && roots.has(managerRow.managerUid))) continue;
 
     const peerManagers = team.filter(hasReports);
     const leaves = team.filter((r) => !hasReports(r));
@@ -542,8 +613,6 @@ function delegatedAccessLines(
       if (!eligible(leaf)) continue;
       const oversight = OVERSIGHT_WORDS.test(leafRow.title);
       for (const peerRow of peerManagers) {
-        const peer = linkedEmp(peerRow.uid);
-        if (!peer) continue;
         const peerTeamDepts = (childrenByUid.get(peerRow.uid) ?? [])
           .map((r) => linkedEmp(r.uid)?.departmentId)
           .filter((d): d is number => d !== undefined);
@@ -557,24 +626,22 @@ function delegatedAccessLines(
           oversight ? `title "${leafRow.title}"` : null,
           deptMatches ? `same department as ${peerRow.name}'s team` : null,
         ].filter(Boolean);
-        push(leaf, leafRow, peer, peerRow.name, null, "WorkdayStructural", `${why.join("; ")}.`);
+        push(leaf, leafRow, peerRow, null, "WorkdayStructural", `${why.join("; ")}.`);
       }
     }
 
     // Signal B: in a flat team of 5+, an oversight title acts at their own manager's level.
-    const manager = linkedEmp(managerRow.uid);
-    if (manager && peerManagers.length === 0 && team.length >= 5) {
+    if (peerManagers.length === 0 && team.length >= 5) {
       for (const leafRow of leaves) {
         const leaf = linkedEmp(leafRow.uid);
         if (!eligible(leaf) || !OVERSIGHT_WORDS.test(leafRow.title)) continue;
         push(
           leaf,
           leafRow,
-          manager,
-          managerRow.name,
+          managerRow,
           leaf.departmentId,
           "WorkdayTitle",
-          `Title "${leafRow.title}" in ${managerRow.name}'s flat team of ${team.length}. Limited to their own department; edit it on the employee before ticking if that's wrong.`,
+          `Title "${leafRow.title}" in ${managerRow.name}'s flat team of ${team.length}. Limited to their own department; change the department here before ticking if that's wrong.`,
         );
       }
     }

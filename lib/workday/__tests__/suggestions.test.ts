@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { buildSuggestions, splitWorkdayName, type SuggestEmployee, type SuggestInput } from "../suggestions";
+import {
+  buildSuggestions,
+  isSplitOf,
+  preferredNameChange,
+  splitWorkdayName,
+  type SuggestEmployee,
+  type SuggestInput,
+} from "../suggestions";
 import type { MatchResult } from "../matching";
 import { normaliseNameKey, type WorkdayRow } from "../types";
 
@@ -93,6 +100,39 @@ describe("buildSuggestions: reports to, title, name", () => {
     expect(line.change).toBeUndefined();
   });
 
+  it("says why the manager can't be used when they're marked not in HRT or only match a leaver", () => {
+    const notInHrt = buildSuggestions(input(rows, [emp(2, "Sam Lead")], { a: 2, r: { kind: "notInHrt" } }));
+    expect(fields(notInHrt.lines, "reportsTo")[0].blocked).toMatch(/Pat Root is marked as not in HRT/);
+    const leaver = buildSuggestions(
+      input(rows, [emp(1, "Pat Root", { isActive: false }), emp(2, "Sam Lead")], {
+        a: 2,
+        r: { kind: "inactive", employeeId: 1, via: "exact", candidates: [] },
+      }),
+    );
+    expect(fields(leaver.lines, "reportsTo")[0].blocked).toMatch(/only matches an inactive employee/);
+  });
+
+  it("only offers 'no manager' when the file has a single root", () => {
+    const twoRoots = [row("r", "Pat Root", null), row("s", "Sam Lead", null)];
+    const { lines } = buildSuggestions(input(twoRoots, [emp(1, "Pat Root", { reportsToId: 2 }), emp(2, "Sam Lead")], { r: 1, s: 2 }));
+    expect(fields(lines, "reportsTo")).toEqual([]);
+  });
+
+  it("shows rows Workday doesn't tell apart as one blocked line with no link targets", () => {
+    const twins = [row("r", "Pat Root", null), row("a1", "Ann Lee", "r", "Clerk"), row("a2", "Ann Lee", "r", "Clerk")];
+    const { lines } = buildSuggestions(
+      input(twins, [emp(1, "Pat Root"), emp(2, "Ann Lee")], {
+        r: 1,
+        a1: { kind: "ambiguous", candidates: [{ employeeId: 2, score: 90, reason: "Same name" }] },
+        a2: { kind: "ambiguous", candidates: [{ employeeId: 2, score: 90, reason: "Same name" }] },
+      }),
+    );
+    const flags = fields(lines, "notInHrt");
+    expect(flags).toHaveLength(1);
+    expect(flags[0].blocked).toMatch(/can't be linked/);
+    expect(flags[0].candidates).toEqual([]);
+  });
+
   it("ignores case and spacing differences in titles", () => {
     const { lines } = buildSuggestions(
       input([row("r", "Pat Root", null, "PROJECT  ENGINEER")], [emp(1, "Pat Root", { title: "Project Engineer" })], { r: 1 }),
@@ -113,6 +153,16 @@ describe("buildSuggestions: reports to, title, name", () => {
     const line = fields(lines, "preferredName")[0];
     expect(line.change).toEqual({ kind: "preferredName", employeeId: 1, preferredFirstName: "Fred", preferredLastName: null });
     expect(line.notes).toEqual([{ level: "info", text: "Generated email changes from frederik.botma@ to fred.botma@." }]);
+    expect(line.split).toEqual({ first: "Fred", last: "Botma" });
+  });
+
+  it("checks and applies an edited split the same way (§7.3)", () => {
+    expect(isSplitOf("Sri Sai Siddam", "Sri", "Sai Siddam")).toBe(true);
+    expect(isSplitOf("Sri Sai Siddam", "Sri Sai", "Smith")).toBe(false);
+    expect(isSplitOf("Sri Sai Siddam", "Sri Sai Siddam", "")).toBe(false);
+    const sri = { legalFirstName: "Sri Sai", legalLastName: "Siddam" };
+    expect(preferredNameChange(sri, "Sri Sai", "Siddam")).toEqual({ preferredFirstName: null, preferredLastName: null });
+    expect(preferredNameChange(sri, "Sri", "Sai Siddam")).toEqual({ preferredFirstName: "Sri", preferredLastName: "Sai Siddam" });
   });
 
   it("clears a preferred part that Workday shows as the legal one", () => {
@@ -229,6 +279,30 @@ describe("buildSuggestions: delegated access", () => {
     expect(lines.map((l) => l.change)).toEqual([
       { kind: "delegatedAccess", granteeEmployeeId: 10, scopeManagerEmployeeId: 3, departmentId: 4, source: "WorkdayTitle" },
     ]);
+    // The filter can be changed on the line (§8.2); Signal A grants have none to change.
+    expect(lines[0].departmentEditable).toBe(true);
+    expect(lines[0].notes[0].text).toMatch(/only grants access once/);
+    const live = fields(buildSuggestions(input(flat, people, flatLink, { lineManagerAuthority: true })).lines, "delegatedAccess");
+    expect(live[0].notes[0].text).toMatch(/Takes effect as soon as it's applied/);
+  });
+
+  it("shows a blocked line, not nothing, while the manager acted for isn't linked", () => {
+    const unlinked: Record<string, number> = { ...link };
+    delete unlinked.jo;
+    const lines = fields(buildSuggestions(input(rows, employees, unlinked)).lines, "delegatedAccess");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ employeeId: 5, blocked: "Link Joshua Noakes first", change: undefined });
+  });
+
+  it("suppresses the teams of every root and their direct reports", () => {
+    // A second root above Marcos makes Marcos's team a root's direct report's team.
+    const twoRoots = rows.map((r) => (r.uid === "br" ? { ...r, managerUid: null } : r));
+    expect(fields(buildSuggestions(input(twoRoots, employees, link)).lines, "delegatedAccess")).toEqual([]);
+  });
+
+  it("doesn't offer a department filter on Signal A lines", () => {
+    const [line] = fields(buildSuggestions(input(rows, employees, link)).lines, "delegatedAccess");
+    expect(line.departmentEditable).toBeUndefined();
   });
 });
 
@@ -244,6 +318,12 @@ describe("buildSuggestions: flags and external staff", () => {
     );
     expect(fields(lines, "notInHrt")[0]).toMatchObject({ subjectKey: "wd:newstarter", candidates: [{ employeeId: 3, name: "Nu Starter" }] });
     expect(fields(lines, "inactiveMatch")[0]).toMatchObject({ subjectKey: "wd:troyphillips", employeeId: 2 });
+  });
+
+  it("gives rows that share a name their own subject, so they can be linked and ignored separately", () => {
+    const rows = [row("r", "Pat Root", null), row("s", "Sam Lead", "r"), row("j1", "John Smith", "r"), row("j2", "John Smith", "s")];
+    const { lines } = buildSuggestions(input(rows, [emp(1, "Pat Root"), emp(2, "Sam Lead")], { r: 1, s: 2 }));
+    expect(fields(lines, "notInHrt").map((l) => l.subjectKey).sort()).toEqual(["wd:johnsmith_patroot", "wd:johnsmith_samlead"]);
   });
 
   it("flags internal staff missing from Workday after the grace period, never external staff", () => {
@@ -304,13 +384,16 @@ describe("buildSuggestions: delegated access left behind", () => {
     emp(5, "Craig Whelan", { reportsToId: 3 }),
   ];
   const link = { ma: 1, sa: 3, ca: 4, t1: 5 };
-  const grant = { id: 9, granteeEmployeeId: 4, scopeManagerEmployeeId: 2, departmentId: null };
+  const grant: SuggestInput["existingGrants"][number] = { id: 9, granteeEmployeeId: 4, scopeManagerEmployeeId: 2, departmentId: null };
   const stale = (employees: SuggestEmployee[], g = grant) =>
     fields(buildSuggestions(input(rows, employees, link, { existingGrants: [g] })).lines, "staleDelegatedAccess");
 
   it("offers to remove a grant whose manager has left", () => {
     const [line] = stale(base); // Joshua is internal and missing from Workday
     expect(line.change).toEqual({ kind: "removeDelegatedAccess", grantId: 9, granteeEmployeeId: 4 });
+    // Identified by what the grant is, not its id, which differs between copies of HRT.
+    expect(line.id).toBe("emp:4~staleDelegatedAccess~2:");
+    expect(stale(base, { ...grant, id: 31, departmentId: 5 })[0].id).toBe("emp:4~staleDelegatedAccess~2:5");
     expect(line.reason).toMatch(/Joshua Noakes has left/);
   });
 

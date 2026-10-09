@@ -1,4 +1,4 @@
-import { normaliseNameKey, type WorkdayRow } from "./types";
+import { normaliseNameKey, rowLinkKeys, type WorkdayRow } from "./types";
 
 /** The employee fields matching needs. */
 export interface MatchEmployee {
@@ -12,6 +12,7 @@ export interface MatchEmployee {
 
 /** A remembered identity (`WorkdayLink`). `employeeId: null` = confirmed "not in HRT". */
 export interface MatchLink {
+  /** The row's link key (`rowLinkKeys`): its name key, plus manager or title for shared names. */
   workdayNameKey: string;
   employeeId: number | null;
 }
@@ -59,12 +60,23 @@ export function matchRows(
   const results = new Map<string, MatchResult>();
   const byId = new Map(employees.map((e) => [e.id, e]));
   const linkByKey = new Map(links.map((l) => [l.workdayNameKey, l]));
-  const rowCountByKey = new Map<string, number>();
-  for (const row of rows) rowCountByKey.set(row.nameKey, (rowCountByKey.get(row.nameKey) ?? 0) + 1);
+  const linkKeyByUid = rowLinkKeys(rows);
+  const countBy = (keys: string[]) => {
+    const counts = new Map<string, number>();
+    for (const k of keys) counts.set(k, (counts.get(k) ?? 0) + 1);
+    return counts;
+  };
+  const rowCountByKey = countBy(rows.map((r) => r.nameKey));
+  const rowCountByLinkKey = countBy([...linkKeyByUid.values()]);
 
-  // Claimed employees: linked to some name key, whether or not that row is in this file.
+  // Claimed employees: linked from a row in this file. A link under a name that's no longer in
+  // the file (Workday renamed them) doesn't hide the employee, so the new name can find them.
+  // Nor does a link on a key several rows share: it's ignored below, so it identifies no one.
+  const fileKeys = new Set([...linkKeyByUid.values()].filter((k) => rowCountByLinkKey.get(k) === 1));
   const claimed = new Set<number>();
-  for (const link of links) if (link.employeeId !== null && byId.has(link.employeeId)) claimed.add(link.employeeId);
+  for (const link of links) {
+    if (link.employeeId !== null && byId.has(link.employeeId) && fileKeys.has(link.workdayNameKey)) claimed.add(link.employeeId);
+  }
 
   const keysById = new Map(employees.map((e) => [e.id, employeeNameKeys(e)]));
   const exact = (key: string, active: boolean) =>
@@ -74,8 +86,11 @@ export function matchRows(
   const pending: WorkdayRow[] = [];
   const inactiveRows: { row: WorkdayRow; employeeId: number; via: "link" | "exact" }[] = [];
   for (const row of rows) {
+    // Same name as another row: never matched by name, but a link (keyed by name plus manager
+    // or title) still identifies it. Rows that can't be told apart at all can't be linked.
     const duplicate = (rowCountByKey.get(row.nameKey) ?? 0) > 1;
-    const link = duplicate ? undefined : linkByKey.get(row.nameKey);
+    const linkKey = linkKeyByUid.get(row.uid)!;
+    const link = (rowCountByLinkKey.get(linkKey) ?? 0) > 1 ? undefined : linkByKey.get(linkKey);
 
     if (link) {
       if (link.employeeId === null) {
