@@ -15,6 +15,7 @@ import { companyDetails } from "@/lib/data";
 import { Loader2 } from "lucide-react";
 import { devAuthEnabled } from "@/lib/dev-auth";
 import { DevSignIn } from "./dev-sign-in";
+import { safeReturnPath } from "@/lib/auth-return";
 
 const MicrosoftLogo = () => (
   <svg
@@ -55,6 +56,7 @@ export function LoginPageContent() {
   const redirectParam = searchParams.get("redirect");
   const validRedirect =
     redirectParam && isAllowedRedirect(redirectParam) ? redirectParam : null;
+  const returnTo = safeReturnPath(searchParams.get("returnTo"));
   const redirectHost = validRedirect ? getRedirectHost(validRedirect) : null;
 
   const [autoSignInFailed, setAutoSignInFailed] = useState(false);
@@ -72,7 +74,7 @@ export function LoginPageContent() {
   }, [validRedirect]);
 
   const handleMicrosoftSignIn = async () => {
-    await doSignIn(validRedirect ?? "/");
+    await doSignIn(validRedirect ?? returnTo ?? "/");
   };
 
   const logo = (
@@ -139,7 +141,7 @@ export function LoginPageContent() {
               <MicrosoftLogo />
               Sign in with Microsoft
             </Button>
-            {devAuthEnabled && <DevSignIn callbackURL={validRedirect ?? "/"} />}
+            {devAuthEnabled && <DevSignIn callbackURL={validRedirect ?? returnTo ?? "/"} />}
           </CardFooter>
         </Card>
       </div>
