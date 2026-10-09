@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/api-auth";
 import { documentStatusService } from "@/lib/services/documentStatusService";
-import { actorOf, errorResponse } from "@/lib/documentSubmissionHttp";
+import { actorOf, errorResponse, parseId } from "@/lib/documentSubmissionHttp";
 
 export async function GET(request: NextRequest) {
   const session = await getAuth(request);
@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
   try {
     const status = await documentStatusService.getStatus(actorOf(session), {
-      departmentId: Number(sp.get("departmentId")) || undefined,
-      employeeId: Number(sp.get("employeeId")) || undefined,
+      departmentId: parseId(sp.get("departmentId") ?? "") ?? undefined,
+      employeeId: parseId(sp.get("employeeId") ?? "") ?? undefined,
     });
     return NextResponse.json(status);
   } catch (e) {

@@ -67,13 +67,15 @@ export class DocumentStatusService {
     now = new Date(),
   ): Promise<ExpiringStatus> {
     const scope = await getEmployeeIdsInScope(actor.userId, actor.role, { level: "View" });
+    // The page's employee/department filters alone. They also narrow the viewer's own
+    // submissions, which bypass scope and isActive.
+    const filterWhere: Prisma.EmployeeWhereInput = {
+      ...(filters.employeeId ? { id: filters.employeeId } : {}),
+      ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
+    };
     const employeeWhere: Prisma.EmployeeWhereInput = {
       isActive: true,
-      AND: [
-        scopeWhere(scope),
-        filters.employeeId ? { id: filters.employeeId } : {},
-        filters.departmentId ? { departmentId: filters.departmentId } : {},
-      ],
+      AND: [scopeWhere(scope), filterWhere],
     };
     const settings = await appSettingService.getSettings();
     const windowDays = parseMilestones(settings["tickets.expiryReminderDays"], DEFAULT_EMPLOYEE_MILESTONES)[0];
@@ -94,7 +96,7 @@ export class DocumentStatusService {
       prisma.documentSubmission.findMany({
         where: {
           AND: [
-            { OR: [{ employee: employeeWhere }, { submittedByUserId: actor.userId }] },
+            { OR: [{ employee: employeeWhere }, { submittedByUserId: actor.userId, employee: filterWhere }] },
             {
               OR: [
                 { status: { in: OPEN } },
