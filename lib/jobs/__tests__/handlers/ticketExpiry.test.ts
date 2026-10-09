@@ -49,6 +49,8 @@ function given(records: any[], pending: any[] = []) {
 }
 
 beforeEach(() => {
+  mockPrisma.ticketRecords.findMany.mockReset();
+  enqueue.mockReset();
   render.mockImplementation(async (key: string, vars: any) => ({ subject: key, body: JSON.stringify(vars) }));
   renderList.mockResolvedValue("<ul></ul>");
   resolveExpiryRecipients.mockResolvedValue({ to: ["mgr@x"] });
@@ -149,5 +151,61 @@ describe("ticketExpiryHandler", () => {
       where: { id: 1 },
       data: { expiryNotificationStage: "30", managerExpiryNotificationStage: "30" },
     });
+  });
+
+  it("only Pending submissions pause the employee track", async () => {
+    given([record({})]);
+
+    await ticketExpiryHandler({});
+
+    expect(mockPrisma.documentSubmission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ status: "Pending", kind: "Ticket" }) }),
+    );
+  });
+
+  it("two employees sharing a manager recipient set: one manager email listing both", async () => {
+    given([
+      record({ id: 1, expiryNotificationStage: "30" }),
+      record({ id: 2, employeeId: 11, ticketHolder: unlinked, expiryNotificationStage: "30" }),
+    ]);
+
+    await ticketExpiryHandler({});
+
+    expect(sends().filter((s) => s.subject === "ticket.expiryWarning")).toHaveLength(1);
+    const managerRows = renderList.mock.calls.find((c) => c[0] === "ticket.expiryWarning")![1];
+    expect(managerRows).toHaveLength(2);
+  });
+
+  it("no manager recipients: nothing is sent, but the manager stage still advances", async () => {
+    resolveExpiryRecipients.mockResolvedValue({ to: [] });
+    given([record({ expiryNotificationStage: "30" })]);
+
+    await ticketExpiryHandler({});
+
+    expect(sends()).toHaveLength(0);
+    expect(mockPrisma.ticketRecords.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { managerExpiryNotificationStage: "30" } });
+  });
+
+  it("a failed employee digest leaves that record's employee stage unwritten", async () => {
+    enqueue.mockImplementation(async (type: string, payload: any) => {
+      if (type === "SEND_EMAIL" && payload.to === "jo@x") throw new Error("queue down");
+    });
+    given([record({ expiryNotificationStage: "90" })]);
+
+    await expect(ticketExpiryHandler({})).rejects.toThrow("queue down");
+
+    for (const [arg] of mockPrisma.ticketRecords.update.mock.calls) {
+      expect(arg.data).not.toHaveProperty("expiryNotificationStage");
+    }
+  });
+
+  it("a linked user with no email still gets the unlinked note", async () => {
+    given([record({ ticketHolder: { ...linked, User: { email: null } } })]);
+
+    await ticketExpiryHandler({});
+
+    const employeeSend = sends().find((s) => s.subject === "document.employeeExpiry");
+    expect(employeeSend.to).toBe("jo.x@ksb.com.au");
+    expect(JSON.parse(employeeSend.html).unlinkedNote).toMatch(/manager/);
   });
 });

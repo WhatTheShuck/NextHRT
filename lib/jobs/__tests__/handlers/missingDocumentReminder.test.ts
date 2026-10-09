@@ -13,9 +13,8 @@ vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 const { enqueue } = vi.hoisted(() => ({ enqueue: vi.fn() }));
 vi.mock("@/lib/jobs/jobQueue", () => ({ enqueue }));
 vi.mock("@/lib/data", () => ({ companyDetails: { domain_extension: "ksb.com.au" } }));
-vi.mock("@/lib/services/appSettingService", () => ({
-  appSettingService: { getSettings: vi.fn().mockResolvedValue({ "documents.missingReminderIntervalDays": "30" }) },
-}));
+const { getSettings } = vi.hoisted(() => ({ getSettings: vi.fn() }));
+vi.mock("@/lib/services/appSettingService", () => ({ appSettingService: { getSettings } }));
 const { render } = vi.hoisted(() => ({ render: vi.fn() }));
 vi.mock("@/lib/services/emailTemplateService", () => ({
   emailTemplateService: { render, renderList: vi.fn().mockResolvedValue("<ul></ul>") },
@@ -28,7 +27,15 @@ import { missingDocumentReminderHandler } from "@/lib/jobs/handlers/missingDocum
 const gap = { employeeId: 1, kind: "Ticket", itemId: 10, itemName: "White Card", reason: "NotProvided" };
 const row = (over: Record<string, unknown> = {}) => ({ id: 50, employeeId: 1, itemType: "Ticket", itemId: 10, firstNotifiedAt: null, lastNotifiedAt: null, ...over });
 
+// documentSubmission.findMany honours its `status` filter, so the tests check what is suppressed.
+function givenSubmissions(subs: { employeeId: number; kind: string; ticketId: number | null; trainingId: number | null; status: string }[]) {
+  mockPrisma.documentSubmission.findMany.mockImplementation(async ({ where }: any) =>
+    subs.filter((s) => (typeof where.status === "string" ? s.status === where.status : where.status.in.includes(s.status))),
+  );
+}
+
 beforeEach(() => {
+  getSettings.mockResolvedValue({ "documents.missingReminderIntervalDays": "30" });
   render.mockResolvedValue({ subject: "s", body: "b" });
   findMissingItems.mockResolvedValue([gap]);
   mockPrisma.missingDocumentReminder.findMany.mockResolvedValue([]);
@@ -47,15 +54,24 @@ describe("missingDocumentReminderHandler", () => {
       data: [{ employeeId: 1, itemType: "Ticket", itemId: 10 }],
     });
     expect(enqueue).toHaveBeenCalledWith("SEND_EMAIL", expect.objectContaining({ to: "jo.x@ksb.com.au" }));
-    expect(mockPrisma.missingDocumentReminder.updateMany).toHaveBeenCalled();
+    const listed = { employeeId: 1, OR: [{ itemType: "Ticket", itemId: 10 }] };
+    expect(mockPrisma.missingDocumentReminder.updateMany).toHaveBeenCalledWith({
+      where: { ...listed, firstNotifiedAt: null },
+      data: { firstNotifiedAt: expect.any(Date) },
+    });
+    expect(mockPrisma.missingDocumentReminder.updateMany).toHaveBeenCalledWith({
+      where: listed,
+      data: { lastNotifiedAt: expect.any(Date) },
+    });
   });
 
   it("notified 10 days ago: not due", async () => {
     mockPrisma.missingDocumentReminder.findMany.mockResolvedValue([
       row({ firstNotifiedAt: new Date(Date.now() - 40 * DAY), lastNotifiedAt: new Date(Date.now() - 10 * DAY) }),
     ]);
-    await missingDocumentReminderHandler({});
+    const result = await missingDocumentReminderHandler({});
     expect(enqueue).not.toHaveBeenCalled();
+    expect(result.emailed).toBe(0);
   });
 
   it("notified 31 days ago: monthly digest", async () => {
@@ -66,9 +82,9 @@ describe("missingDocumentReminderHandler", () => {
     expect(enqueue).toHaveBeenCalledTimes(1);
   });
 
-  it("an open submission keeps the row but suppresses the send", async () => {
+  it("a Pending submission keeps the row but suppresses the send", async () => {
     mockPrisma.missingDocumentReminder.findMany.mockResolvedValue([row()]);
-    mockPrisma.documentSubmission.findMany.mockResolvedValue([{ employeeId: 1, kind: "Ticket", ticketId: 10, trainingId: null }]);
+    givenSubmissions([{ employeeId: 1, kind: "Ticket", ticketId: 10, trainingId: null, status: "Pending" }]);
 
     await missingDocumentReminderHandler({});
 
@@ -89,6 +105,73 @@ describe("missingDocumentReminderHandler", () => {
   it("a switched-off template sends nothing and marks nothing as notified", async () => {
     render.mockResolvedValue(null);
     await missingDocumentReminderHandler({});
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(mockPrisma.missingDocumentReminder.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("a sent-back (ChangesRequested) submission doesn't suppress the send", async () => {
+    mockPrisma.missingDocumentReminder.findMany.mockResolvedValue([row()]);
+    givenSubmissions([{ employeeId: 1, kind: "Ticket", ticketId: 10, trainingId: null, status: "ChangesRequested" }]);
+
+    await missingDocumentReminderHandler({});
+
+    expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("two gaps for one employee: one digest with count 2", async () => {
+    findMissingItems.mockResolvedValue([gap, { ...gap, kind: "Training", itemId: 20, itemName: "First Aid" }]);
+
+    await missingDocumentReminderHandler({});
+
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(render).toHaveBeenCalledWith("document.missing", expect.objectContaining({ count: 2 }));
+  });
+
+  it("a linked employee gets their login address and no note", async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, legalFirstName: "Jo", legalLastName: "X", preferredFirstName: null, preferredLastName: null, User: { email: "jo@corp" } },
+    ]);
+
+    await missingDocumentReminderHandler({});
+
+    expect(enqueue).toHaveBeenCalledWith("SEND_EMAIL", expect.objectContaining({ to: "jo@corp" }));
+    expect(render).toHaveBeenCalledWith("document.missing", expect.objectContaining({ unlinkedNote: "" }));
+  });
+
+  it("a linked user without an email gets the built address and the note", async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, legalFirstName: "Jo", legalLastName: "X", preferredFirstName: null, preferredLastName: null, User: { email: null } },
+    ]);
+
+    await missingDocumentReminderHandler({});
+
+    expect(render).toHaveBeenCalledWith("document.missing", expect.objectContaining({ unlinkedNote: expect.stringMatching(/manager/) }));
+  });
+
+  it("honours the interval setting", async () => {
+    getSettings.mockResolvedValue({ "documents.missingReminderIntervalDays": "7" });
+    const notified = (daysAgo: number) =>
+      row({ firstNotifiedAt: new Date(Date.now() - 40 * DAY), lastNotifiedAt: new Date(Date.now() - daysAgo * DAY) });
+
+    mockPrisma.missingDocumentReminder.findMany.mockResolvedValue([notified(6)]);
+    await missingDocumentReminderHandler({});
+    expect(enqueue).not.toHaveBeenCalled();
+
+    mockPrisma.missingDocumentReminder.findMany.mockResolvedValue([notified(8)]);
+    await missingDocumentReminderHandler({});
+    expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("switched off with two employees due: sends nothing, marks nothing", async () => {
+    render.mockResolvedValue(null);
+    findMissingItems.mockResolvedValue([gap, { ...gap, employeeId: 2 }]);
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, legalFirstName: "Jo", legalLastName: "X", preferredFirstName: null, preferredLastName: null, User: null },
+      { id: 2, legalFirstName: "Al", legalLastName: "Y", preferredFirstName: null, preferredLastName: null, User: null },
+    ]);
+
+    await missingDocumentReminderHandler({});
+
     expect(enqueue).not.toHaveBeenCalled();
     expect(mockPrisma.missingDocumentReminder.updateMany).not.toHaveBeenCalled();
   });

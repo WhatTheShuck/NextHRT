@@ -14,9 +14,13 @@ const { mockPrisma, mockEnqueue } = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 vi.mock("@/lib/jobs/jobQueue", () => ({ enqueue: mockEnqueue }));
-const { cancelOpenForEmployees } = vi.hoisted(() => ({ cancelOpenForEmployees: vi.fn() }));
+const { cancelOpenForEmployees, OPEN_STATUSES } = vi.hoisted(() => ({
+  cancelOpenForEmployees: vi.fn(),
+  OPEN_STATUSES: ["Pending", "ChangesRequested"],
+}));
 vi.mock("@/lib/services/documentSubmissionService", () => ({
   documentSubmissionService: { cancelOpenForEmployees },
+  OPEN_STATUSES,
 }));
 
 import { inactiveEmployeeCheckHandler } from "@/lib/jobs/handlers/inactiveEmployeeCheck";
@@ -106,6 +110,8 @@ describe("inactiveEmployeeCheckHandler", () => {
       where: { employee: { isActive: false }, status: { in: ["Pending", "ChangesRequested"] } },
       data: { status: "Cancelled" },
     });
+    // The service's definition of "open", not a copy of it.
+    expect(mockPrisma.documentSubmission.updateMany.mock.calls[0][0].where.status.in).toBe(OPEN_STATUSES);
     expect(result).toEqual({ deactivated: 0, staleSubmissionsCancelled: 2 });
   });
 

@@ -50,16 +50,17 @@ export async function missingDocumentReminderHandler(
     });
   }
 
-  // An open upload means the employee has acted: keep the row, don't nag.
-  const open = await prisma.documentSubmission.findMany({
-    where: { status: { in: ["Pending", "ChangesRequested"] }, employeeId: { in: [...new Set(gaps.map((g) => g.employeeId))] } },
+  // A Pending upload means the employee has acted: keep the row, don't nag. A sent-back
+  // (ChangesRequested) upload resumes the existing cadence, as the ticket track does (decision 14).
+  const pending = await prisma.documentSubmission.findMany({
+    where: { status: "Pending", employeeId: { in: [...new Set(gaps.map((g) => g.employeeId))] } },
     select: { employeeId: true, kind: true, ticketId: true, trainingId: true },
   });
-  const openKeys = new Set(open.map((o) => key(o.employeeId, o.kind, (o.ticketId ?? o.trainingId)!)));
+  const pendingKeys = new Set(pending.map((o) => key(o.employeeId, o.kind, (o.ticketId ?? o.trainingId)!)));
 
   const byEmployee = new Map<number, MissingItem[]>();
   for (const g of gaps) {
-    if (openKeys.has(key(g.employeeId, g.kind, g.itemId))) continue;
+    if (pendingKeys.has(key(g.employeeId, g.kind, g.itemId))) continue;
     byEmployee.set(g.employeeId, [...(byEmployee.get(g.employeeId) ?? []), g]);
   }
 
@@ -93,7 +94,7 @@ export async function missingDocumentReminderHandler(
       itemList,
       count: items.length,
       pageUrl: appLink("/expiring?tab=missing"),
-      unlinkedNote: employee.User ? "" : UNLINKED_NOTE,
+      unlinkedNote: employee.User?.email ? "" : UNLINKED_NOTE,
     });
     if (!rendered) break; // switched off: send none, mark none
 

@@ -30,9 +30,29 @@ import {
  *   manager:  tickets.managerExpiryReminderDays (default 30) + expired, stage in
  *             managerExpiryNotificationStage.
  * Admins are not emailed.
+ *
+ * A stage is recorded only once its email has been enqueued (or deliberately not sent: template
+ * switched off, or no manager to tell), so a failed send is retried on the next run.
  */
 
+type StageData = { expiryNotificationStage?: string; managerExpiryNotificationStage?: string };
+
+/** Stage writes confirmed by a send, merged per record and flushed at the end of the run. */
+class StageWrites {
+  private byRecord = new Map<number, StageData>();
+  confirm(recordId: number, data: StageData): void {
+    this.byRecord.set(recordId, { ...this.byRecord.get(recordId), ...data });
+  }
+  async flush(): Promise<void> {
+    for (const [id, data] of this.byRecord) {
+      await prisma.ticketRecords.update({ where: { id }, data });
+    }
+  }
+}
+
 interface EmployeeItem {
+  recordId: number;
+  stage: string;
   employeeId: number;
   address: string;
   employeeName: string;
@@ -45,6 +65,8 @@ interface EmployeeItem {
 }
 
 interface ManagerItem {
+  recordId: number;
+  stage: string;
   employeeName: string;
   ticketName: string;
   expiryDate: string;
@@ -97,6 +119,7 @@ export async function ticketExpiryHandler(
   const employeeItems: EmployeeItem[] = [];
   const managerWarnings: ManagerItem[] = [];
   const managerExpiries: ManagerItem[] = [];
+  const writes = new StageWrites();
 
   for (const rec of records) {
     if (!currentIds.has(rec.id)) continue;
@@ -121,10 +144,12 @@ export async function ticketExpiryHandler(
 
     if (employeeStage) {
       employeeItems.push({
+        recordId: rec.id,
+        stage: employeeStage,
         employeeId: rec.employeeId,
         address: employeeAddress(rec.ticketHolder),
         employeeName,
-        unlinked: !rec.ticketHolder.User,
+        unlinked: !rec.ticketHolder.User?.email,
         ticketId: rec.ticketId,
         ticketName: rec.ticket.ticketName,
         expiryDate,
@@ -135,22 +160,24 @@ export async function ticketExpiryHandler(
     if (managerStage) {
       const { to } = await resolveExpiryRecipients(rec.employeeId);
       if (to.length > 0) {
-        (expired ? managerExpiries : managerWarnings).push({ employeeName, ticketName: rec.ticket.ticketName, expiryDate, days, to });
+        (expired ? managerExpiries : managerWarnings).push({
+          recordId: rec.id, stage: managerStage, employeeName, ticketName: rec.ticket.ticketName, expiryDate, days, to,
+        });
+      } else {
+        // Nobody to tell: advance anyway so the item doesn't re-qualify every night.
+        writes.confirm(rec.id, { managerExpiryNotificationStage: managerStage });
       }
     }
-
-    await prisma.ticketRecords.update({
-      where: { id: rec.id },
-      data: {
-        ...(employeeStage ? { expiryNotificationStage: employeeStage } : {}),
-        ...(managerStage ? { managerExpiryNotificationStage: managerStage } : {}),
-      },
-    });
   }
 
-  await sendEmployeeDigests(employeeItems);
-  await sendManagerConsolidated("ticket.expiryWarning", managerWarnings, false);
-  await sendManagerConsolidated("ticket.expired", managerExpiries, true);
+  // Whatever was sent before a failure keeps its stage; the rest is retried next run.
+  try {
+    await sendEmployeeDigests(employeeItems, writes);
+    await sendManagerConsolidated("ticket.expiryWarning", managerWarnings, false, writes);
+    await sendManagerConsolidated("ticket.expired", managerExpiries, true, writes);
+  } finally {
+    await writes.flush();
+  }
 
   return {
     employeeNotified: new Set(employeeItems.map((i) => i.employeeId)).size,
@@ -160,7 +187,7 @@ export async function ticketExpiryHandler(
 }
 
 // One email per employee covering every ticket of theirs due a reminder this run.
-async function sendEmployeeDigests(items: EmployeeItem[]): Promise<void> {
+async function sendEmployeeDigests(items: EmployeeItem[], writes: StageWrites): Promise<void> {
   const byEmployee = new Map<number, EmployeeItem[]>();
   for (const i of items) byEmployee.set(i.employeeId, [...(byEmployee.get(i.employeeId) ?? []), i]);
 
@@ -182,13 +209,21 @@ async function sendEmployeeDigests(items: EmployeeItem[]): Promise<void> {
       pageUrl: appLink("/expiring"),
       unlinkedNote: first.unlinked ? UNLINKED_NOTE : "",
     });
-    if (!rendered) continue; // switched off in the template editor
-    await enqueue("SEND_EMAIL", { to: first.address, subject: rendered.subject, html: rendered.body });
+    // Switched off in the template editor: no send, but the stage is still recorded.
+    if (rendered) {
+      await enqueue("SEND_EMAIL", { to: first.address, subject: rendered.subject, html: rendered.body });
+    }
+    for (const i of group) writes.confirm(i.recordId, { expiryNotificationStage: i.stage });
   }
 }
 
 // Group by identical recipient set and send one email per group, as before.
-async function sendManagerConsolidated(templateKey: string, items: ManagerItem[], expiredMode: boolean): Promise<void> {
+async function sendManagerConsolidated(
+  templateKey: string,
+  items: ManagerItem[],
+  expiredMode: boolean,
+  writes: StageWrites,
+): Promise<void> {
   const groups = new Map<string, { to: string[]; items: ManagerItem[] }>();
   for (const item of items) {
     const to = [...item.to].sort();
@@ -210,7 +245,10 @@ async function sendManagerConsolidated(templateKey: string, items: ManagerItem[]
       }));
     const ticketList = await emailTemplateService.renderList(templateKey, rows);
     const rendered = await emailTemplateService.render(templateKey, { ticketList, count: group.items.length });
-    if (!rendered) continue; // switched off: skip this send only
-    await enqueue("SEND_EMAIL", { to: group.to, subject: rendered.subject, html: rendered.body });
+    // Switched off: skip this send only, still recording the stage.
+    if (rendered) {
+      await enqueue("SEND_EMAIL", { to: group.to, subject: rendered.subject, html: rendered.body });
+    }
+    for (const i of group.items) writes.confirm(i.recordId, { managerExpiryNotificationStage: i.stage });
   }
 }

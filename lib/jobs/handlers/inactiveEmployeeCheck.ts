@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
-import { documentSubmissionService } from "@/lib/services/documentSubmissionService";
+import { documentSubmissionService, OPEN_STATUSES } from "@/lib/services/documentSubmissionService";
 
 export async function inactiveEmployeeCheckHandler(
   _payload: Record<string, unknown>,
@@ -51,7 +51,7 @@ export async function inactiveEmployeeCheckHandler(
 async function sweepStaleSubmissions(): Promise<number | null> {
   try {
     const { count } = await prisma.documentSubmission.updateMany({
-      where: { employee: { isActive: false }, status: { in: ["Pending", "ChangesRequested"] } },
+      where: { employee: { isActive: false }, status: { in: OPEN_STATUSES } },
       data: { status: "Cancelled" },
     });
     return count;
