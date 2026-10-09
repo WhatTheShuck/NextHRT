@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { GrantRow } from "@/lib/services/delegatedAccessService";
 import type { GrantLevel } from "@/lib/org/authority";
 import { ArrowLeft, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { ConfirmAction } from "@/components/confirm-action";
 
 interface Options {
   employees: { id: number; name: string; title: string }[];
@@ -119,7 +120,7 @@ export function DelegatedAccessContent() {
         <Input placeholder="Search grants…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
       </div>
 
-      <Card>
+      <Card data-tour="access-grants">
         <CardContent className="p-0">
           {grants === null ? (
             <p className="p-6 text-sm text-muted-foreground flex items-center gap-2">
@@ -179,10 +180,22 @@ export function DelegatedAccessContent() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{SOURCE_LABELS[g.source] ?? g.source}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => remove(g)} disabled={busy === g.id} aria-label="Remove grant">
-                        {busy === g.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        <span className="ml-1.5">Remove</span>
-                      </Button>
+                      <ConfirmAction
+                        title="Remove this grant?"
+                        description={
+                          <>
+                            <strong>{g.granteeName}</strong> will no longer see {g.scopeManagerName}&apos;s
+                            team through this grant. You can add it again later.
+                          </>
+                        }
+                        confirmLabel="Remove grant"
+                        onConfirm={() => remove(g)}
+                      >
+                        <Button variant="ghost" size="sm" disabled={busy === g.id} aria-label="Remove grant">
+                          {busy === g.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          <span className="ml-1.5">Remove</span>
+                        </Button>
+                      </ConfirmAction>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -240,7 +253,7 @@ function AddGrantForm({ options, onAdded }: { options: Options; onAdded: () => P
   };
 
   return (
-    <Card>
+    <Card data-tour="access-add">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Add a grant</CardTitle>
       </CardHeader>
@@ -277,7 +290,7 @@ function AddGrantForm({ options, onAdded }: { options: Options; onAdded: () => P
             width="w-full"
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-tour="access-level">
           <Label>Level</Label>
           <Select value={level} onValueChange={(v) => setLevel(v as GrantLevel)}>
             <SelectTrigger>

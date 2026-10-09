@@ -34,11 +34,14 @@ const VALID_TABS = [
   "sop-training",
   "tickets",
   "history",
-  "external",
+  "exemptions",
   "user-link",
   "onboarding",
 ] as const;
 type TabValue = (typeof VALID_TABS)[number];
+
+const isTab = (value: string | null): value is TabValue =>
+  value !== null && (VALID_TABS as readonly string[]).includes(value);
 
 export function EmployeeTabs() {
   const { employee, isLoading } = useEmployee();
@@ -48,9 +51,10 @@ export function EmployeeTabs() {
   const searchParams = useSearchParams();
 
   // Get the tab from URL or default to overview
-  const [activeTab, setActiveTab] = useState<TabValue>(
-    (searchParams.get("tab") as TabValue) || "overview",
-  );
+  const [activeTab, setActiveTab] = useState<TabValue>(() => {
+    const tab = searchParams.get("tab");
+    return isTab(tab) ? tab : "overview";
+  });
 
   // Update URL when tab changes
   const handleTabChange = (value: string) => {
@@ -67,8 +71,8 @@ export function EmployeeTabs() {
 
   // Sync state with URL on page load/refresh
   useEffect(() => {
-    const tabParam = searchParams.get("tab") as TabValue;
-    if (tabParam && VALID_TABS.includes(tabParam)) {
+    const tabParam = searchParams.get("tab");
+    if (isTab(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -111,7 +115,7 @@ export function EmployeeTabs() {
       onValueChange={handleTabChange}
       className="space-y-6"
     >
-      <TabsList className="h-auto grid grid-cols-2 gap-1 sm:flex sm:flex-row w-full sm:w-auto items-stretch sm:items-center justify-between">
+      <TabsList data-tour="employee-tabs" className="h-auto grid grid-cols-2 gap-1 sm:flex sm:flex-row w-full sm:w-auto items-stretch sm:items-center justify-between">
         <TabsTrigger
           value="overview"
           className="w-full sm:w-auto justify-start"
@@ -159,6 +163,7 @@ export function EmployeeTabs() {
           <TabsTrigger
             value="user-link"
             className="w-full sm:w-auto justify-start"
+            data-tour="employee-tab-user-link"
           >
             <Link className="h-4 w-4 mr-2" />
             User Link
@@ -168,6 +173,7 @@ export function EmployeeTabs() {
           <TabsTrigger
             value="onboarding"
             className="w-full sm:w-auto justify-start"
+            data-tour="employee-tab-onboarding"
           >
             <ClipboardCheck className="h-4 w-4 mr-2" />
             Onboarding

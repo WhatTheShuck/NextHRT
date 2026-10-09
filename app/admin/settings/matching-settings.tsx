@@ -95,10 +95,11 @@ export function MatchingSettings() {
     try {
       setSaving(true);
       setError(null);
-      const updates = Object.entries(settings).map(([key, value]) => ({
-        key,
-        value,
-      }));
+      // Only this tab's settings: the others are saved from their own tabs, and
+      // this copy of them may be out of date.
+      const updates = Object.entries(settings)
+        .filter(([key]) => key.startsWith("matching."))
+        .map(([key, value]) => ({ key, value }));
       await api.put("/api/settings", { updates });
       setSaved(true);
     } catch (err) {

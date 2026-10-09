@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FIELD_LABELS } from "@/lib/workday/labels";
 import type { LineField } from "@/lib/workday/suggestions";
 import { ArrowLeft, Loader2, Search, Trash2 } from "lucide-react";
+import { ConfirmAction } from "@/components/confirm-action";
 
 interface IgnoreRule {
   id: number;
@@ -89,7 +90,7 @@ export function IgnoreRulesContent() {
         <Input placeholder="Search rules…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
       </div>
 
-      <Card>
+      <Card data-tour="rules-table">
         <CardContent className="p-0">
           {rules === null ? (
             <p className="p-6 text-sm text-muted-foreground flex items-center gap-2">
@@ -134,16 +135,27 @@ export function IgnoreRulesContent() {
                       {rule.createdBy && <> · {rule.createdBy}</>}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => remove(rule)}
-                        disabled={removing === rule.id}
-                        aria-label="Remove rule"
+                      <ConfirmAction
+                        title="Remove this ignore rule?"
+                        description={
+                          <>
+                            The next Workday import will suggest this change for{" "}
+                            <strong>{rule.personName ?? rule.subjectKey}</strong> again.
+                          </>
+                        }
+                        confirmLabel="Remove rule"
+                        onConfirm={() => remove(rule)}
                       >
-                        {removing === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        <span className="ml-1.5">Remove</span>
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={removing === rule.id}
+                          aria-label="Remove rule"
+                        >
+                          {removing === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          <span className="ml-1.5">Remove</span>
+                        </Button>
+                      </ConfirmAction>
                     </TableCell>
                   </TableRow>
                 ))}

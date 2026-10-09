@@ -406,7 +406,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
           <span className="text-muted-foreground flex items-center gap-2">
             <Search className="h-4 w-4" />
             {suggestedApprovers.length === 0
-              ? "No managers found for this department"
+              ? "No managers found for this employee"
               : "Select an approver..."}
           </span>
         )}
@@ -501,7 +501,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         )}
 
         {/* Employee */}
-        <div className="space-y-3">
+        <div className="space-y-3" data-tour="training-request-employee">
           <Label>Employee *</Label>
           <EmployeeCombobox
             employees={isOnBehalf ? allEmployees : ownEmployee ? [ownEmployee] : []}
@@ -534,7 +534,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Training Course */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-course">
           <Label>Training Course *</Label>
           {selectedCourseRequestId ? (
             <div className="flex gap-2">
@@ -577,7 +577,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Justification */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-justification">
           <Label htmlFor="justification">Justification *</Label>
           <Input
             id="justification"
@@ -589,7 +589,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Cost */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-cost">
           <Label htmlFor="cost">Estimated Cost ($) *</Label>
           <Input
             id="cost"
@@ -608,7 +608,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Hours */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-hours">
           <Label htmlFor="hours">Duration (Hours) *</Label>
           <Input
             id="hours"
@@ -623,7 +623,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Approver */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-approver">
           <div className="flex items-center justify-between">
             <Label>Approver</Label>
             {approverMode === "suggested" ? (
@@ -652,15 +652,15 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
           {approverMode === "suggested" ? (
             <>
               <p className="text-xs text-muted-foreground">
-                Showing department managers for the selected employee&apos;s department.
+                Showing the selected employee&apos;s managers.
               </p>
               <SuggestedApproverCombobox />
             </>
           ) : (
             <>
               <p className="text-xs text-muted-foreground">
-                Select any employee to nominate as approver. Any department manager can still
-                approve on their behalf.
+                Select any employee to nominate as approver. The selected employee&apos;s
+                managers can still approve on their behalf.
               </p>
               <EmployeeCombobox
                 employees={allEmployees}
@@ -672,8 +672,8 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    This employee does not have a user account. Any department manager can
-                    approve on their behalf instead.
+                    This employee does not have a user account. The selected employee&apos;s
+                    managers can approve on their behalf instead.
                   </AlertDescription>
                 </Alert>
               )}
@@ -682,7 +682,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Training Date */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-dates">
           <Label>Training Date</Label>
           <DateSelector selectedDate={trainingDate} onDateSelect={setTrainingDate} />
         </div>
@@ -699,6 +699,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         <Button
           type="submit"
           className="w-full"
+          data-tour="training-request-submit"
           disabled={
             isSubmitting ||
             !selectedEmployeeId ||

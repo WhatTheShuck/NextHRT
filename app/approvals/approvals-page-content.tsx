@@ -44,6 +44,8 @@ interface PendingApproval {
   actingFor: { id: number; name: string } | null;
   /** Line-manager authority: an admin deciding a manager-stage request outside their line. */
   adminSteppingIn: boolean;
+  /** A comment is required whichever way this is decided. */
+  onBehalfOf: boolean;
   trainingRequest: {
     id: number;
     justification: string | null;
@@ -118,6 +120,7 @@ function ApprovalCard({
   return (
     <Card>
       <CardHeader
+        data-tour="approvals-request"
         className="cursor-pointer select-none"
         onClick={() => setExpanded((v) => !v)}
       >
@@ -236,7 +239,7 @@ function ApprovalCard({
               Your Decision
             </p>
             {approval.actingFor && (
-              <Alert>
+              <Alert data-tour="approvals-delegate-notice">
                 <AlertDescription>
                   You&apos;re deciding on behalf of <strong>{approval.actingFor.name}</strong>, through your delegated access.
                   {" "}They&apos;ll see it was you.
@@ -244,7 +247,7 @@ function ApprovalCard({
               </Alert>
             )}
             {approval.adminSteppingIn && (
-              <Alert>
+              <Alert data-tour="approvals-admin-notice">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   You&apos;re not in {employeeName}&apos;s reporting line, so you&apos;re stepping in as an admin. A comment is
@@ -252,7 +255,7 @@ function ApprovalCard({
                 </AlertDescription>
               </Alert>
             )}
-            <div className="flex gap-2">
+            <div className="flex gap-2" data-tour="approvals-decision">
               <Button
                 type="button"
                 size="sm"
@@ -274,16 +277,24 @@ function ApprovalCard({
                 Reject
               </Button>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1" data-tour="approvals-comment">
               <Label htmlFor={`comment-${approval.id}`} className="text-xs">
-                Comment{decision === "Rejected" ? " *" : ""}
-                {approval.nominatedApproverEmployee || approval.adminSteppingIn ? " * (required — acting on behalf)" : ""}
+                Comment
+                {approval.onBehalfOf
+                  ? " * (required — you're deciding on someone else's behalf)"
+                  : decision === "Rejected"
+                    ? " * (required when rejecting)"
+                    : ""}
               </Label>
               <Textarea
                 id={`comment-${approval.id}`}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Optional comment..."
+                placeholder={
+                  approval.onBehalfOf || decision === "Rejected"
+                    ? "Add a comment..."
+                    : "Optional comment..."
+                }
                 rows={2}
               />
             </div>
@@ -294,6 +305,7 @@ function ApprovalCard({
             )}
             <Button
               size="sm"
+              data-tour="approvals-submit"
               disabled={!decision || submitting}
               onClick={handleSubmit}
             >
@@ -333,7 +345,7 @@ export function ApprovalsPageContent() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
-        <div>
+        <div data-tour="approvals-intro">
           <h1 className="text-3xl font-bold">Approvals</h1>
           <p className="text-muted-foreground mt-1">
             Training requests waiting for your review.
@@ -348,7 +360,7 @@ export function ApprovalsPageContent() {
         )}
 
         {!loading && !error && approvals.length === 0 && (
-          <p className="text-muted-foreground">No pending approvals.</p>
+          <p className="text-muted-foreground" data-tour="approvals-empty">No pending approvals.</p>
         )}
 
         {approvals.map((a) => (

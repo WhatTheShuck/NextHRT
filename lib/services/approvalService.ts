@@ -17,6 +17,22 @@ type ApproverUser = Prisma.UserGetPayload<{
 
 const nameSelect = { select: { id: true, legalFirstName: true, legalLastName: true, preferredFirstName: true, preferredLastName: true } };
 
+/**
+ * Deciding on someone else's behalf needs a comment whichever way it goes: an
+ * admin stepping in from outside the line, or anyone other than the approver
+ * the requester nominated.
+ */
+export function decidesOnBehalf(
+  adminSteppingIn: boolean,
+  nominatedApproverEmployeeId: number | null,
+  actorEmployeeId: number | null,
+): boolean {
+  return (
+    adminSteppingIn ||
+    (nominatedApproverEmployeeId !== null && actorEmployeeId !== nominatedApproverEmployeeId)
+  );
+}
+
 const pendingRequestInclude = {
   actions: { include: { user: { select: { id: true, name: true } }, actingFor: nameSelect } },
   trainingRequest: {
@@ -92,12 +108,7 @@ class ApprovalService {
     const actingForEmployeeId = inLine ? (approvable.get(subjectId!) ?? null) : null;
     const adminSteppingIn = approvable !== null && !inLine;
 
-    // Compute onBehalfOf
-    const onBehalfOf =
-      adminSteppingIn ||
-      (request.nominatedApproverEmployeeId !== null &&
-        (actor?.employeeId == null ||
-          actor.employeeId !== request.nominatedApproverEmployeeId));
+    const onBehalfOf = decidesOnBehalf(adminSteppingIn, request.nominatedApproverEmployeeId, actor.employeeId);
 
     // Validate comment requirements (must happen before any write)
     if ((onBehalfOf || decision === "Rejected") && !comment) {
@@ -229,8 +240,16 @@ class ApprovalService {
     });
 
     // Line-manager authority: tell the approver whose behalf they act on at the manager stage.
+    // onBehalfOf: the decision needs a comment whichever way it goes (see decide).
     const approvable = await getApprovableForUser(userId);
-    if (!approvable) return requests.map((r) => ({ ...r, actingFor: null, adminSteppingIn: false }));
+    if (!approvable) {
+      return requests.map((r) => ({
+        ...r,
+        actingFor: null,
+        adminSteppingIn: false,
+        onBehalfOf: decidesOnBehalf(false, r.nominatedApproverEmployeeId, user.employeeId),
+      }));
+    }
     const actingForIds = [...new Set([...approvable.values()].filter((v): v is number => v !== null))];
     const names = new Map(
       (await prisma.employee.findMany({ where: { id: { in: actingForIds } }, ...nameSelect })).map((e) => [
@@ -243,10 +262,12 @@ class ApprovalService {
       const managerStage = r.currentStage === "DepartmentManager";
       const inLine = subjectId !== undefined && approvable.has(subjectId);
       const actingForId = inLine ? approvable.get(subjectId!) ?? null : null;
+      const adminSteppingIn = managerStage && !inLine;
       return {
         ...r,
         actingFor: managerStage && actingForId !== null ? { id: actingForId, name: names.get(actingForId) ?? "" } : null,
-        adminSteppingIn: managerStage && !inLine,
+        adminSteppingIn,
+        onBehalfOf: decidesOnBehalf(adminSteppingIn, r.nominatedApproverEmployeeId, user.employeeId),
       };
     });
   }

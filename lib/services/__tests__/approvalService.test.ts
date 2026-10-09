@@ -43,7 +43,7 @@ const { mockAuthority } = vi.hoisted(() => ({
 }));
 vi.mock("../authorityService", () => mockAuthority);
 
-import { approvalService } from "@/lib/services/approvalService";
+import { approvalService, decidesOnBehalf } from "@/lib/services/approvalService";
 import { auth } from "../../auth";
 
 beforeEach(() => {
@@ -401,5 +401,24 @@ describe("approvalService under line-manager authority", () => {
 
     await approvalService.reevaluatePendingRequests();
     expect(mockLogService.log).toHaveBeenCalledWith(expect.stringContaining("no line manager"), "Warning", "REEVALUATE_PENDING_APPROVALS");
+  });
+});
+
+describe("decidesOnBehalf", () => {
+  it("is false for the nominated approver themselves", () => {
+    expect(decidesOnBehalf(false, 7, 7)).toBe(false);
+  });
+
+  it("is false when nobody was nominated", () => {
+    expect(decidesOnBehalf(false, null, 7)).toBe(false);
+  });
+
+  it("is true for anyone other than the nominated approver", () => {
+    expect(decidesOnBehalf(false, 7, 8)).toBe(true);
+    expect(decidesOnBehalf(false, 7, null)).toBe(true);
+  });
+
+  it("is true for an admin stepping in", () => {
+    expect(decidesOnBehalf(true, null, 7)).toBe(true);
   });
 });
