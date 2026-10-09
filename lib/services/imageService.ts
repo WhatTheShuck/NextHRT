@@ -80,6 +80,19 @@ export class ImageService {
       if (!hasAccess) {
         throw new Error("NOT_AUTHORISED");
       }
+    } else if (filePath.startsWith("submissions/")) {
+      // Document uploads, and the records approved from them (their image rows point here too).
+      const file = await prisma.documentSubmissionFile.findFirst({
+        where: { filePath },
+        select: { submission: { select: { employeeId: true, submittedByUserId: true } } },
+      });
+      if (!file) {
+        throw new Error("IMAGE_NOT_FOUND");
+      }
+      const isSubmitter = file.submission.submittedByUserId === userId;
+      if (!isSubmitter && !(await hasAccessToEmployee(userId, file.submission.employeeId, userRole))) {
+        throw new Error("NOT_AUTHORISED");
+      }
     } else if (filePath.startsWith("sop-documents/")) {
       // SOP procedure PDFs are company-wide reading material: any
       // authenticated user may view them (they live on SharePoint today).
