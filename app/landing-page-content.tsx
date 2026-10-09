@@ -33,6 +33,7 @@ export function LandingPageContent({
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingOnboardingCount, setPendingOnboardingCount] = useState(0);
   const [unlinkedUserCount, setUnlinkedUserCount] = useState(0);
+  const [expiringCount, setExpiringCount] = useState(0);
   const isLinked = accountStatus.state === "linked";
 
   useEffect(() => {
@@ -107,6 +108,10 @@ export function LandingPageContent({
       api
         .get<{ count: number }>("/api/users/unlinked/count")
         .then((res) => setUnlinkedUserCount(res.data.count))
+        .catch(() => {});
+      api
+        .get<{ count: number }>("/api/expiring/count")
+        .then((res) => setExpiringCount(res.data.count))
         .catch(() => {});
     }
 
@@ -211,7 +216,9 @@ export function LandingPageContent({
                   badge={
                     item.href === "/approvals"
                       ? pendingApprovalCount
-                      : undefined
+                      : item.href === "/expiring" && userRole !== "Admin"
+                        ? expiringCount
+                        : undefined
                   }
                 />
               ))}
@@ -234,7 +241,9 @@ export function LandingPageContent({
                       ? pendingOnboardingCount
                       : item.href === "/admin/access"
                         ? unlinkedUserCount
-                        : undefined
+                        : item.href === "/expiring?tab=review"
+                          ? expiringCount
+                          : undefined
                   }
                 />
               ))}

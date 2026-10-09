@@ -31,6 +31,9 @@ import {
   Laptop,
   Inbox,
   Paperclip,
+  CalendarClock,
+  FileUp,
+  FileCheck,
 } from "lucide-react";
 
 export const companyDetails: CompanyDetails = {
@@ -69,6 +72,13 @@ export const landingPageNavigationItems: NavigationItem[] = [
     description: "View and fill out forms",
     icon: ListCheck,
     href: "/forms",
+    minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    title: "Expiring & Missing",
+    description: "Tickets and training that are expiring, expired or still needed",
+    icon: CalendarClock,
+    href: "/expiring",
     minimumAllowedPermission: "employee:viewSelf",
   },
   {
@@ -113,6 +123,14 @@ export const landingPageNavigationItems: NavigationItem[] = [
     description: "Review, approve, or reject pending onboarding requests",
     icon: Inbox,
     href: "/admin/onboarding",
+    minimumAllowedPermission: "user:impersonate",
+  },
+  {
+    // Admins can review without a linked employee record, so they can't rely on the card above.
+    title: "Document Reviews",
+    description: "Check employee-uploaded tickets and certificates",
+    icon: FileCheck,
+    href: "/expiring?tab=review",
     minimumAllowedPermission: "user:impersonate",
   },
   {
@@ -442,6 +460,13 @@ export const formNavigationItems: NavigationItem[] = [
     description: "Request to training to be completed",
     icon: CalendarPlus,
     href: "/forms/training-request",
+    minimumAllowedPermission: "employee:viewSelf",
+  },
+  {
+    title: "Upload a Document",
+    description: "Upload a ticket, licence or external training certificate",
+    icon: FileUp,
+    href: "/forms/document-upload",
     minimumAllowedPermission: "employee:viewSelf",
   },
 ];
