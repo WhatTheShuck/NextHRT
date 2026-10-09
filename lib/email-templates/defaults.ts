@@ -264,6 +264,55 @@ export const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
 <p><a href="{linkUrl}">Open HRT</a></p>`,
   },
   {
+    key: "document.employeeExpiry",
+    name: "Your tickets are expiring (to the employee)",
+    subject: "Action needed: {count} of your tickets expiring or expired",
+    body: `<p>Hi {employeeName},</p>
+<p>These tickets of yours are expiring or have expired. Upload a copy of the renewed ticket so your record stays current:</p>
+{itemList}
+<p><a href="{pageUrl}">See everything in HRT</a></p>
+{#unlinkedNote}<p>{unlinkedNote}</p>{/unlinkedNote}`,
+  },
+  {
+    key: "document.employeeExpiry.row",
+    name: "— one expiring ticket",
+    subject: "",
+    body: `<li><strong>{itemName}</strong> — {daysText} ({expiryDate}). <a href="{uploadUrl}">Upload the renewal</a></li>`,
+  },
+  {
+    key: "document.missing",
+    name: "Documents still to provide (to the employee)",
+    subject: "Action needed: {count} documents still to provide",
+    body: `<p>Hi {employeeName},</p>
+<p>Your role needs these, and HRT doesn't have them for you yet:</p>
+{itemList}
+<p><a href="{pageUrl}">See everything in HRT</a></p>
+{#unlinkedNote}<p>{unlinkedNote}</p>{/unlinkedNote}`,
+  },
+  {
+    key: "document.missing.row",
+    name: "— one missing document",
+    subject: "",
+    body: `<li><strong>{itemName}</strong> ({itemKind}). <a href="{uploadUrl}">Upload it</a></li>`,
+  },
+  {
+    key: "document.approved",
+    name: "Upload accepted (to the submitter)",
+    subject: "Document accepted: {itemName}",
+    body: `<p>Hi,</p>
+<p>The {itemName} document for {employeeName} has been checked and added to their record in HRT.</p>
+<p><a href="{submissionUrl}">View it in HRT</a></p>`,
+  },
+  {
+    key: "document.changesRequested",
+    name: "Upload sent back (to the submitter)",
+    subject: "Please fix and resubmit: {itemName}",
+    body: `<p>Hi,</p>
+<p>An administrator checked the {itemName} document for {employeeName} and needs a change before it can be added:</p>
+<blockquote>{reason}</blockquote>
+<p><a href="{submissionUrl}">Open the submission to fix it</a></p>`,
+  },
+  {
     key: "email.layout",
     name: "Shared email layout",
     subject: "",
@@ -317,6 +366,13 @@ export const SAMPLE_LIST_ROWS: Record<string, Record<string, string>[]> = {
       ticketName: "Confined Spaces",
       expiryDate: "2 July 2026",
     },
+  ],
+  "document.employeeExpiry.row": [
+    { itemName: "Forklift Licence", expiryDate: "8 August 2026", daysText: "expires in 30 days", uploadUrl: "https://hrt.example.com/forms/document-upload?employeeId=1&kind=Ticket&itemId=3" },
+    { itemName: "White Card", expiryDate: "1 July 2026", daysText: "expired", uploadUrl: "https://hrt.example.com/forms/document-upload?employeeId=1&kind=Ticket&itemId=4" },
+  ],
+  "document.missing.row": [
+    { itemName: "First Aid", itemKind: "Training", uploadUrl: "https://hrt.example.com/forms/document-upload?employeeId=1&kind=Training&itemId=9" },
   ],
   "it.programs.row": [
     {

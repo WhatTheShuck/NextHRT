@@ -74,6 +74,7 @@ const GROUP_BLURBS: Record<TemplateGroup, string> = {
   Onboarding: "Sent when an onboarding request is approved.",
   IT: "Requests and summaries sent to the IT team.",
   Tickets: "Automatic reminders about expiring tickets and credentials.",
+  Documents: "Reminders to employees about their own documents, and updates on uploads.",
   SOP: "Notifications about SOP assessments.",
   Accounts: "Sent when someone first signs in, and when their access is ready.",
   Advanced:
