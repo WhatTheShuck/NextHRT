@@ -11,7 +11,9 @@ export function resolveTicketExpiry(
   explicitExpiry: Date | null,
 ): Date | null {
   if (explicitExpiry) {
-    if (explicitExpiry.getTime() <= dateIssued.getTime()) throw new Error("INVALID_EXPIRY_DATE");
+    if (Number.isNaN(explicitExpiry.getTime()) || explicitExpiry.getTime() <= dateIssued.getTime()) {
+      throw new Error("INVALID_EXPIRY_DATE");
+    }
     return explicitExpiry;
   }
   const calculated = calculateExpiryDate(dateIssued, renewalYears);

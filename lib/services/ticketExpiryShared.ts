@@ -36,7 +36,7 @@ export function parseMilestones(raw: string | undefined, defaults: number[]): nu
   const parsed = (raw ?? "")
     .split(",")
     .map((s) => Number(s.trim()))
-    .filter((n) => Number.isFinite(n) && n > 0);
+    .filter((n) => Number.isInteger(n) && n > 0); // whole days only: a stage must match /^\d+$/
   const list = parsed.length > 0 ? parsed : defaults;
   return [...new Set(list)].sort((a, b) => b - a);
 }

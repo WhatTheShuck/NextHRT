@@ -1,3 +1,9 @@
+/**
+ * Which employees a user's authority covers (docs/superpowers/specs/2026-10-09-document-upload-design.md
+ * "Scope helper"). View = may see; Act = may submit documents for. Always includes the user's own
+ * employee. RequirementService.getAccessibleEmployeeIds is deliberately separate: it leaves the
+ * manager out of their own department-mode scope, and reports depend on that.
+ */
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client/client";
@@ -5,12 +11,6 @@ import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { actScope, lineScope } from "@/lib/org/authority";
 import { getAuthorityMode, loadOrg } from "./authorityService";
 
-/**
- * Which employees a user's authority covers (docs/superpowers/specs/2026-10-09-document-upload-design.md
- * "Scope helper"). View = may see; Act = may submit documents for. Always includes the user's own
- * employee. RequirementService.getAccessibleEmployeeIds is deliberately separate: it leaves the
- * manager out of their own department-mode scope, and reports depend on that.
- */
 export type ScopeLevel = "View" | "Act";
 
 async function can(role: string, action: "viewAll" | "viewDepartment"): Promise<boolean> {
@@ -34,6 +34,7 @@ export async function getEmployeeIdsInScope(
   const self = user?.employeeId ?? null;
   if (self === null) return [];
 
+  // Line-manager mode deliberately doesn't gate on viewDepartment: resolveSessionRole already elevates anyone with scope.
   if ((await getAuthorityMode()) === "lineManager") {
     const { graph, grants } = await loadOrg();
     const scope = level === "Act" ? actScope(self, graph, grants) : lineScope(self, graph, grants);
@@ -41,6 +42,7 @@ export async function getEmployeeIdsInScope(
   }
 
   if (!(await can(role, "viewDepartment"))) return [self];
+  if (user!.managedDepartments.length === 0) return [self];
 
   const deptIds = new Set<number>();
   for (const dept of user!.managedDepartments) {
@@ -48,7 +50,8 @@ export async function getEmployeeIdsInScope(
     if (dept.level === 0) (await getChildDepartmentIds(dept.id)).forEach((id) => deptIds.add(id));
   }
   const employees = await prisma.employee.findMany({
-    where: { departmentId: { in: [...deptIds] } },
+    // Act matches line-manager mode, whose org graph holds active employees only.
+    where: { departmentId: { in: [...deptIds] }, ...(level === "Act" ? { isActive: true } : {}) },
     select: { id: true },
   });
   return [...new Set([self, ...employees.map((e) => e.id)])];

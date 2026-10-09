@@ -14,6 +14,9 @@ describe("resolveTicketExpiry", () => {
   it("rejects an expiry on or before the issue date", () => {
     expect(() => resolveTicketExpiry(issued, null, issued)).toThrow("INVALID_EXPIRY_DATE");
   });
+  it("rejects an Invalid Date explicit expiry", () => {
+    expect(() => resolveTicketExpiry(issued, 3, new Date("not a date"))).toThrow("INVALID_EXPIRY_DATE");
+  });
   it("never-expiring ticket with no expiry → null", () => {
     expect(resolveTicketExpiry(issued, null, null)).toBeNull();
   });

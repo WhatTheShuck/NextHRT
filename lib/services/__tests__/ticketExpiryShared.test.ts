@@ -20,6 +20,9 @@ describe("parseMilestones", () => {
     expect(parseMilestones("30, 90,90,x", [7])).toEqual([90, 30]);
     expect(parseMilestones("", [365, 30])).toEqual([365, 30]);
   });
+  it("accepts whole days only", () => {
+    expect(parseMilestones("30.5,90", [7])).toEqual([90]);
+  });
 });
 
 describe("nextStage", () => {

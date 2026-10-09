@@ -57,8 +57,26 @@ describe("getEmployeeIdsInScope", () => {
 
     const ids = await getEmployeeIdsInScope("u", "DepartmentManager", { level: "Act" });
 
-    expect(mockPrisma.employee.findMany.mock.calls[0][0].where.departmentId.in).toEqual([5, 6]);
+    expect(mockPrisma.employee.findMany.mock.calls[0][0].where).toEqual({ departmentId: { in: [5, 6] }, isActive: true });
     expect(ids).toEqual([7, 8, 9]);
+  });
+
+  it("department manager, View level → inactive employees are not filtered out", async () => {
+    can(["viewDepartment"]);
+    mockPrisma.user.findUnique.mockResolvedValue({ employeeId: 7, managedDepartments: [{ id: 5, level: 1 }] });
+    mockPrisma.employee.findMany.mockResolvedValue([{ id: 7 }, { id: 8 }]);
+
+    await getEmployeeIdsInScope("u", "DepartmentManager", { level: "View" });
+
+    expect(mockPrisma.employee.findMany.mock.calls[0][0].where).toEqual({ departmentId: { in: [5] } });
+  });
+
+  it("viewDepartment role with no managed departments → only themselves, no employee query", async () => {
+    can(["viewDepartment"]);
+    mockPrisma.user.findUnique.mockResolvedValue({ employeeId: 7, managedDepartments: [] });
+
+    expect(await getEmployeeIdsInScope("u", "DepartmentManager", { level: "Act" })).toEqual([7]);
+    expect(mockPrisma.employee.findMany).not.toHaveBeenCalled();
   });
 
   it("line-manager mode: Act excludes View grants, View includes them", async () => {
