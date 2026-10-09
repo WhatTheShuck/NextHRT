@@ -98,11 +98,16 @@ describe("prepareUpload with a (mocked) browser canvas", () => {
     expect(out.name).toBe("IMG_0001.jpg");
   });
 
-  it("passes an empty-type .pdf through untouched", async () => {
+  it("re-types an empty-type .pdf as application/pdf so the server doesn't see octet-stream", async () => {
     const bitmap = vi.fn();
     setup({ bitmap });
-    const pdf = new File(["%PDF-1.7"], "cert.PDF", { type: "" });
-    expect(await prepareUpload(pdf)).toBe(pdf);
+    const pdf = new File(["%PDF-1.7"], "cert.PDF", { type: "", lastModified: 1234 });
+    const out = await prepareUpload(pdf);
+    expect(out).not.toBe(pdf);
+    expect(out.name).toBe("cert.PDF");
+    expect(out.type).toBe("application/pdf");
+    expect(out.lastModified).toBe(1234);
+    expect(await out.text()).toBe("%PDF-1.7");
     expect(bitmap).not.toHaveBeenCalled();
   });
 });

@@ -39,14 +39,6 @@ export function FilePicker({
   const [busy, setBusy] = useState(false);
   const total = files.length + existing.length;
 
-  // Created and revoked in one effect so StrictMode's mount/unmount/mount gets fresh URLs.
-  const [previews, setPreviews] = useState<(string | null)[]>([]);
-  useEffect(() => {
-    const urls = files.map((f) => (f.type.startsWith("image/") ? URL.createObjectURL(f) : null));
-    setPreviews(urls);
-    return () => urls.forEach((u) => u && URL.revokeObjectURL(u));
-  }, [files]);
-
   // `add` awaits per file; read the latest props afterwards, not the ones it closed over.
   const latest = useRef({ files, existingCount: existing.length, onChange });
   useEffect(() => {
@@ -101,11 +93,14 @@ export function FilePicker({
           <Upload className="h-4 w-4 mr-2" /> Upload PDF or image
         </Button>
       </div>
-      {busy && (
-        <p role="status" className="text-sm text-muted-foreground flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> Preparing…
-        </p>
-      )}
+      {/* Always rendered so screen readers announce the text change. */}
+      <p role="status" className="text-sm text-muted-foreground flex items-center gap-2 empty:hidden">
+        {busy ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Preparing…
+          </>
+        ) : null}
+      </p>
 
       {total > 0 && (
         <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -114,9 +109,9 @@ export function FilePicker({
               src={f.fileType.startsWith("image/") ? `/api/images/${f.filePath}` : null}
               onRemove={onRemoveExisting ? () => onRemoveExisting(f.id) : undefined} disabled={busy} />
           ))}
-          {files.map((f, i) => (
-            <Thumb key={`n${i}`} name={f.name} src={previews[i] ?? null}
-              onRemove={() => onChange(files.filter((_, j) => j !== i))} disabled={busy} />
+          {files.map((f) => (
+            <Thumb key={`n${fileKey(f)}`} name={f.name} file={f}
+              onRemove={() => onChange(files.filter((x) => x !== f))} disabled={busy} />
           ))}
         </ul>
       )}
@@ -125,23 +120,50 @@ export function FilePicker({
   );
 }
 
+// A stable React key per picked File, so each thumbnail keeps its own preview URL.
+const fileKeys = new WeakMap<File, number>();
+let nextFileKey = 0;
+function fileKey(f: File): number {
+  let k = fileKeys.get(f);
+  if (k === undefined) {
+    k = nextFileKey++;
+    fileKeys.set(f, k);
+  }
+  return k;
+}
+
 function Thumb({
   name,
-  src,
+  src: remoteSrc,
+  file,
   onRemove,
   disabled,
 }: {
   name: string;
-  src: string | null;
+  /** A server URL (existing file), or null for a non-image. */
+  src?: string | null;
+  /** A newly picked file; images get a blob preview owned by this thumbnail. */
+  file?: File;
   onRemove?: () => void;
   /** While new files are being prepared, so a removal can't be overwritten when they land. */
   disabled?: boolean;
 }) {
+  // The blob URL is created, set on the <img> and revoked in one effect keyed by this file, so
+  // StrictMode's mount/unmount/mount gets a fresh URL and a removal can't shift previews along.
+  const isImage = file ? file.type.startsWith("image/") : !!remoteSrc;
+  const img = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    if (!file || !file.type.startsWith("image/") || !img.current) return;
+    const url = URL.createObjectURL(file);
+    img.current.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
   return (
     <li className="relative rounded-md border overflow-hidden bg-muted/40 aspect-[4/3] flex items-center justify-center">
-      {src ? (
+      {isImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- blob/API URLs, not optimisable
-        <img src={src} alt={name} className="h-full w-full object-cover" />
+        <img ref={img} src={file ? undefined : (remoteSrc ?? undefined)} alt={name} className="h-full w-full object-cover" />
       ) : (
         <div className="flex flex-col items-center gap-1 p-2 text-xs text-muted-foreground min-w-0 w-full">
           <FileText className="h-6 w-6" />

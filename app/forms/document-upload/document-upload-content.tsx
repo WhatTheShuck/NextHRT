@@ -14,6 +14,7 @@ import { GenericCombobox, type ComboboxItem } from "@/components/ui/generic-comb
 import { DateSelector } from "@/components/date-selector";
 import { FilePicker, type ExistingFile } from "@/components/document-upload/file-picker";
 import { calculateExpiryDate } from "@/lib/expiry-utils";
+import { startOfDay } from "date-fns";
 
 type Kind = "Ticket" | "Training";
 interface TicketOpt { id: number; ticketName: string; ticketCode: string; renewal: number | null }
@@ -23,6 +24,7 @@ interface Submission {
   id: number; employeeId: number; kind: Kind; ticketId: number | null; trainingId: number | null;
   dateIssued: string; expiryDate: string | null; licenseNumber: string | null; provider: string | null;
   status: string; reviewComment: string | null; submittedByUserId: string | null; files: ExistingFile[];
+  ticket: { ticketName: string } | null; training: { title: string } | null;
 }
 
 // The shared axios instance defaults to JSON (which would serialise FormData and drop the files)
@@ -79,7 +81,7 @@ export function DocumentUploadContent({
   const [employeeId, setEmployeeId] = useState<number | null>(initial.employeeId ?? ownEmployeeId);
   const [kind, setKind] = useState<Kind>(initial.kind ?? "Ticket");
   const [itemId, setItemId] = useState<number | null>(initial.itemId);
-  const [dateIssued, setDateIssued] = useState<Date>(new Date());
+  const [dateIssued, setDateIssued] = useState<Date>(() => startOfDay(new Date()));
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
   const [expiryTouched, setExpiryTouched] = useState(false);
   const [licenseNumber, setLicenseNumber] = useState("");
@@ -89,6 +91,10 @@ export function DocumentUploadContent({
   const [removedFileIds, setRemovedFileIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  /** The submission couldn't be loaded; shown instead of a blank form that would create a new one. */
+  const [loadError, setLoadError] = useState<string | null>(null);
+  /** A deep link named an item that isn't an active ticket / External training. */
+  const [unknownItem, setUnknownItem] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -105,10 +111,17 @@ export function DocumentUploadContent({
         if (!submissionId && (initial.employeeId ?? ownEmployeeId) === null && emps.data.length === 1) {
           setEmployeeId(emps.data[0].id);
         }
-        // A deep link names the ticket: offer its renewal-based expiry straight away.
-        if (!submissionId && initial.kind !== "Training" && initial.itemId) {
-          const t = tks.data.find((x) => x.id === initial.itemId);
-          if (t) setExpiryDate(calculateExpiryDate(new Date(), t.renewal));
+        if (!submissionId && initial.itemId) {
+          const linkedKind = initial.kind ?? "Ticket";
+          const t = linkedKind === "Ticket" ? tks.data.find((x) => x.id === initial.itemId) : undefined;
+          const known = linkedKind === "Ticket" ? !!t : trs.data.some((x) => x.id === initial.itemId);
+          if (!known) {
+            setItemId(null);
+            setUnknownItem(true);
+          } else if (t) {
+            // A deep link names the ticket: offer its renewal-based expiry straight away.
+            setExpiryDate(calculateExpiryDate(startOfDay(new Date()), t.renewal));
+          }
         }
         if (submissionId) {
           const { data } = await api.get<Submission>(`/api/document-submissions/${submissionId}`);
@@ -124,7 +137,8 @@ export function DocumentUploadContent({
           setExisting(data.files);
         }
       } catch (e) {
-        toast.error(errorMessage(e));
+        if (submissionId) setLoadError(errorMessage(e));
+        else toast.error(errorMessage(e));
       } finally {
         setLoading(false);
       }
@@ -147,13 +161,18 @@ export function DocumentUploadContent({
     () => employees.map((e) => ({ id: e.id, label: e.name, value: String(e.id), subtitle: e.subtitle })),
     [employees],
   );
-  const itemItems: ComboboxItem[] = useMemo(
-    () =>
+  const itemItems: ComboboxItem[] = useMemo(() => {
+    const active: ComboboxItem[] =
       kind === "Ticket"
         ? tickets.map((t) => ({ id: t.id, label: t.ticketName, value: String(t.id), subtitle: t.ticketCode }))
-        : trainings.map((t) => ({ id: t.id, label: t.title, value: String(t.id) })),
-    [kind, tickets, trainings],
-  );
+        : trainings.map((t) => ({ id: t.id, label: t.title, value: String(t.id) }));
+    // A submission filed under an item that has since been deactivated still shows what it was.
+    if (itemId !== null && submission && !active.some((i) => i.id === itemId)) {
+      const name = submission.ticket?.ticketName ?? submission.training?.title ?? "Unknown item";
+      active.unshift({ id: itemId, label: `${name} (no longer active)`, value: String(itemId), disabled: true });
+    }
+    return active;
+  }, [kind, tickets, trainings, itemId, submission]);
 
   const locked = submission !== null; // resubmits keep their employee and kind
   const sentBack = submission?.status === "ChangesRequested";
@@ -181,10 +200,10 @@ export function DocumentUploadContent({
         await api.post("/api/document-submissions", fd, UPLOAD_CONFIG);
       }
       toast.success("Sent for review. You'll get an email once an administrator has checked it.");
+      // Stay "submitting" while navigating away, so a second click can't send it twice.
       router.push("/expiring?tab=submitted");
     } catch (e) {
       toast.error(errorMessage(e));
-    } finally {
       setSubmitting(false);
     }
   }
@@ -193,6 +212,17 @@ export function DocumentUploadContent({
     return (
       <div className="p-8 flex justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm">
+          <p className="font-medium">Couldn&apos;t open this upload</p>
+          <p className="mt-1">{loadError}</p>
+        </div>
       </div>
     );
   }
@@ -212,6 +242,11 @@ export function DocumentUploadContent({
           <p className="mt-1">{submission.reviewComment}</p>
         </div>
       )}
+      {unknownItem && (
+        <div role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          That item can&apos;t be uploaded here.
+        </div>
+      )}
       {readOnly && (
         <div className="rounded-lg border bg-muted/50 p-4 text-sm">
           {sentBack
@@ -222,78 +257,85 @@ export function DocumentUploadContent({
 
       <Card>
         <CardHeader><CardTitle className="text-lg">What is it?</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {employeeItems.length > 1 && (
-            <div className="space-y-2">
-              <Label>Who is it for?</Label>
-              <GenericCombobox
-                items={employeeItems}
-                selectedItem={employeeItems.find((i) => i.id === employeeId) ?? null}
-                onSelect={(i) => setEmployeeId(i ? Number(i.id) : null)}
-                placeholder="Choose an employee"
-                showSubtitle
-                disabled={locked}
-                width="w-full"
-              />
-            </div>
-          )}
-
-          <RadioGroup
-            value={kind}
-            onValueChange={(v) => { setKind(v as Kind); setItemId(null); if (!expiryTouched) setExpiryDate(null); }}
-            className="flex gap-6"
-            disabled={locked}
-          >
-            <div className="flex items-center gap-2"><RadioGroupItem value="Ticket" id="k-ticket" /><Label htmlFor="k-ticket">Ticket or licence</Label></div>
-            <div className="flex items-center gap-2"><RadioGroupItem value="Training" id="k-training" /><Label htmlFor="k-training">External training</Label></div>
-          </RadioGroup>
-
-          <div className="space-y-2">
-            <Label>{kind === "Ticket" ? "Ticket" : "Training"}</Label>
-            <GenericCombobox
-              items={itemItems}
-              selectedItem={itemItems.find((i) => i.id === itemId) ?? null}
-              onSelect={(i) => {
-                const id = i ? Number(i.id) : null;
-                setItemId(id);
-                refreshExpiry(id, dateIssued);
-              }}
-              placeholder={kind === "Ticket" ? "Choose the ticket" : "Choose the training"}
-              showSubtitle={kind === "Ticket"}
-              disabled={readOnly}
-              width="w-full"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{kind === "Ticket" ? "Date issued" : "Date completed"}</Label>
-              <DateSelector selectedDate={dateIssued} onDateSelect={(d) => { setDateIssued(d); refreshExpiry(itemId, d); }} />
-            </div>
-            {kind === "Ticket" && (
+        <CardContent>
+          <fieldset disabled={readOnly} className="min-w-0 space-y-4">
+            {employeeItems.length > 1 && (
               <div className="space-y-2">
-                <Label>Expiry date</Label>
-                <DateSelector
-                  optional
-                  selectedDate={expiryDate}
-                  onDateSelect={(d) => { setExpiryTouched(true); setExpiryDate(d); }}
-                  placeholder={ticket?.renewal === null ? "Doesn't expire" : "Expiry date"}
+                <Label id="du-employee-label" htmlFor="du-employee">Who is it for?</Label>
+                <GenericCombobox
+                  id="du-employee"
+                  aria-labelledby="du-employee-label du-employee"
+                  items={employeeItems}
+                  selectedItem={employeeItems.find((i) => i.id === employeeId) ?? null}
+                  onSelect={(i) => setEmployeeId(i ? Number(i.id) : null)}
+                  placeholder="Choose an employee"
+                  showSubtitle
+                  disabled={locked}
+                  width="w-full"
                 />
               </div>
             )}
-          </div>
 
-          {kind === "Ticket" ? (
+            <RadioGroup
+              value={kind}
+              onValueChange={(v) => { setKind(v as Kind); setItemId(null); setUnknownItem(false); if (!expiryTouched) setExpiryDate(null); }}
+              className="flex flex-wrap gap-x-6 gap-y-2"
+              disabled={locked}
+              aria-label="Type of document"
+            >
+              <div className="flex items-center gap-2"><RadioGroupItem value="Ticket" id="k-ticket" /><Label htmlFor="k-ticket">Ticket or licence</Label></div>
+              <div className="flex items-center gap-2"><RadioGroupItem value="Training" id="k-training" /><Label htmlFor="k-training">External training</Label></div>
+            </RadioGroup>
+
             <div className="space-y-2">
-              <Label htmlFor="licence">Licence / card number (optional)</Label>
-              <Input id="licence" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} disabled={readOnly} />
+              <Label id="du-item-label" htmlFor="du-item">{kind === "Ticket" ? "Ticket" : "Training"}</Label>
+              <GenericCombobox
+                id="du-item"
+                aria-labelledby="du-item-label du-item"
+                items={itemItems}
+                selectedItem={itemItems.find((i) => i.id === itemId) ?? null}
+                onSelect={(i) => {
+                  const id = i ? Number(i.id) : null;
+                  setItemId(id);
+                  setUnknownItem(false);
+                  refreshExpiry(id, dateIssued);
+                }}
+                placeholder={kind === "Ticket" ? "Choose the ticket" : "Choose the training"}
+                showSubtitle={kind === "Ticket"}
+                width="w-full"
+              />
             </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="provider">Who delivered it?</Label>
-              <Input id="provider" placeholder="e.g. St John Ambulance" value={provider} onChange={(e) => setProvider(e.target.value)} disabled={readOnly} />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2" role="group" aria-labelledby="du-issued-label">
+                <Label id="du-issued-label">{kind === "Ticket" ? "Date issued" : "Date completed"}</Label>
+                <DateSelector selectedDate={dateIssued} onDateSelect={(d) => { setDateIssued(d); refreshExpiry(itemId, d); }} />
+              </div>
+              {kind === "Ticket" && (
+                <div className="space-y-2" role="group" aria-labelledby="du-expiry-label">
+                  <Label id="du-expiry-label">Expiry date</Label>
+                  <DateSelector
+                    optional
+                    selectedDate={expiryDate}
+                    onDateSelect={(d) => { setExpiryTouched(true); setExpiryDate(d); }}
+                    placeholder={ticket?.renewal === null ? "Doesn't expire" : "Expiry date"}
+                  />
+                </div>
+              )}
             </div>
-          )}
+
+            {kind === "Ticket" ? (
+              <div className="space-y-2">
+                <Label htmlFor="licence">Licence / card number (optional)</Label>
+                <Input id="licence" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="provider">Who delivered it?</Label>
+                <Input id="provider" placeholder="e.g. St John Ambulance" value={provider} onChange={(e) => setProvider(e.target.value)} />
+              </div>
+            )}
+          </fieldset>
         </CardContent>
       </Card>
 

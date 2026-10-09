@@ -22,6 +22,7 @@ interface Detail {
   employee: { preferredFirstName: string | null; legalFirstName: string; preferredLastName: string | null; legalLastName: string; department: { name: string } };
   submittedByUser: { name: string | null; email: string | null } | null;
   files: { id: number; filePath: string; fileType: string; originalName: string }[];
+  ticket: { ticketName: string } | null; training: { title: string } | null;
 }
 
 const errorMessage = (e: unknown) =>
@@ -75,6 +76,13 @@ export function ReviewContent({ id }: { id: number }) {
     })();
   }, [id]);
 
+  // The submission's item may have been deactivated since; still show what it was filed under.
+  const items: ComboboxItem[] = useMemo(() => {
+    if (!d || itemId === null || options.some((o) => o.id === itemId)) return options;
+    const label = `${d.ticket?.ticketName ?? d.training?.title ?? "Unknown item"} (no longer active)`;
+    return [{ id: itemId, label, value: String(itemId), disabled: true }, ...options];
+  }, [d, itemId, options]);
+
   const name = useMemo(
     () => (d ? `${d.employee.preferredFirstName ?? d.employee.legalFirstName} ${d.employee.preferredLastName ?? d.employee.legalLastName}` : ""),
     [d],
@@ -98,10 +106,10 @@ export function ReviewContent({ id }: { id: number }) {
           : { provider }),
       });
       toast.success("Approved and added to the record.");
+      // Stay busy while navigating away, so a second click can't act twice.
       router.push("/expiring?tab=review");
     } catch (e) {
       toast.error(errorMessage(e));
-    } finally {
       setBusy(null);
     }
   }
@@ -115,7 +123,6 @@ export function ReviewContent({ id }: { id: number }) {
       router.push("/expiring?tab=review");
     } catch (e) {
       toast.error(errorMessage(e));
-    } finally {
       setBusy(null);
     }
   }
@@ -139,18 +146,31 @@ export function ReviewContent({ id }: { id: number }) {
         <CardContent className="space-y-4">
           {d.files.map((f) => {
             const src = `/api/images/${f.filePath}`;
+            const turned = (rotation[f.id] ?? 0) % 180 !== 0;
             return f.fileType === "application/pdf" ? (
-              <iframe key={f.id} src={src} title={f.originalName} className="w-full h-[70vh] rounded border" />
+              <div key={f.id} className="space-y-2">
+                <iframe src={src} title={f.originalName} className="w-full h-[70vh] rounded border" />
+                <a href={src} target="_blank" rel="noreferrer" className="text-sm underline underline-offset-2">
+                  Open PDF in a new tab
+                </a>
+              </div>
             ) : (
               <div key={f.id} className="space-y-2">
                 {/* Opens full size in a new tab, where the browser can zoom. */}
-                <a href={src} target="_blank" rel="noreferrer" className="block overflow-hidden rounded border bg-muted/40">
+                <a
+                  href={src}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`flex items-center justify-center rounded border bg-muted/40 ${turned ? "h-[70vh]" : ""}`}
+                >
+                  {/* Turned 90/270°, width and height swap on screen: cap both (height also by the screen
+                      width, as it becomes the visible width on a phone) so it fits the 70vh box. */}
                   {/* eslint-disable-next-line @next/next/no-img-element -- authenticated API image */}
                   <img
                     src={src}
                     alt={f.originalName}
                     style={{ transform: `rotate(${rotation[f.id] ?? 0}deg)` }}
-                    className="w-full object-contain max-h-[70vh] transition-transform"
+                    className={`object-contain transition-transform ${turned ? "max-h-[min(70vh,85vw)] max-w-[70vh]" : "w-full max-h-[70vh]"}`}
                   />
                 </a>
                 <Button
@@ -158,6 +178,7 @@ export function ReviewContent({ id }: { id: number }) {
                   variant="outline"
                   type="button"
                   onClick={() => setRotation({ ...rotation, [f.id]: ((rotation[f.id] ?? 0) + 90) % 360 })}
+                  aria-label={`Rotate ${f.originalName}`}
                 >
                   <RotateCw className="h-4 w-4 mr-2" /> Rotate
                 </Button>
@@ -171,49 +192,52 @@ export function ReviewContent({ id }: { id: number }) {
         <CardHeader>
           <CardTitle className="text-lg">{name} · {d.employee.department.name}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Uploaded by {d.submittedByUser?.name ?? "a removed user"} on {formatDateInZone(new Date(d.createdAt))}. Check the details match the files.
+            Uploaded by {d.submittedByUser?.name || d.submittedByUser?.email || "a removed user"} on {formatDateInZone(new Date(d.createdAt))}. Check the details match the files.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>{d.kind === "Ticket" ? "Ticket" : "Training"}</Label>
-            <GenericCombobox
-              items={options}
-              selectedItem={options.find((o) => o.id === itemId) ?? null}
-              onSelect={(o) => {
-                const next = o ? Number(o.id) : null;
-                setItemId(next);
-                recomputeExpiry(next, dateIssued);
-              }}
-              placeholder={d.kind === "Ticket" ? "Choose the ticket" : "Choose the training"}
-              showSubtitle={d.kind === "Ticket"}
-              disabled={!pending}
-              width="w-full"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <fieldset disabled={!pending} className="min-w-0 space-y-4">
             <div className="space-y-2">
-              <Label>{d.kind === "Ticket" ? "Date issued" : "Date completed"}</Label>
-              <DateSelector selectedDate={dateIssued} onDateSelect={(nd) => { setDateIssued(nd); recomputeExpiry(itemId, nd); }} />
+              <Label id="rv-item-label" htmlFor="rv-item">{d.kind === "Ticket" ? "Ticket" : "Training"}</Label>
+              <GenericCombobox
+                id="rv-item"
+                aria-labelledby="rv-item-label rv-item"
+                items={items}
+                selectedItem={items.find((o) => o.id === itemId) ?? null}
+                onSelect={(o) => {
+                  const next = o ? Number(o.id) : null;
+                  setItemId(next);
+                  recomputeExpiry(next, dateIssued);
+                }}
+                placeholder={d.kind === "Ticket" ? "Choose the ticket" : "Choose the training"}
+                showSubtitle={d.kind === "Ticket"}
+                width="w-full"
+              />
             </div>
-            {d.kind === "Ticket" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2" role="group" aria-labelledby="rv-issued-label">
+                <Label id="rv-issued-label">{d.kind === "Ticket" ? "Date issued" : "Date completed"}</Label>
+                <DateSelector selectedDate={dateIssued} onDateSelect={(nd) => { setDateIssued(nd); recomputeExpiry(itemId, nd); }} />
+              </div>
+              {d.kind === "Ticket" && (
+                <div className="space-y-2" role="group" aria-labelledby="rv-expiry-label">
+                  <Label id="rv-expiry-label">Expiry date</Label>
+                  <DateSelector optional selectedDate={expiryDate} onDateSelect={setExpiryDate} />
+                </div>
+              )}
+            </div>
+            {d.kind === "Ticket" ? (
               <div className="space-y-2">
-                <Label>Expiry date</Label>
-                <DateSelector optional selectedDate={expiryDate} onDateSelect={setExpiryDate} />
+                <Label htmlFor="lic">Licence / card number</Label>
+                <Input id="lic" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="prov">Provider</Label>
+                <Input id="prov" value={provider} onChange={(e) => setProvider(e.target.value)} />
               </div>
             )}
-          </div>
-          {d.kind === "Ticket" ? (
-            <div className="space-y-2">
-              <Label htmlFor="lic">Licence / card number</Label>
-              <Input id="lic" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} disabled={!pending} />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="prov">Provider</Label>
-              <Input id="prov" value={provider} onChange={(e) => setProvider(e.target.value)} disabled={!pending} />
-            </div>
-          )}
+          </fieldset>
 
           {pending ? (
             <>

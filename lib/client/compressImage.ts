@@ -37,7 +37,11 @@ async function decode(file: File): Promise<ImageBitmap> {
  * it; on iPhone, set Camera → Formats → Most Compatible, or pick the photo as JPEG).
  */
 export async function prepareUpload(file: File): Promise<File> {
-  if (isPdf(file)) return file;
+  if (isPdf(file)) {
+    if (file.type === "application/pdf") return file;
+    // An empty type would be sent as application/octet-stream, which the server refuses.
+    return new File([file], file.name, { type: "application/pdf", lastModified: file.lastModified });
+  }
   if (!file.type.startsWith("image/") && !isHeic(file)) throw new Error("UNSUPPORTED_FILE");
 
   const bitmap = await decode(file);

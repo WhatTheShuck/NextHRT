@@ -50,6 +50,9 @@ interface GenericComboboxProps<T extends ComboboxItem> {
   clearLabel?: string;
   showSearch?: boolean;
   showSubtitle?: boolean;
+  /** Put on the trigger button, e.g. so a <Label htmlFor> or aria-labelledby can name it. */
+  id?: string;
+  "aria-labelledby"?: string;
   variant?:
     | "outline"
     | "default"
@@ -75,6 +78,8 @@ export function GenericCombobox<T extends ComboboxItem>({
   showSearch = true,
   showSubtitle = false,
   variant = "outline",
+  id,
+  "aria-labelledby": ariaLabelledBy,
 }: GenericComboboxProps<T>) {
   const [open, setOpen] = React.useState(false);
   const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -127,6 +132,8 @@ export function GenericCombobox<T extends ComboboxItem>({
         <PopoverTrigger asChild>
           <Button
             variant={variant}
+            id={id}
+            aria-labelledby={ariaLabelledBy}
             role="combobox"
             aria-expanded={open}
             className={`${width} justify-between ${className}`}
@@ -152,6 +159,8 @@ export function GenericCombobox<T extends ComboboxItem>({
       <DrawerTrigger asChild>
         <Button
           variant={variant}
+          id={id}
+          aria-labelledby={ariaLabelledBy}
           role="combobox"
           aria-expanded={open}
           className={`${width} justify-between ${className}`}

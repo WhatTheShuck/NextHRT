@@ -50,16 +50,28 @@ const missingLabel = (r: MissingRow) =>
 export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean; initialTab?: string }) {
   const router = useRouter();
   const [data, setData] = useState<ExpiringStatus | null>(null);
-  const [tab, setTab] = useState<Tab>((TABS as readonly string[]).includes(initialTab ?? "") ? (initialTab as Tab) : "expiring");
+  const [tab, setTab] = useState<Tab>(() => {
+    const valid = (TABS as readonly string[]).includes(initialTab ?? "") ? (initialTab as Tab) : "expiring";
+    // Only admins have a review queue.
+    return valid === "review" && !isAdmin ? "expiring" : valid;
+  });
   const [department, setDepartment] = useState("all");
   const [search, setSearch] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const load = useCallback(
     () =>
       api
         .get<ExpiringStatus>("/api/expiring")
-        .then((r) => setData(r.data))
-        .catch(() => toast.error("Couldn't load this page.")),
+        .then((r) => {
+          setData(r.data);
+          setLoadFailed(false);
+        })
+        .catch(() => {
+          setLoadFailed(true);
+          toast.error("Couldn't load this page.");
+        }),
     [],
   );
   useEffect(() => {
@@ -80,15 +92,29 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
     );
 
   async function cancel(id: number) {
+    if (!window.confirm("Cancel this upload? It won't be reviewed.")) return;
+    setCancellingId(id);
     try {
       await api.post(`/api/document-submissions/${id}/cancel`);
       toast.success("Upload cancelled.");
-      void load();
+      await load();
     } catch {
       toast.error("Couldn't cancel it.");
+    } finally {
+      setCancellingId(null);
     }
   }
 
+  if (!data && loadFailed) {
+    return (
+      <div className="max-w-screen-2xl mx-auto p-4">
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm space-y-3">
+          <p>Couldn&apos;t load your expiring and missing items.</p>
+          <Button variant="outline" size="sm" onClick={() => void load()}>Try again</Button>
+        </div>
+      </div>
+    );
+  }
   if (!data) {
     return (
       <div className="p-8 flex justify-center">
@@ -154,7 +180,10 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
                   <Button asChild size="sm" variant="outline"><Link href={`/forms/document-upload?submission=${s.id}`}>Fix</Link></Button>
                 )}
                 {s.isMine && (s.status === "Pending" || s.status === "ChangesRequested") && (
-                  <Button size="sm" variant="ghost" onClick={() => cancel(s.id)}>Cancel</Button>
+                  <Button size="sm" variant="ghost" onClick={() => cancel(s.id)} disabled={cancellingId !== null}>
+                    {cancellingId === s.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Cancel
+                  </Button>
                 )}
               </div>
             )
@@ -177,9 +206,9 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
 
       {showFilters && (
         <div className="flex flex-col sm:flex-row gap-2">
-          <Input placeholder="Search by name" value={search} onChange={(e) => setSearch(e.target.value)} className="sm:max-w-xs" />
+          <Input aria-label="Search by name" placeholder="Search by name" value={search} onChange={(e) => setSearch(e.target.value)} className="sm:max-w-xs" />
           <Select value={department} onValueChange={setDepartment}>
-            <SelectTrigger className="sm:w-56"><SelectValue placeholder="All departments" /></SelectTrigger>
+            <SelectTrigger className="sm:w-56" aria-label="Filter by department"><SelectValue placeholder="All departments" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All departments</SelectItem>
               {departments.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
