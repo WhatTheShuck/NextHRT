@@ -3,25 +3,21 @@ import { getAuthorityMode, getExpiryRecipientEmployeeIds } from "./authorityServ
 
 export interface ExpiryRecipients {
   to: string[];
-  cc: string[];
 }
 
 /**
- * Recipients for a ticket-expiry notification about `employeeId` (spec §5.6):
- *   To = managers of the employee's department (under line-manager authority: their direct
- *        manager plus anyone acting at that manager's level, spec §9.3),
- *   Cc = admins who have not opted out (receivesExpiryNotifications),
- *   never the employee.
- * If there are no managers, admins are promoted to To so the mail still goes somewhere.
+ * Manager recipients for a ticket-expiry notification about `employeeId`: the employee's
+ * department managers, or under line-manager authority their direct manager plus anyone acting
+ * at that manager's level (workday spec §9.3). Admins are never emailed; they use the Expiring &
+ * Missing page (docs/superpowers/specs/2026-10-09-document-upload-design.md decision 11). The
+ * employee is emailed separately, by the employee track of TICKET_EXPIRY.
  */
-export async function resolveExpiryRecipients(
-  employeeId: number,
-): Promise<ExpiryRecipients> {
+export async function resolveExpiryRecipients(employeeId: number): Promise<ExpiryRecipients> {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: { departmentId: true },
   });
-  if (!employee) return { to: [], cc: [] };
+  if (!employee) return { to: [] };
 
   const lineMode = (await getAuthorityMode()) === "lineManager";
   const managers = await prisma.user.findMany({
@@ -33,23 +29,5 @@ export async function resolveExpiryRecipients(
     },
     select: { email: true },
   });
-  const admins = await prisma.user.findMany({
-    where: {
-      role: "Admin",
-      receivesExpiryNotifications: true,
-      email: { not: null },
-    },
-    select: { email: true },
-  });
-
-  const managerEmails = [...new Set(managers.map((m) => m.email!).filter(Boolean))];
-  const adminEmails = [...new Set(admins.map((a) => a.email!).filter(Boolean))];
-
-  if (managerEmails.length === 0) {
-    return { to: adminEmails, cc: [] };
-  }
-  return {
-    to: managerEmails,
-    cc: adminEmails.filter((e) => !managerEmails.includes(e)),
-  };
+  return { to: [...new Set(managers.map((m) => m.email!).filter(Boolean))] };
 }

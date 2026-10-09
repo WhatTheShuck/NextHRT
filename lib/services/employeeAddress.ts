@@ -32,3 +32,6 @@ export const EMPLOYEE_ADDRESS_SELECT = {
   preferredLastName: true,
   User: { select: { email: true } },
 } as const;
+
+/** Line added to employee emails when their HRT login isn't linked yet (spec decision 9). */
+export const UNLINKED_NOTE = "You can also give a copy to your manager to upload for you.";

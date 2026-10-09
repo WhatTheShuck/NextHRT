@@ -184,7 +184,21 @@ const SETTING_DEFAULTS: SettingDefault[] = [
     envVar: "TICKET_EXPIRY_REMINDER_DAYS",
     defaultValue: "365,180,90,30",
     description:
-      "Comma-separated day milestones before a ticket's expiry at which to send a renewal-reminder email (one reminder per milestone). The largest value also caps how far ahead expiries are considered.",
+      "Comma-separated day milestones before a ticket's expiry at which the employee is emailed a renewal reminder (one reminder per milestone). The largest value across this and tickets.managerExpiryReminderDays caps how far ahead expiries are considered.",
+  },
+  {
+    key: "tickets.managerExpiryReminderDays",
+    envVar: "TICKET_MANAGER_EXPIRY_REMINDER_DAYS",
+    defaultValue: "30",
+    description:
+      "Comma-separated day milestones before a ticket's expiry at which the employee's managers are emailed (they are also told once it has expired). Employees get every milestone in tickets.expiryReminderDays.",
+  },
+  {
+    key: "documents.missingReminderIntervalDays",
+    envVar: "DOCUMENTS_MISSING_REMINDER_INTERVAL_DAYS",
+    defaultValue: "30",
+    description:
+      "Days between reminder digests to an employee about required tickets/External training they still haven't provided. The first reminder goes the night the gap appears.",
   },
   {
     key: "it.quizSummaryEmail",

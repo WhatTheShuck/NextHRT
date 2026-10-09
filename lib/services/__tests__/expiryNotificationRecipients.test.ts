@@ -1,13 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockPrisma } = vi.hoisted(() => {
-  const mockPrisma = {
-    employee: { findUnique: vi.fn() },
-    user: { findMany: vi.fn() },
-  };
-  return { mockPrisma };
-});
-
+const { mockPrisma } = vi.hoisted(() => ({
+  mockPrisma: { employee: { findUnique: vi.fn() }, user: { findMany: vi.fn() } },
+}));
 vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 
 const { mockAuthority } = vi.hoisted(() => ({
@@ -18,82 +13,38 @@ vi.mock("@/lib/services/authorityService", () => mockAuthority);
 import { resolveExpiryRecipients } from "@/lib/services/expiryNotificationRecipients";
 
 beforeEach(() => {
-  vi.clearAllMocks();
   mockAuthority.getAuthorityMode.mockResolvedValue("department");
 });
 
 describe("resolveExpiryRecipients", () => {
-  it("returns dept managers as To and opted-in admins as Cc, excluding opt-outs", async () => {
+  it("returns the department's managers, deduped, and never queries admins", async () => {
     mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5 });
-    mockPrisma.user.findMany
-      .mockResolvedValueOnce([{ email: "mgr@x.com" }]) // managers of dept 5
-      .mockResolvedValueOnce([{ email: "admin1@x.com" }]); // opted-in admins (query filters opt-outs)
+    mockPrisma.user.findMany.mockResolvedValue([{ email: "mgr@x.com" }, { email: "mgr@x.com" }]);
 
-    const r = await resolveExpiryRecipients(1);
-
-    expect(r.to).toContain("mgr@x.com");
-    expect(r.cc).toContain("admin1@x.com");
+    expect(await resolveExpiryRecipients(1)).toEqual({ to: ["mgr@x.com"] });
+    expect(mockPrisma.user.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it("excludes an admin who has opted out (query filter)", async () => {
+  it("no managers → nobody (admins use the Expiring & Missing page instead)", async () => {
     mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5 });
-    mockPrisma.user.findMany
-      .mockResolvedValueOnce([{ email: "mgr@x.com" }])
-      .mockResolvedValueOnce([{ email: "admin1@x.com" }]);
-
-    await resolveExpiryRecipients(1);
-
-    // admins query must filter on receivesExpiryNotifications: true
-    const adminQuery = mockPrisma.user.findMany.mock.calls[1][0];
-    expect(adminQuery.where.receivesExpiryNotifications).toBe(true);
-    expect(adminQuery.where.role).toBe("Admin");
+    mockPrisma.user.findMany.mockResolvedValue([]);
+    expect(await resolveExpiryRecipients(1)).toEqual({ to: [] });
   });
 
-  it("promotes admins to To when there are no managers", async () => {
-    mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5 });
-    mockPrisma.user.findMany
-      .mockResolvedValueOnce([]) // no managers
-      .mockResolvedValueOnce([{ email: "admin1@x.com" }]);
-
-    const r = await resolveExpiryRecipients(1);
-
-    expect(r.to).toContain("admin1@x.com");
-    expect(r.cc).toEqual([]);
-  });
-
-  it("returns empty recipients when the employee is not found", async () => {
+  it("unknown employee → nobody", async () => {
     mockPrisma.employee.findUnique.mockResolvedValue(null);
-
-    const r = await resolveExpiryRecipients(999);
-
-    expect(r).toEqual({ to: [], cc: [] });
+    expect(await resolveExpiryRecipients(999)).toEqual({ to: [] });
   });
 
-  it("does not duplicate an email that is both manager and admin", async () => {
-    mockPrisma.employee.findUnique.mockResolvedValue({ id: 1, departmentId: 5 });
-    mockPrisma.user.findMany
-      .mockResolvedValueOnce([{ email: "both@x.com" }])
-      .mockResolvedValueOnce([{ email: "both@x.com" }, { email: "admin1@x.com" }]);
-
-    const r = await resolveExpiryRecipients(1);
-
-    expect(r.to).toEqual(["both@x.com"]);
-    expect(r.cc).toEqual(["admin1@x.com"]);
-  });
-});
-
-describe("resolveExpiryRecipients under line-manager authority", () => {
-  it("addresses the direct manager and their delegates instead of department managers", async () => {
+  it("line-manager authority: direct manager and their delegates", async () => {
     mockAuthority.getAuthorityMode.mockResolvedValue("lineManager");
-    mockAuthority.getExpiryRecipientEmployeeIds.mockResolvedValue([8, 10]); // Joshua and Carolyn
+    mockAuthority.getExpiryRecipientEmployeeIds.mockResolvedValue([8, 10]);
     mockPrisma.employee.findUnique.mockResolvedValue({ id: 9, departmentId: 33 });
-    mockPrisma.user.findMany
-      .mockResolvedValueOnce([{ email: "joshua@x.com" }, { email: "carolyn@x.com" }])
-      .mockResolvedValueOnce([{ email: "admin1@x.com" }]);
+    mockPrisma.user.findMany.mockResolvedValue([{ email: "joshua@x.com" }, { email: "carolyn@x.com" }]);
 
     const r = await resolveExpiryRecipients(9);
 
     expect(mockPrisma.user.findMany.mock.calls[0][0].where).toEqual({ employeeId: { in: [8, 10] }, email: { not: null } });
-    expect(r).toEqual({ to: ["joshua@x.com", "carolyn@x.com"], cc: ["admin1@x.com"] });
+    expect(r).toEqual({ to: ["joshua@x.com", "carolyn@x.com"] });
   });
 });
