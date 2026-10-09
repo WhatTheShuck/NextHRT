@@ -94,6 +94,15 @@ export async function PUT(
             },
             { status: 409 },
           );
+        case "QUIZ_CLEAR_HAS_RESPONSES":
+          return NextResponse.json(
+            {
+              error:
+                "People have already answered this revision, so its questionnaire can't be removed. Add a new revision and remove it there instead.",
+              code: "QUIZ_CLEAR_HAS_RESPONSES",
+            },
+            { status: 409 },
+          );
       }
     }
     return NextResponse.json({ error: "Error saving quiz content" }, { status: 500 });

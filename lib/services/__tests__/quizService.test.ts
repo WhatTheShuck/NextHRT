@@ -4,6 +4,7 @@ const { mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
     user: { findUnique: vi.fn(), findMany: vi.fn() },
     employee: { findUnique: vi.fn() },
+    training: { findMany: vi.fn() },
     trainingRevision: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     trainingRecords: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     quizResponse: {
@@ -153,6 +154,29 @@ describe("setContent", () => {
     mockPrisma.quizResponse.count.mockResolvedValue(3);
     await quizService.setContent(1, 10, CONTENT, "u1", true);
     expect(mockPrisma.trainingRevision.update).toHaveBeenCalled();
+  });
+
+  it("clears the questionnaire when content is blank", async () => {
+    mockPrisma.trainingRevision.findUnique.mockResolvedValue({ id: 10, trainingId: 1 });
+    mockPrisma.quizResponse.count.mockResolvedValue(0);
+
+    await expect(quizService.setContent(1, 10, "  ", "u1")).resolves.toBeNull();
+
+    expect(mockPrisma.trainingRevision.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { quizContent: null },
+    });
+    expect(mockPrisma.history.create).toHaveBeenCalled();
+  });
+
+  it("refuses to clear a revision with responses, even with confirm", async () => {
+    mockPrisma.trainingRevision.findUnique.mockResolvedValue({ id: 10, trainingId: 1 });
+    mockPrisma.quizResponse.count.mockResolvedValue(2);
+
+    await expect(quizService.setContent(1, 10, "", "u1", true)).rejects.toThrow(
+      "QUIZ_CLEAR_HAS_RESPONSES",
+    );
+    expect(mockPrisma.trainingRevision.update).not.toHaveBeenCalled();
   });
 });
 
@@ -534,5 +558,24 @@ describe("buildSummary", () => {
     const summary = await quizService.buildSummary(400);
     expect(summary.flagged).toEqual([]);
     expect(summary.selfAssessment).toEqual([]);
+  });
+});
+
+describe("listQuestionnaires", () => {
+  it("asks only for non-SOP trainings that have questionnaire content", async () => {
+    const rows = [{ id: 419, title: "IT Induction Questionnaire", isActive: true }];
+    mockPrisma.training.findMany.mockResolvedValue(rows);
+
+    const result = await quizService.listQuestionnaires();
+
+    expect(result).toEqual(rows);
+    expect(mockPrisma.training.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          category: { not: "SOP" },
+          revisions: { some: { quizContent: { not: null } } },
+        },
+      }),
+    );
   });
 });

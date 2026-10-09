@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "usehooks-ts";
 import api from "@/lib/axios";
@@ -39,11 +39,7 @@ import {
   RequirementSelector,
 } from "@/components/requirement-selector";
 import { TrainingWithRelations } from "@/lib/types";
-import {
-  RevisionRow,
-  RevisionsSection,
-} from "@/components/dialogs/training/revisions-section";
-import { QuizContentSection } from "@/components/dialogs/training/quiz-content-section";
+import { RevisionsSection } from "@/components/dialogs/training/revisions-section";
 import { sopBaseTitle } from "@/lib/sop/pairing";
 
 interface EditTrainingDialogProps {
@@ -79,19 +75,6 @@ function TrainingForm({
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [showSopDowngradeDialog, setShowSopDowngradeDialog] = useState(false);
 
-  // Mirrored out of RevisionsSection so the quiz editor knows which revision
-  // is current — the revisions themselves are owned by that component.
-  const [revisions, setRevisions] = useState<RevisionRow[]>([]);
-  const [currentRevisionId, setCurrentRevisionId] = useState<number | null>(null);
-
-  const handleRevisionsChanged = useCallback(
-    (rows: RevisionRow[], currentId: number | null) => {
-      setRevisions(rows);
-      setCurrentRevisionId(currentId);
-    },
-    [],
-  );
-
   // Reset form when training changes
   useEffect(() => {
     if (training) {
@@ -123,7 +106,6 @@ function TrainingForm({
     setRequirements([]);
     setError("");
     setHasUnsavedRequirements(false);
-    setRevisions([]);
   };
 
   const proceedWithSubmission = async () => {
@@ -292,19 +274,8 @@ function TrainingForm({
             <RevisionsSection
               trainingId={training.id}
               disabled={isUpdating}
-              onRevisionsChanged={handleRevisionsChanged}
             />
           </div>
-        )}
-
-        {/* Interactive-quiz content — non-SOP trainings become interactive when
-            their current revision carries a validated quiz document. */}
-        {training && training.category !== "SOP" && (
-          <QuizContentSection
-            trainingId={training.id}
-            revisions={revisions}
-            currentRevisionId={currentRevisionId}
-          />
         )}
 
         {error && (

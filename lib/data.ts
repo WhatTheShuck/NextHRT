@@ -123,8 +123,8 @@ export const landingPageNavigationItems: NavigationItem[] = [
     minimumAllowedPermission: "user:impersonate",
   },
   {
-    title: "Quiz Results",
-    description: "Review IT induction questionnaire responses",
+    title: "Questionnaires",
+    description: "Edit the IT induction questionnaire and review responses",
     icon: ListCheck,
     href: "/admin/quiz-results",
     minimumAllowedPermission: "user:impersonate",

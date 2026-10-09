@@ -95,6 +95,37 @@ class QuizService {
 
   // ---- Content (admin) ----
 
+  /** Training + revision list for the questionnaire editor page; null if missing. */
+  async getEditorContext(trainingId: number) {
+    const training = await prisma.training.findUnique({
+      where: { id: trainingId },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        revisions: {
+          select: {
+            id: true,
+            revisionLabel: true,
+            effectiveDate: true,
+            createdAt: true,
+            overrideRequiresRetraining: true,
+          },
+          orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+        },
+      },
+    });
+    if (!training) return null;
+    const cur = currentRevision(training.revisions, new Date());
+    return {
+      id: training.id,
+      title: training.title,
+      category: training.category,
+      currentRevisionId: cur?.id ?? null,
+      revisions: training.revisions.map((r) => ({ id: r.id, revisionLabel: r.revisionLabel })),
+    };
+  }
+
   async getContent(revisionId: number): Promise<string | null> {
     const revision = await prisma.trainingRevision.findUnique({
       where: { id: revisionId },
@@ -116,6 +147,11 @@ class QuizService {
    * a material edit is warned (QUIZ_HAS_RESPONSES) unless `confirm` is set —
    * answers are keyed by item id so nothing breaks referentially, but material
    * changes belong in a new revision.
+   *
+   * Blank content clears the questionnaire (the training stops being
+   * interactive on this revision) and returns null. Clearing is refused
+   * outright once responses exist (QUIZ_CLEAR_HAS_RESPONSES) — they can't be
+   * viewed or reviewed without the document they answered.
    */
   async setContent(
     trainingId: number,
@@ -123,13 +159,33 @@ class QuizService {
     content: string,
     userId: string,
     confirm = false,
-  ): Promise<QuizDocument> {
+  ): Promise<QuizDocument | null> {
     const revision = await prisma.trainingRevision.findUnique({
       where: { id: revisionId },
       select: { id: true, trainingId: true },
     });
     if (!revision || revision.trainingId !== trainingId) {
       throw new Error("REVISION_NOT_FOUND");
+    }
+
+    if (content.trim() === "") {
+      if (await this.revisionHasResponses(revisionId)) {
+        throw new Error("QUIZ_CLEAR_HAS_RESPONSES");
+      }
+      await prisma.trainingRevision.update({
+        where: { id: revisionId },
+        data: { quizContent: null },
+      });
+      await prisma.history.create({
+        data: {
+          tableName: "TrainingRevision",
+          recordId: revisionId.toString(),
+          action: "UPDATE",
+          newValues: JSON.stringify({ quizContent: null }),
+          userId,
+        },
+      });
+      return null;
     }
 
     let doc: QuizDocument;
@@ -804,6 +860,22 @@ class QuizService {
   }
 
   // ---- Admin list surfaces ----
+
+  /**
+   * Non-SOP trainings with questionnaire content on any revision — the entry
+   * list for the questionnaire editor. Inactive trainings are included so a
+   * paused questionnaire can still be fixed before it is switched back on.
+   */
+  async listQuestionnaires() {
+    return prisma.training.findMany({
+      where: {
+        category: { not: "SOP" },
+        revisions: { some: { quizContent: { not: null } } },
+      },
+      select: { id: true, title: true, isActive: true },
+      orderBy: { title: "asc" },
+    });
+  }
 
   /** Completed responses newest-first, optionally filtered by training. */
   async listCompleted(trainingId?: number) {

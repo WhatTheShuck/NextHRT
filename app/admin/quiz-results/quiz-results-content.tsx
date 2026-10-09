@@ -20,7 +20,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RowLink } from "@/components/ui/row-link";
-import { ListCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { ListCheck, Pencil } from "lucide-react";
 
 interface CompletedRow {
   id: number;
@@ -40,11 +43,21 @@ interface CompletedRow {
   };
 }
 
+export interface QuestionnaireRow {
+  id: number;
+  title: string;
+  isActive: boolean;
+}
+
 function name(e: CompletedRow["employee"]): string {
   return `${e.preferredFirstName ?? e.legalFirstName} ${e.preferredLastName ?? e.legalLastName}`;
 }
 
-export function QuizResultsContent() {
+export function QuizResultsContent({
+  questionnaires,
+}: {
+  questionnaires: QuestionnaireRow[];
+}) {
   const [rows, setRows] = useState<CompletedRow[] | null>(null);
   const [error, setError] = useState("");
   const [trainingFilter, setTrainingFilter] = useState<string>("all");
@@ -95,6 +108,39 @@ export function QuizResultsContent() {
         Open a person's summary before their IT intro. Nothing here is graded —
         the summary flags where a hand or a tip would help.
       </p>
+
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <h2 className="text-sm font-medium">Questionnaires</h2>
+          {questionnaires.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No questionnaires set up yet.</p>
+          ) : (
+            <ul className="divide-y">
+              {questionnaires.map((q) => (
+                <li
+                  key={q.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
+                >
+                  <span className="flex items-center gap-2 text-sm">
+                    {q.title}
+                    {!q.isActive && (
+                      <Badge variant="secondary" className="text-xs">
+                        Inactive
+                      </Badge>
+                    )}
+                  </span>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={`/admin/quiz-editor/${q.id}`}>
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Edit questions
+                    </Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       {trainings.length > 1 && (
         <div className="w-64">
