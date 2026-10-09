@@ -71,6 +71,15 @@ export function lineScope(employeeId: number, graph: OrgGraph, grants: Grant[]):
 }
 
 /**
+ * Everyone an employee may act for (submit documents on behalf of): their whole sub-tree plus
+ * Act-level delegated scopes. View grants see but never act. Unlike `approvableBy` this is not
+ * limited to two levels: a skip-level manager can still act for their people.
+ */
+export function actScope(employeeId: number, graph: OrgGraph, grants: Grant[]): Set<number> {
+  return lineScope(employeeId, graph, grants.filter((g) => g.level === "Act"));
+}
+
+/**
  * Whose stage-1 requests an employee may decide (§9.2): their direct reports and those
  * reports' reports (they're the one-up manager), plus the same for every manager they act for
  * through an Act grant, within that grant's scope. Value = the manager acted for, or null when it's

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  actScope,
   approvableBy,
   approversFor,
   buildOrgGraph,
@@ -154,5 +155,26 @@ describe("describeGrant", () => {
     expect(describeGrant({ level: "View", scopeName: "Jaco Tromp", departmentName: "Production", jobFamilyName: "Tradesperson" })).toBe(
       "Sees Jaco Tromp's team, Production / Tradesperson only",
     );
+  });
+});
+
+describe("actScope (submitting on someone's behalf)", () => {
+  const withView: Grant[] = [
+    ...grants,
+    { granteeEmployeeId: 9, scopeManagerEmployeeId: 3, departmentId: null, jobFamilyId: null, level: "View" }, // Craig only views Rodrigo's team
+  ];
+
+  it("covers the whole sub-tree, not just two levels (skip-level managers can act)", () => {
+    expect(actScope(1, graph, withView).has(5)).toBe(true); // Philippe → … → Elijah, four levels down
+    expect(sorted(actScope(2, graph, withView))).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  it("includes Act grants", () => {
+    expect(sorted(actScope(10, graph, withView))).toEqual([9]); // Carolyn acts for Joshua
+  });
+
+  it("excludes View grants", () => {
+    expect(lineScope(9, graph, withView).has(4)).toBe(true); // can see
+    expect(actScope(9, graph, withView).size).toBe(0); // cannot act
   });
 });
