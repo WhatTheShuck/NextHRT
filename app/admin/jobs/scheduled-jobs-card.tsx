@@ -23,7 +23,7 @@ const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     type: "TICKET_EXPIRY",
     label: "Ticket Expiry",
-    description: "Summarises expired and expiring-soon ticket records.",
+    description: "Emails employees at each expiry milestone and managers at 30 days and on expiry.",
     schedule: "Daily at midnight",
   },
   {
@@ -63,6 +63,13 @@ const SCHEDULED_JOBS: ScheduledJob[] = [
     label: "Requirements Cache Rebuild",
     description: "Rebuilds the full requirements cache for all employees.",
     schedule: "Nightly at 1am / on boot",
+  },
+  {
+    type: "MISSING_DOCUMENT_REMINDER",
+    label: "Missing Document Reminder",
+    description:
+      "Emails employees about required tickets and External training they haven't provided: once when the gap appears, then every documents.missingReminderIntervalDays days.",
+    schedule: "Daily, after the 1:00 AM requirements cache rebuild",
   },
   {
     type: "REEVALUATE_PENDING_APPROVALS",

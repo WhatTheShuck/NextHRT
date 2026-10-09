@@ -13,7 +13,7 @@ export function startScheduler(): void {
 
   // Nightly at 1am — full requirements cache rebuild for freshness
   cron.schedule("0 1 * * *", async () => {
-    await enqueue("REQUIREMENTS_CACHE_REBUILD");
+    await enqueue("REQUIREMENTS_CACHE_REBUILD", { thenRemindMissing: true });
     console.log("[Scheduler] Enqueued nightly cache rebuild");
   });
 
