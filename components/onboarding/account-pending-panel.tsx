@@ -32,9 +32,12 @@ const CURRENT_STEP = 1;
 export function AccountPendingPanel({
   name,
   email,
+  note,
 }: {
   name: string | null;
   email: string | null;
+  /** Extra context for the page the person tried to open, e.g. an emailed upload link. */
+  note?: string;
 }) {
   const router = useRouter();
   const [isChecking, startChecking] = useTransition();
@@ -53,6 +56,11 @@ export function AccountPendingPanel({
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
+        {note && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+            {note}
+          </div>
+        )}
         <ol className="space-y-4">
           {STEPS.map((step, i) => {
             const done = i < CURRENT_STEP;
