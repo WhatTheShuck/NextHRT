@@ -39,7 +39,7 @@ export type ReviewEdits = Partial<Pick<SubmissionFields, "itemId" | "dateIssued"
 
 export const MAX_FILES = 6;
 export const MAX_REQUEST_BYTES = 30 * 1024 * 1024;
-export const OPEN_STATUSES: DocumentSubmissionStatus[] = ["Pending", "ChangesRequested"];
+export const OPEN_STATUSES: readonly DocumentSubmissionStatus[] = ["Pending", "ChangesRequested"];
 
 const itemWhere = (kind: SubmissionFields["kind"], itemId: number) =>
   kind === "Ticket" ? { ticketId: itemId } : { trainingId: itemId };
@@ -130,7 +130,7 @@ async function cancelOtherOpen(db: Db, f: Pick<SubmissionFields, "employeeId" | 
     where: {
       employeeId: f.employeeId,
       ...itemWhere(f.kind, f.itemId),
-      status: { in: OPEN_STATUSES },
+      status: { in: [...OPEN_STATUSES] },
       ...(exceptId !== undefined ? { id: { not: exceptId } } : {}),
     },
     data: { status: "Cancelled" },
@@ -215,7 +215,7 @@ export class DocumentSubmissionService {
     if (!OPEN_STATUSES.includes(sub.status)) throw new Error("NOT_EDITABLE");
     await prisma.$transaction(async (tx) => {
       const { count } = await tx.documentSubmission.updateMany({
-        where: { id, status: { in: OPEN_STATUSES } },
+        where: { id, status: { in: [...OPEN_STATUSES] } },
         data: { status: "Cancelled" },
       });
       if (count === 0) throw new Error("NOT_EDITABLE");
@@ -228,7 +228,7 @@ export class DocumentSubmissionService {
   async cancelOpenForEmployees(employeeIds: number[], db: Db = prisma) {
     if (employeeIds.length === 0) return { count: 0 };
     return db.documentSubmission.updateMany({
-      where: { employeeId: { in: employeeIds }, status: { in: OPEN_STATUSES } },
+      where: { employeeId: { in: employeeIds }, status: { in: [...OPEN_STATUSES] } },
       data: { status: "Cancelled" },
     });
   }

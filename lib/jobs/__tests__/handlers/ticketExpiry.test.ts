@@ -186,17 +186,46 @@ describe("ticketExpiryHandler", () => {
     expect(mockPrisma.ticketRecords.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { managerExpiryNotificationStage: "30" } });
   });
 
-  it("a failed employee digest leaves that record's employee stage unwritten", async () => {
+  it("a failed employee digest keeps earlier digests' stages and leaves its own unwritten", async () => {
     enqueue.mockImplementation(async (type: string, payload: any) => {
-      if (type === "SEND_EMAIL" && payload.to === "jo@x") throw new Error("queue down");
+      if (type === "SEND_EMAIL" && payload.to === "sam.lee@ksb.com.au") throw new Error("queue down");
     });
-    given([record({ expiryNotificationStage: "90" })]);
+    given([
+      record({ id: 1, expiryNotificationStage: "90" }),
+      record({ id: 2, employeeId: 11, ticketHolder: unlinked, expiryNotificationStage: "90" }),
+    ]);
 
     await expect(ticketExpiryHandler({})).rejects.toThrow("queue down");
 
-    for (const [arg] of mockPrisma.ticketRecords.update.mock.calls) {
-      expect(arg.data).not.toHaveProperty("expiryNotificationStage");
-    }
+    expect(sends().map((s) => s.to)).toEqual(["jo@x", "sam.lee@ksb.com.au"]); // jo enqueued, then sam failed
+    const written = mockPrisma.ticketRecords.update.mock.calls.map(([arg]) => arg);
+    expect(written).toContainEqual({ where: { id: 1 }, data: { expiryNotificationStage: "30" } });
+    expect(written.some((w) => w.where.id === 2)).toBe(false);
+  });
+
+  it("a failing stage flush is logged and doesn't mask the send error", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    enqueue.mockImplementation(async (type: string, payload: any) => {
+      if (type === "SEND_EMAIL" && payload.to === "sam.lee@ksb.com.au") throw new Error("queue down");
+    });
+    mockPrisma.ticketRecords.update.mockRejectedValue(new Error("db locked"));
+    given([
+      record({ id: 1, expiryNotificationStage: "90" }),
+      record({ id: 2, employeeId: 11, ticketHolder: unlinked, expiryNotificationStage: "90" }),
+    ]);
+
+    await expect(ticketExpiryHandler({})).rejects.toThrow("queue down");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("ticketExpiry"), expect.objectContaining({ message: "db locked" }));
+    log.mockRestore();
+  });
+
+  it("a failing stage flush after clean sends still fails the run", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockPrisma.ticketRecords.update.mockRejectedValue(new Error("db locked"));
+    given([record({ expiryNotificationStage: "90" })]);
+
+    await expect(ticketExpiryHandler({})).rejects.toThrow("db locked");
+    vi.mocked(console.error).mockRestore();
   });
 
   it("a linked user with no email still gets the unlinked note", async () => {

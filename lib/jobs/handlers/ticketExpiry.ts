@@ -33,6 +33,9 @@ import {
  *
  * A stage is recorded only once its email has been enqueued (or deliberately not sent: template
  * switched off, or no manager to tell), so a failed send is retried on the next run.
+ *
+ * Delivery is at-least-once: if the run fails after an email is enqueued but before its stage is
+ * written (e.g. the stage flush itself fails), that email is sent again on the next run.
  */
 
 type StageData = { expiryNotificationStage?: string; managerExpiryNotificationStage?: string };
@@ -171,12 +174,22 @@ export async function ticketExpiryHandler(
   }
 
   // Whatever was sent before a failure keeps its stage; the rest is retried next run.
+  let sendFailed = false;
   try {
     await sendEmployeeDigests(employeeItems, writes);
     await sendManagerConsolidated("ticket.expiryWarning", managerWarnings, false, writes);
     await sendManagerConsolidated("ticket.expired", managerExpiries, true, writes);
+  } catch (err) {
+    sendFailed = true;
+    throw err;
   } finally {
-    await writes.flush();
+    try {
+      await writes.flush();
+    } catch (flushErr) {
+      console.error("[ticketExpiry] writing reminder stages failed:", flushErr);
+      // Don't mask the send error; with clean sends, the flush failure is the run's failure.
+      if (!sendFailed) throw flushErr;
+    }
   }
 
   return {

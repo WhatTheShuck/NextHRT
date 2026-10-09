@@ -51,7 +51,7 @@ export async function inactiveEmployeeCheckHandler(
 async function sweepStaleSubmissions(): Promise<number | null> {
   try {
     const { count } = await prisma.documentSubmission.updateMany({
-      where: { employee: { isActive: false }, status: { in: OPEN_STATUSES } },
+      where: { employee: { isActive: false }, status: { in: [...OPEN_STATUSES] } },
       data: { status: "Cancelled" },
     });
     return count;

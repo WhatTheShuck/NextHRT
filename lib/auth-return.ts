@@ -16,7 +16,10 @@ export function safeReturnPath(raw: string | null | undefined): string | null {
     if (/[\x00-\x1f\x7f\\]/.test(v) || v.startsWith("//")) return null;
   }
   try {
-    if (new URL(raw, "http://x").origin !== "http://x") return null;
+    const url = new URL(raw, "http://x");
+    if (url.origin !== "http://x") return null;
+    // Dot segments can collapse to "//", e.g. "/.//evil.com" → "//evil.com" once normalised.
+    if (url.pathname.startsWith("//")) return null;
   } catch {
     return null;
   }

@@ -111,7 +111,7 @@ describe("inactiveEmployeeCheckHandler", () => {
       data: { status: "Cancelled" },
     });
     // The service's definition of "open", not a copy of it.
-    expect(mockPrisma.documentSubmission.updateMany.mock.calls[0][0].where.status.in).toBe(OPEN_STATUSES);
+    expect(mockPrisma.documentSubmission.updateMany.mock.calls[0][0].where.status.in).toEqual(OPEN_STATUSES);
     expect(result).toEqual({ deactivated: 0, staleSubmissionsCancelled: 2 });
   });
 

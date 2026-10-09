@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { fitWithin, jpegName, prepareUpload } from "@/lib/client/compressImage";
 
 describe("fitWithin", () => {
@@ -26,5 +26,83 @@ describe("prepareUpload", () => {
   });
   it("rejects other file types", async () => {
     await expect(prepareUpload(new File(["x"], "a.docx", { type: "application/msword" }))).rejects.toThrow("UNSUPPORTED_FILE");
+  });
+});
+
+describe("prepareUpload with a (mocked) browser canvas", () => {
+  function setup({ bitmap = vi.fn(), ctx = "ok" as "ok" | "null" } = {}) {
+    const calls: string[] = [];
+    const context = {
+      fillStyle: "",
+      imageSmoothingEnabled: false,
+      imageSmoothingQuality: "low",
+      fillRect: vi.fn(() => calls.push("fillRect")),
+      drawImage: vi.fn(() => calls.push("drawImage")),
+    };
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => (ctx === "ok" ? context : null)),
+      toBlob: vi.fn((cb: (b: Blob | null) => void, type: string) => {
+        calls.push(`toBlob ${canvas.width}x${canvas.height}`);
+        cb(new Blob(["jpeg"], { type }));
+      }),
+    };
+    vi.stubGlobal("createImageBitmap", bitmap);
+    vi.stubGlobal("document", { createElement: vi.fn(() => canvas) });
+    return { canvas, context, calls };
+  }
+  const goodBitmap = () => ({ width: 4032, height: 3024, close: vi.fn() });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("resizes to a .jpg on a white background with high-quality smoothing, then frees the canvas", async () => {
+    const { canvas, context, calls } = setup({ bitmap: vi.fn().mockResolvedValue(goodBitmap()) });
+    const out = await prepareUpload(new File(["x"], "scan.png", { type: "image/png" }));
+    expect(out.name).toBe("scan.jpg");
+    expect(out.type).toBe("image/jpeg");
+    expect(context.fillStyle).toBe("#ffffff");
+    expect(context.fillRect).toHaveBeenCalledWith(0, 0, 2000, 1500);
+    expect(context.imageSmoothingQuality).toBe("high");
+    expect(calls).toEqual(["fillRect", "drawImage", "toBlob 2000x1500"]);
+    expect(canvas.width).toBe(0);
+    expect(canvas.height).toBe(0);
+  });
+
+  it("retries without imageOrientation when the browser rejects that option", async () => {
+    const bitmap = vi.fn().mockRejectedValueOnce(new TypeError("bad option")).mockResolvedValueOnce(goodBitmap());
+    setup({ bitmap });
+    const out = await prepareUpload(new File(["x"], "a.jpg", { type: "image/jpeg" }));
+    expect(out.name).toBe("a.jpg");
+    expect(bitmap).toHaveBeenCalledTimes(2);
+    expect(bitmap.mock.calls[1]).toHaveLength(1);
+  });
+
+  it("throws IMAGE_DECODE_FAILED when both decode attempts fail", async () => {
+    const bitmap = vi.fn().mockRejectedValue(new Error("nope"));
+    setup({ bitmap });
+    await expect(prepareUpload(new File(["x"], "a.jpg", { type: "image/jpeg" }))).rejects.toThrow("IMAGE_DECODE_FAILED");
+    expect(bitmap).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws IMAGE_DECODE_FAILED when no 2D context is available", async () => {
+    setup({ bitmap: vi.fn().mockResolvedValue(goodBitmap()), ctx: "null" });
+    await expect(prepareUpload(new File(["x"], "a.jpg", { type: "image/jpeg" }))).rejects.toThrow("IMAGE_DECODE_FAILED");
+  });
+
+  it("detects HEIC by name when the browser gives no MIME type", async () => {
+    const bitmap = vi.fn().mockResolvedValue(goodBitmap());
+    setup({ bitmap });
+    const out = await prepareUpload(new File(["x"], "IMG_0001.HEIC", { type: "" }));
+    expect(bitmap).toHaveBeenCalled();
+    expect(out.name).toBe("IMG_0001.jpg");
+  });
+
+  it("passes an empty-type .pdf through untouched", async () => {
+    const bitmap = vi.fn();
+    setup({ bitmap });
+    const pdf = new File(["%PDF-1.7"], "cert.PDF", { type: "" });
+    expect(await prepareUpload(pdf)).toBe(pdf);
+    expect(bitmap).not.toHaveBeenCalled();
   });
 });
