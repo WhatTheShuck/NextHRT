@@ -77,6 +77,23 @@ export async function PUT(
       switch (error.message) {
         case "REVISION_NOT_FOUND":
           return NextResponse.json({ error: "Revision not found" }, { status: 404 });
+        case "NOT_A_QUESTIONNAIRE":
+          return NextResponse.json(
+            {
+              error:
+                "Only the IT induction questionnaire can be edited here. Other training keeps its questions in its SOP.",
+            },
+            { status: 403 },
+          );
+        case "QUIZ_CLEAR_LAST":
+          return NextResponse.json(
+            {
+              error:
+                "This is the only revision with questions, so the questionnaire can't be removed from it.",
+              code: "QUIZ_CLEAR_LAST",
+            },
+            { status: 409 },
+          );
         case "INVALID_QUIZ_CONTENT":
           return NextResponse.json(
             {

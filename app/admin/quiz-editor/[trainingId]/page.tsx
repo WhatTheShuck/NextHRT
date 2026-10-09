@@ -25,8 +25,12 @@ export default async function QuizEditorPage({
   const id = parseInt(trainingId);
   if (isNaN(id)) notFound();
 
-  const context = await quizService.getEditorContext(id);
-  if (!context || context.category === "SOP") notFound();
+  // Only the IT induction questionnaire is edited here; SOP questions live with the SOP.
+  const [context, isQuestionnaire] = await Promise.all([
+    quizService.getEditorContext(id),
+    quizService.isQuestionnaire(id),
+  ]);
+  if (!context || !isQuestionnaire) notFound();
 
   const { revisionId } = await searchParams;
   const requested = typeof revisionId === "string" ? parseInt(revisionId) : NaN;

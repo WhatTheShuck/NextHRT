@@ -293,7 +293,7 @@ export const adminTours: PageTour[] = [
       {
         target: "card:/admin/field-editor/training",
         title: "Training",
-        body: "Training courses, their revisions and who needs them. Questionnaires are now edited from Questionnaires on the dashboard.",
+        body: "Training courses, their revisions and who needs them. The IT induction questionnaire is edited from Questionnaires on the dashboard.",
         isNew: true,
       },
       {
@@ -384,7 +384,7 @@ export const adminTours: PageTour[] = [
       },
       {
         title: "Questionnaires have moved",
-        body: "The Edit dialog no longer has a questionnaire section. Open Questionnaires from the dashboard and click Edit questions.",
+        body: "The Edit dialog no longer has a questionnaire section. The IT induction questionnaire is edited from Questionnaires on the dashboard; other training keeps its questions in its SOP.",
         isNew: true,
       },
     ],
@@ -429,7 +429,7 @@ export const adminTours: PageTour[] = [
     version: 1,
     path: /^\/admin\/quiz-results$/,
     title: "Questionnaires",
-    summary: "Edit questionnaire questions, and read people's completed answers before their IT intro.",
+    summary: "Edit the IT induction questionnaire, and read people's completed answers before their IT intro.",
     tips: [
       { text: "Nothing here is graded. Each summary shows where a tip would help." },
     ],
@@ -437,7 +437,7 @@ export const adminTours: PageTour[] = [
       {
         target: "questionnaire-list",
         title: "Questionnaires",
-        body: "Every questionnaire in HRT. Inactive ones are marked.",
+        body: "The IT induction questionnaire. Other training keeps its questions in its SOP.",
         isNew: true,
       },
       {
@@ -500,7 +500,7 @@ export const adminTours: PageTour[] = [
     version: 1,
     path: /^\/admin\/quiz-editor\/\d+$/,
     title: "Questionnaire editor",
-    summary: "Build the questions for a training's questionnaire. Each training revision has its own copy.",
+    summary: "Edit the IT induction questionnaire's questions. Each revision of it has its own copy.",
     tips: [
       { text: "To branch, add a Single choice question in an earlier section." },
       { text: "Saved answers are linked to each question, so rewording a question keeps its answers." },
@@ -516,7 +516,7 @@ export const adminTours: PageTour[] = [
       {
         target: "quiz-remove",
         title: "Remove questionnaire",
-        body: "Deletes the questionnaire from this revision. This button goes away once anyone has answered it.",
+        body: "Deletes the questions from this revision. This button goes away once anyone has answered, and you can't remove them from the only revision that has questions.",
       },
       {
         target: "quiz-has-responses",

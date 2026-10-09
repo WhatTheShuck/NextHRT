@@ -95,6 +95,19 @@ class QuizService {
 
   // ---- Content (admin) ----
 
+  /**
+   * Whether this training is a questionnaire: not an SOP, and with questions on
+   * at least one revision. That is only the IT induction questionnaire; every
+   * other training keeps its questions in its SOP. Questionnaires can be
+   * edited but not started on other trainings (setContent enforces it).
+   */
+  async isQuestionnaire(trainingId: number): Promise<boolean> {
+    const count = await prisma.trainingRevision.count({
+      where: { trainingId, quizContent: { not: null }, training: { category: { not: "SOP" } } },
+    });
+    return count > 0;
+  }
+
   /** Training + revision list for the questionnaire editor page; null if missing. */
   async getEditorContext(trainingId: number) {
     const training = await prisma.training.findUnique({
@@ -167,10 +180,21 @@ class QuizService {
     if (!revision || revision.trainingId !== trainingId) {
       throw new Error("REVISION_NOT_FOUND");
     }
+    if (!(await this.isQuestionnaire(trainingId))) {
+      throw new Error("NOT_A_QUESTIONNAIRE");
+    }
 
     if (content.trim() === "") {
       if (await this.revisionHasResponses(revisionId)) {
         throw new Error("QUIZ_CLEAR_HAS_RESPONSES");
+      }
+      // Clearing the last revision with questions would stop this being a
+      // questionnaire, and it couldn't be started again.
+      const withContent = await prisma.trainingRevision.count({
+        where: { trainingId, quizContent: { not: null }, id: { not: revisionId } },
+      });
+      if (withContent === 0) {
+        throw new Error("QUIZ_CLEAR_LAST");
       }
       await prisma.trainingRevision.update({
         where: { id: revisionId },
