@@ -6,7 +6,7 @@ import { parseStoredAttachments } from "@/lib/services/onboardingConfigService";
 // Only these uploads/ subfolders are scanned for unreferenced files — each one
 // has its references gathered below. Anything else under uploads/ (a folder a
 // future feature adds) is left alone rather than wiped for being "unknown".
-const MANAGED_DIRS = ["training", "tickets", "sop-documents", "compliance"];
+const MANAGED_DIRS = ["training", "tickets", "sop-documents", "compliance", "submissions"];
 
 // Compliance attachments (employment forms / police check) are referenced from
 // AppSetting rows, not a table of their own.
@@ -27,7 +27,7 @@ export async function orphanedImageCleanupHandler(
   let orphanedDbRecords = 0;
   let orphanedFiles = 0;
 
-  const [trainingImages, ticketImages, trainingRevisionDocs, complianceSettings] =
+  const [trainingImages, ticketImages, trainingRevisionDocs, complianceSettings, submissionFiles] =
     await Promise.all([
       prisma.trainingImage.findMany({ select: { id: true, imagePath: true } }),
       prisma.ticketImage.findMany({ select: { id: true, imagePath: true } }),
@@ -38,6 +38,13 @@ export async function orphanedImageCleanupHandler(
       prisma.appSetting.findMany({
         where: { key: { in: COMPLIANCE_SETTING_KEYS } },
         select: { value: true },
+      }),
+      // Cancelled submissions' files are garbage unless an approved record still points at them
+      // (it can't: only Approved submissions become records). Approved ones are also covered by
+      // the ticket/training image rows below.
+      prisma.documentSubmissionFile.findMany({
+        where: { submission: { status: { not: "Cancelled" } } },
+        select: { filePath: true },
       }),
     ]);
 
@@ -82,6 +89,7 @@ export async function orphanedImageCleanupHandler(
       ...complianceSettings.flatMap((s) =>
         parseStoredAttachments(s.value).map((a) => resolveUpload(a.path)),
       ),
+      ...submissionFiles.map((f) => resolveUpload(f.filePath)),
     ]);
 
     const scanDir = (dir: string) => {

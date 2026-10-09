@@ -17,6 +17,9 @@ const { mockPrisma } = vi.hoisted(() => {
     appSetting: {
       findMany: vi.fn(),
     },
+    documentSubmissionFile: {
+      findMany: vi.fn(),
+    },
   };
   return { mockPrisma };
 });
@@ -45,6 +48,7 @@ beforeEach(() => {
   mockPrisma.ticketImage.deleteMany.mockResolvedValue({ count: 0 });
   mockPrisma.trainingRevision.findMany.mockResolvedValue([]);
   mockPrisma.appSetting.findMany.mockResolvedValue([]);
+  mockPrisma.documentSubmissionFile.findMany.mockResolvedValue([]);
 
   // Default: uploads dir does not exist (keeps tests isolated)
   vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -295,6 +299,29 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
 
     expect(fs.unlinkSync).not.toHaveBeenCalledWith(keepFullPath);
     expect(fs.unlinkSync).toHaveBeenCalledWith(orphanFullPath);
+  });
+
+  it("manages submissions/: keeps files of live submissions or records, deletes the rest", async () => {
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    const subDir = path.join(uploadsDir, "submissions");
+    vi.mocked(fs.existsSync).mockImplementation((p) => [uploadsDir, subDir].includes(p.toString()) || p.toString().startsWith(subDir));
+    mockedReaddirSync.mockImplementation((dir) =>
+      dir.toString() === subDir
+        ? [makeFileDirent("live.jpg"), makeFileDirent("approved.jpg"), makeFileDirent("cancelled.jpg")]
+        : [],
+    );
+    mockPrisma.documentSubmissionFile.findMany.mockResolvedValue([{ filePath: "submissions/live.jpg" }]);
+    mockPrisma.ticketImage.findMany.mockResolvedValue([{ id: 1, imagePath: "submissions/approved.jpg" }]);
+
+    const result = await orphanedImageCleanupHandler({});
+
+    expect(mockPrisma.documentSubmissionFile.findMany).toHaveBeenCalledWith({
+      where: { submission: { status: { not: "Cancelled" } } },
+      select: { filePath: true },
+    });
+    expect(fs.unlinkSync).toHaveBeenCalledTimes(1);
+    expect(fs.unlinkSync).toHaveBeenCalledWith(path.join(subDir, "cancelled.jpg"));
+    expect(result.orphanedFiles).toBe(1);
   });
 });
 
