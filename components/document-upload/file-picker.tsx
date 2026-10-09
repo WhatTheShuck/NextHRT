@@ -82,7 +82,7 @@ export function FilePicker({
       {input(gallery, { accept: "image/*", multiple: true })}
       {input(anyFile, { accept: "image/*,application/pdf", multiple: true })}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" data-tour="docs-file-buttons">
         <Button type="button" variant="outline" disabled={busy || total >= max} onClick={() => camera.current?.click()}>
           <Camera className="h-4 w-4 mr-2" /> Take photo
         </Button>
@@ -103,7 +103,7 @@ export function FilePicker({
       </p>
 
       {total > 0 && (
-        <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-tour="docs-file-thumbs">
           {existing.map((f) => (
             <Thumb key={`e${f.id}`} name={f.originalName}
               src={f.fileType.startsWith("image/") ? `/api/images/${f.filePath}` : null}

@@ -193,7 +193,7 @@ export function TutorialProvider({
         return;
       }
       handledPath.current = pathname; // don't start this page's own tour on the way out
-      if (target.path.test(pathname)) {
+      if (target === tourForPath(pathname)) {
         start(target, { auto: false }).catch(() => {});
         return;
       }

@@ -7,7 +7,7 @@ export const formsTours: PageTour[] = [
     version: 1,
     path: /^\/forms$/,
     title: "Forms",
-    summary: "Request training, start a new employee, and keep track of the requests you've made.",
+    summary: "Request training, upload a ticket or certificate, start a new employee, and keep track of the requests you've made.",
     tips: [
       { text: "You'll only see the forms that apply to you." },
       { text: "Open My Requests to see where your training requests are up to." },
@@ -28,6 +28,12 @@ export const formsTours: PageTour[] = [
         title: "New employee",
         body: "Starting someone new? Fill this in and an admin will check it, then create their employee record.",
         when: who.managerOrAdmin,
+      },
+      {
+        target: "card:/forms/document-upload",
+        title: "Upload a document",
+        body: "Upload a photo or scan of a ticket, licence or training certificate. An admin checks it, then adds it to the records.",
+        isNew: true,
       },
     ],
   },

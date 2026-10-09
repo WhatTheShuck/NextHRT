@@ -22,13 +22,13 @@ const uploadHref = (r: { employeeId: number; kind: string; itemId: number }) =>
   `/forms/document-upload?employeeId=${r.employeeId}&kind=${r.kind}&itemId=${r.itemId}`;
 
 function Chip({ open }: { open: OpenChip }) {
-  if (open.status === "Pending") return <Badge variant="secondary">Awaiting review</Badge>;
+  if (open.status === "Pending") return <Badge variant="secondary" data-tour="expiring-chip">Awaiting review</Badge>;
   return open.isMine ? (
     <Link href={`/forms/document-upload?submission=${open.id}`}>
-      <Badge variant="destructive">Sent back — fix it</Badge>
+      <Badge variant="destructive" data-tour="expiring-chip">Sent back — fix it</Badge>
     </Link>
   ) : (
-    <Badge variant="destructive">Sent back to the submitter</Badge>
+    <Badge variant="destructive" data-tour="expiring-chip">Sent back to the submitter</Badge>
   );
 }
 
@@ -136,7 +136,7 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
           ]
             .filter(Boolean)
             .join(" — ")}
-          right={r.open ? <Chip open={r.open} /> : <Button asChild size="sm"><Link href={uploadHref(r)}>Upload renewal</Link></Button>}
+          right={r.open ? <Chip open={r.open} /> : <Button asChild size="sm" data-tour="expiring-row-upload"><Link href={uploadHref(r)}>Upload renewal</Link></Button>}
         />
       ))}
       {keep(rows).length === 0 && <p className="py-6 text-center text-muted-foreground">Nothing here.</p>}
@@ -149,7 +149,7 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
           key={`${r.employeeId}:${r.kind}:${r.itemId}`}
           title={r.itemName}
           sub={[who(r), missingLabel(r)].filter(Boolean).join(" — ")}
-          right={r.open ? <Chip open={r.open} /> : <Button asChild size="sm"><Link href={uploadHref(r)}>Upload</Link></Button>}
+          right={r.open ? <Chip open={r.open} /> : <Button asChild size="sm" data-tour="expiring-row-upload"><Link href={uploadHref(r)}>Upload</Link></Button>}
         />
       ))}
       {keep(rows).length === 0 && <p className="py-6 text-center text-muted-foreground">Nothing missing.</p>}
@@ -170,17 +170,17 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
             .join(" — ")}
           right={
             review ? (
-              <Button asChild size="sm"><Link href={`/expiring/review/${s.id}`}>Review</Link></Button>
+              <Button asChild size="sm" data-tour="expiring-review-open"><Link href={`/expiring/review/${s.id}`}>Review</Link></Button>
             ) : (
               <div className="flex items-center gap-2">
-                <Badge variant={s.status === "ChangesRequested" ? "destructive" : s.status === "Approved" ? "default" : "secondary"}>
+                <Badge variant={s.status === "ChangesRequested" ? "destructive" : s.status === "Approved" ? "default" : "secondary"} data-tour="expiring-status">
                   {s.status === "ChangesRequested" ? "Sent back" : s.status === "Pending" ? "Awaiting review" : "Accepted"}
                 </Badge>
                 {s.isMine && s.status === "ChangesRequested" && (
-                  <Button asChild size="sm" variant="outline"><Link href={`/forms/document-upload?submission=${s.id}`}>Fix</Link></Button>
+                  <Button asChild size="sm" variant="outline" data-tour="expiring-fix"><Link href={`/forms/document-upload?submission=${s.id}`}>Fix</Link></Button>
                 )}
                 {s.isMine && (s.status === "Pending" || s.status === "ChangesRequested") && (
-                  <Button size="sm" variant="ghost" onClick={() => cancel(s.id)} disabled={cancellingId !== null}>
+                  <Button size="sm" variant="ghost" onClick={() => cancel(s.id)} disabled={cancellingId !== null} data-tour="expiring-cancel">
                     {cancellingId === s.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Cancel
                   </Button>
@@ -197,15 +197,15 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
   return (
     <div className="max-w-screen-2xl mx-auto p-4 space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-        <div>
+        <div data-tour="expiring-intro">
           <h1 className="text-2xl md:text-3xl font-bold">Expiring &amp; Missing</h1>
           <p className="text-muted-foreground mt-1">Tickets and training that are expiring, expired or still needed.</p>
         </div>
-        <Button asChild><Link href="/forms/document-upload">Upload a document</Link></Button>
+        <Button asChild data-tour="expiring-upload"><Link href="/forms/document-upload">Upload a document</Link></Button>
       </div>
 
       {showFilters && (
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2" data-tour="expiring-filters">
           <Input aria-label="Search by name" placeholder="Search by name" value={search} onChange={(e) => setSearch(e.target.value)} className="sm:max-w-xs" />
           <Select value={department} onValueChange={setDepartment}>
             <SelectTrigger className="sm:w-56" aria-label="Filter by department"><SelectValue placeholder="All departments" /></SelectTrigger>
@@ -218,18 +218,18 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
       )}
 
       <Tabs value={tab} onValueChange={(v) => { setTab(v as Tab); router.replace(`/expiring?tab=${v}`, { scroll: false }); }}>
-        <TabsList className="flex flex-wrap h-auto">
+        <TabsList className="flex flex-wrap h-auto" data-tour="expiring-tabs">
           <TabsTrigger value="expiring">Expiring ({keep(data.expiring).length})</TabsTrigger>
           <TabsTrigger value="expired">Expired ({keep(data.expired).length})</TabsTrigger>
           <TabsTrigger value="missing">Missing ({keep(data.missing).length})</TabsTrigger>
           <TabsTrigger value="submitted">Submitted ({keep(data.submitted).length})</TabsTrigger>
-          {isAdmin && data.reviewQueue && <TabsTrigger value="review">Review queue ({keep(data.reviewQueue).length})</TabsTrigger>}
+          {isAdmin && data.reviewQueue && <TabsTrigger value="review" data-tour="expiring-review-tab">Review queue ({keep(data.reviewQueue).length})</TabsTrigger>}
         </TabsList>
-        <TabsContent value="expiring">{expiryList(data.expiring, false)}</TabsContent>
-        <TabsContent value="expired">{expiryList(data.expired, true)}</TabsContent>
-        <TabsContent value="missing">{missingList(data.missing)}</TabsContent>
-        <TabsContent value="submitted">{submissionList(data.submitted, false)}</TabsContent>
-        {isAdmin && data.reviewQueue && <TabsContent value="review">{submissionList(data.reviewQueue, true)}</TabsContent>}
+        <TabsContent value="expiring" data-tour="expiring-tab-expiring">{expiryList(data.expiring, false)}</TabsContent>
+        <TabsContent value="expired" data-tour="expiring-tab-expired">{expiryList(data.expired, true)}</TabsContent>
+        <TabsContent value="missing" data-tour="expiring-tab-missing">{missingList(data.missing)}</TabsContent>
+        <TabsContent value="submitted" data-tour="expiring-tab-submitted">{submissionList(data.submitted, false)}</TabsContent>
+        {isAdmin && data.reviewQueue && <TabsContent value="review" data-tour="expiring-tab-review">{submissionList(data.reviewQueue, true)}</TabsContent>}
       </Tabs>
     </div>
   );

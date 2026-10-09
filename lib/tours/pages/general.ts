@@ -62,6 +62,12 @@ export const generalTours: PageTour[] = [
         body: "Read the procedures for your job and answer their questions so they can be signed off.",
       },
       {
+        target: "card:/expiring",
+        title: "Expiring & Missing",
+        body: "Tickets that are about to expire or have expired, and any tickets or training you still need. You can upload a new copy from here.",
+        isNew: true,
+      },
+      {
         target: "card:/quiz",
         title: "My Questionnaires",
         body: "Questionnaires you've been asked to fill in. You can stop part-way and pick up where you left off.",
@@ -100,6 +106,13 @@ export const generalTours: PageTour[] = [
         target: "dashboard-admin-tools",
         title: "Administrative tools",
         body: "Some tools have been grouped: Users & Access, System and Email each open a page with more tools.",
+        when: who.admin,
+        isNew: true,
+      },
+      {
+        target: "card:/expiring?tab=review",
+        title: "Document Reviews",
+        body: "Tickets and certificates people have uploaded. Check each one, then add it to their records or send it back.",
         when: who.admin,
         isNew: true,
       },

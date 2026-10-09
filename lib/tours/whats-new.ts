@@ -24,6 +24,20 @@ export const currentRelease: WhatsNewRelease = {
     },
     {
       group: "everyone",
+      title: "Upload your tickets and certificates",
+      body: "Take a photo of a ticket, licence or external training certificate and upload it. An admin checks it and adds it to your records, or sends it back with a reason.",
+      when: who.linked,
+      href: "/forms/document-upload",
+    },
+    {
+      group: "everyone",
+      title: "See what's expiring or missing",
+      body: "Expiring & Missing lists your tickets that are about to expire or have expired, and any tickets or training you still need, so you can upload a new copy in time.",
+      when: who.linked,
+      href: "/expiring",
+    },
+    {
+      group: "everyone",
       title: "Pick up questionnaires where you left off",
       body: "If you stop part-way through a questionnaire, it now opens back up at the first question you haven't answered.",
       when: who.linked,
@@ -45,6 +59,13 @@ export const currentRelease: WhatsNewRelease = {
     },
     {
       group: "managers",
+      title: "Upload documents for your team",
+      body: "You can upload a ticket or certificate on behalf of someone in your team, and see what's expiring or missing for them.",
+      when: who.manager,
+      href: "/expiring",
+    },
+    {
+      group: "managers",
       title: "Approvals only show what you can decide",
       body: "You'll only see requests you're allowed to approve, and nobody can approve a request about themselves. Your own requests go to your manager.",
       when: who.managerOrAdmin,
@@ -59,6 +80,13 @@ export const currentRelease: WhatsNewRelease = {
     },
     {
       group: "admins",
+      title: "Review uploaded documents",
+      body: "People can now upload their own tickets and certificates. Open Document Reviews to check each one, then approve it into their records or send it back with a reason.",
+      when: who.admin,
+      href: "/expiring?tab=review",
+    },
+    {
+      group: "admins",
       title: "Email log and missing attachments",
       body: "See every email HRT has sent, queued or failed to send, and retry or cancel it. Onboarding emails whose form files have gone missing can be resent from one place.",
       when: who.admin,
@@ -66,8 +94,8 @@ export const currentRelease: WhatsNewRelease = {
     },
     {
       group: "admins",
-      title: "Questionnaire editor",
-      body: "Edit questionnaire questions in a visual editor from Questionnaires, then Edit questions. This replaces the questionnaire section of the training edit dialog.",
+      title: "IT induction questionnaire editor",
+      body: "Edit the IT induction questionnaire in a visual editor, from Questionnaires, then Edit questions. This replaces the questionnaire section of the training edit dialog; other training keeps its questions in its SOP.",
       when: who.admin,
       href: "/admin/quiz-results",
     },

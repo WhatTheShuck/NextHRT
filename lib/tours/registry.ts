@@ -5,6 +5,7 @@ import { formsTours } from "./pages/forms";
 import { reportsTours } from "./pages/reports";
 import { orgAdminTours } from "./pages/admin-org";
 import { adminTours } from "./pages/admin";
+import { documentTours } from "./pages/documents";
 
 /** Every page tour. Paths are anchored regexes, so order only matters if two overlap. */
 export const allTours: PageTour[] = [
@@ -14,9 +15,12 @@ export const allTours: PageTour[] = [
   ...reportsTours,
   ...orgAdminTours,
   ...adminTours,
+  ...documentTours,
 ];
 
-export function tourForPath(pathname: string): PageTour | undefined {
+/** Accepts a bare pathname or a link; any query string or hash is ignored. */
+export function tourForPath(pathOrHref: string): PageTour | undefined {
+  const pathname = pathOrHref.split(/[?#]/)[0];
   return allTours.find((t) => t.path.test(pathname));
 }
 

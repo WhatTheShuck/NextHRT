@@ -38,7 +38,7 @@ const errorMessage = (e: unknown) =>
 function ReadOnlyFiles({ files }: { files: ExistingFile[] }) {
   if (files.length === 0) return <p className="text-sm text-muted-foreground">No files.</p>;
   return (
-    <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+    <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-tour="docs-files-readonly">
       {files.map((f) => {
         const src = `/api/images/${f.filePath}`;
         return (
@@ -229,7 +229,7 @@ export function DocumentUploadContent({
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-4">
-      <div>
+      <div data-tour="docs-intro">
         <h1 className="text-2xl md:text-3xl font-bold">{submission ? "Your upload" : "Upload a document"}</h1>
         <p className="text-muted-foreground mt-1">
           Upload a ticket, licence or external training certificate. An administrator checks it before it is added to the record.
@@ -237,7 +237,7 @@ export function DocumentUploadContent({
       </div>
 
       {sentBack && submission?.reviewComment && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm" data-tour="docs-sent-back">
           <p className="font-medium">Sent back for a change</p>
           <p className="mt-1">{submission.reviewComment}</p>
         </div>
@@ -248,7 +248,7 @@ export function DocumentUploadContent({
         </div>
       )}
       {readOnly && (
-        <div className="rounded-lg border bg-muted/50 p-4 text-sm">
+        <div className="rounded-lg border bg-muted/50 p-4 text-sm" data-tour="docs-read-only">
           {sentBack
             ? "This upload was sent back to the person who submitted it. Only they can fix and resubmit it."
             : `This upload is ${submission!.status === "Pending" ? "waiting for review" : submission!.status.toLowerCase()} and can't be changed.`}
@@ -260,7 +260,7 @@ export function DocumentUploadContent({
         <CardContent>
           <fieldset disabled={readOnly} className="min-w-0 space-y-4">
             {employeeItems.length > 1 && (
-              <div className="space-y-2">
+              <div className="space-y-2" data-tour="docs-employee">
                 <Label id="du-employee-label" htmlFor="du-employee">Who is it for?</Label>
                 <GenericCombobox
                   id="du-employee"
@@ -282,12 +282,13 @@ export function DocumentUploadContent({
               className="flex flex-wrap gap-x-6 gap-y-2"
               disabled={locked}
               aria-label="Type of document"
+              data-tour="docs-kind"
             >
               <div className="flex items-center gap-2"><RadioGroupItem value="Ticket" id="k-ticket" /><Label htmlFor="k-ticket">Ticket or licence</Label></div>
               <div className="flex items-center gap-2"><RadioGroupItem value="Training" id="k-training" /><Label htmlFor="k-training">External training</Label></div>
             </RadioGroup>
 
-            <div className="space-y-2">
+            <div className="space-y-2" data-tour="docs-item">
               <Label id="du-item-label" htmlFor="du-item">{kind === "Ticket" ? "Ticket" : "Training"}</Label>
               <GenericCombobox
                 id="du-item"
@@ -306,7 +307,7 @@ export function DocumentUploadContent({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-tour="docs-dates">
               <div className="space-y-2" role="group" aria-labelledby="du-issued-label">
                 <Label id="du-issued-label">{kind === "Ticket" ? "Date issued" : "Date completed"}</Label>
                 <DateSelector selectedDate={dateIssued} onDateSelect={(d) => { setDateIssued(d); refreshExpiry(itemId, d); }} />
@@ -325,12 +326,12 @@ export function DocumentUploadContent({
             </div>
 
             {kind === "Ticket" ? (
-              <div className="space-y-2">
+              <div className="space-y-2" data-tour="docs-licence">
                 <Label htmlFor="licence">Licence / card number (optional)</Label>
                 <Input id="licence" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2" data-tour="docs-provider">
                 <Label htmlFor="provider">Who delivered it?</Label>
                 <Input id="provider" placeholder="e.g. St John Ambulance" value={provider} onChange={(e) => setProvider(e.target.value)} />
               </div>
@@ -359,7 +360,7 @@ export function DocumentUploadContent({
       </Card>
 
       {!readOnly && (
-        <Button className="w-full sm:w-auto" onClick={submit} disabled={submitting}>
+        <Button className="w-full sm:w-auto" onClick={submit} disabled={submitting} data-tour="docs-submit">
           {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {sentBack ? "Resubmit for review" : "Send for review"}
         </Button>

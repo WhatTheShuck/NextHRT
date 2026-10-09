@@ -141,7 +141,7 @@ export function ReviewContent({ id }: { id: number }) {
 
   return (
     <div className="max-w-screen-2xl mx-auto p-4 grid gap-4 lg:grid-cols-2">
-      <Card>
+      <Card data-tour="docs-review-files">
         <CardHeader><CardTitle className="text-lg">Files</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {d.files.map((f) => {
@@ -179,6 +179,7 @@ export function ReviewContent({ id }: { id: number }) {
                   type="button"
                   onClick={() => setRotation({ ...rotation, [f.id]: ((rotation[f.id] ?? 0) + 90) % 360 })}
                   aria-label={`Rotate ${f.originalName}`}
+                  data-tour="docs-review-rotate"
                 >
                   <RotateCw className="h-4 w-4 mr-2" /> Rotate
                 </Button>
@@ -189,7 +190,7 @@ export function ReviewContent({ id }: { id: number }) {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader data-tour="docs-review-who">
           <CardTitle className="text-lg">{name} · {d.employee.department.name}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Uploaded by {d.submittedByUser?.name || d.submittedByUser?.email || "a removed user"} on {formatDateInZone(new Date(d.createdAt))}. Check the details match the files.
@@ -197,7 +198,7 @@ export function ReviewContent({ id }: { id: number }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <fieldset disabled={!pending} className="min-w-0 space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2" data-tour="docs-review-item">
               <Label id="rv-item-label" htmlFor="rv-item">{d.kind === "Ticket" ? "Ticket" : "Training"}</Label>
               <GenericCombobox
                 id="rv-item"
@@ -214,7 +215,7 @@ export function ReviewContent({ id }: { id: number }) {
                 width="w-full"
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-tour="docs-review-dates">
               <div className="space-y-2" role="group" aria-labelledby="rv-issued-label">
                 <Label id="rv-issued-label">{d.kind === "Ticket" ? "Date issued" : "Date completed"}</Label>
                 <DateSelector selectedDate={dateIssued} onDateSelect={(nd) => { setDateIssued(nd); recomputeExpiry(itemId, nd); }} />
@@ -241,10 +242,10 @@ export function ReviewContent({ id }: { id: number }) {
 
           {pending ? (
             <>
-              <Button className="w-full" onClick={approve} disabled={busy !== null}>
+              <Button className="w-full" onClick={approve} disabled={busy !== null} data-tour="docs-review-approve">
                 {busy === "approve" && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Approve and add to record
               </Button>
-              <div className="space-y-2 pt-4 border-t">
+              <div className="space-y-2 pt-4 border-t" data-tour="docs-review-send-back">
                 <Label htmlFor="reason">Or send it back</Label>
                 <Textarea
                   id="reason"
@@ -258,7 +259,7 @@ export function ReviewContent({ id }: { id: number }) {
               </div>
             </>
           ) : (
-            <p className="rounded-lg border bg-muted/50 p-3 text-sm">
+            <p className="rounded-lg border bg-muted/50 p-3 text-sm" data-tour="docs-review-done">
               This submission has been {STATUS_TEXT[d.status] ?? d.status.toLowerCase()} and can&apos;t be reviewed again.
             </p>
           )}
