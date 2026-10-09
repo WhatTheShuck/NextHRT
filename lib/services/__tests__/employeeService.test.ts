@@ -309,6 +309,21 @@ describe("requirements cache invalidation", () => {
     expect(cancelOpenForEmployees).toHaveBeenCalledWith([5]);
   });
 
+  it("does not let a failed submission cancel fail the committed deactivation", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockPrisma.employee.findUnique.mockResolvedValue(
+      makeExisting({ isActive: true }),
+    );
+    mockPrisma.employee.update.mockResolvedValue({ id: 5, isActive: false });
+    cancelOpenForEmployees.mockRejectedValueOnce(new Error("db busy"));
+
+    await expect(
+      employeeService.updateEmployeePartial(5, { isActive: false }, "user1"),
+    ).resolves.toMatchObject({ id: 5, isActive: false });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
   it("enqueues nothing when an update leaves the employee active", async () => {
     mockPrisma.employee.findUnique.mockResolvedValue(
       makeExisting({ isActive: true }),

@@ -42,6 +42,9 @@ vi.mock("@/lib/services/emailTemplateService", () => ({
 vi.mock("@/lib/data", () => ({ companyDetails: { domain_extension: "ksb.com.au" } }));
 
 import { documentSubmissionService } from "@/lib/services/documentSubmissionService";
+import { emailTemplateService } from "@/lib/services/emailTemplateService";
+
+const render = vi.mocked(emailTemplateService.render);
 
 const jpeg = () => new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0])], "a.jpg", { type: "image/jpeg" });
 const html = () => new File(["<html>"], "a.jpg", { type: "image/jpeg" });
@@ -64,6 +67,7 @@ beforeEach(() => {
   mockPrisma.trainingRecords.findFirst.mockResolvedValue(null);
   saveFiles.mockResolvedValue([{ imagePath: "submissions/x.jpg", imageType: "image/jpeg", originalName: "a.jpg" }]);
   mockPrisma.documentSubmission.create.mockImplementation(async ({ data }: any) => ({ id: 5, ...data }));
+  mockPrisma.documentSubmission.updateMany.mockResolvedValue({ count: 1 });
 });
 
 describe("submit", () => {
@@ -136,13 +140,21 @@ describe("resubmit", () => {
 
   it("returns a sent-back submission to Pending with edited fields and file changes", async () => {
     mockPrisma.documentSubmission.findUnique.mockResolvedValue(sentBack);
-    mockPrisma.documentSubmission.update.mockResolvedValue({ ...sentBack, status: "Pending" });
 
     await documentSubmissionService.resubmit(5, { ...ticketFields, licenseNumber: "L2" }, [jpeg()], [1], actor);
 
     expect(mockPrisma.documentSubmissionFile.deleteMany).toHaveBeenCalledWith({ where: { submissionId: 5, id: { in: [1] } } });
     expect(mockPrisma.documentSubmissionFile.createMany).toHaveBeenCalled();
-    expect(mockPrisma.documentSubmission.update.mock.calls[0][0].data).toMatchObject({ status: "Pending", licenseNumber: "L2" });
+    const claim = mockPrisma.documentSubmission.updateMany.mock.calls.at(-1)[0];
+    expect(claim.where).toEqual({ id: 5, status: "ChangesRequested" });
+    expect(claim.data).toMatchObject({ status: "Pending", licenseNumber: "L2" });
+  });
+
+  it("refuses if it stopped being ChangesRequested before the transaction (atomic claim)", async () => {
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue(sentBack);
+    mockPrisma.documentSubmission.updateMany.mockResolvedValue({ count: 0 });
+    await expect(documentSubmissionService.resubmit(5, ticketFields, [jpeg()], [], actor)).rejects.toThrow("NOT_EDITABLE");
+    expect(mockPrisma.history.create).not.toHaveBeenCalled();
   });
 
   it("only the submitter, only while ChangesRequested, and never a different employee or kind", async () => {
@@ -162,9 +174,22 @@ describe("cancel", () => {
   it("submitter can cancel an open submission; others cannot", async () => {
     mockPrisma.documentSubmission.findUnique.mockResolvedValue({ id: 5, status: "Pending", submittedByUserId: "u1" });
     await documentSubmissionService.cancel(5, actor);
-    expect(mockPrisma.documentSubmission.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { status: "Cancelled" } });
+    expect(mockPrisma.documentSubmission.updateMany).toHaveBeenCalledWith({
+      where: { id: 5, status: { in: ["Pending", "ChangesRequested"] } },
+      data: { status: "Cancelled" },
+    });
+    expect(mockPrisma.history.create.mock.calls[0][0].data).toMatchObject({
+      tableName: "DocumentSubmission", recordId: "5", action: "UPDATE", userId: "u1",
+    });
 
     await expect(documentSubmissionService.cancel(5, { userId: "u2", role: "User" })).rejects.toThrow("NOT_AUTHORISED");
+  });
+
+  it("refuses when the submission closed in the meantime (atomic claim)", async () => {
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue({ id: 5, status: "Pending", submittedByUserId: "u1" });
+    mockPrisma.documentSubmission.updateMany.mockResolvedValue({ count: 0 });
+    await expect(documentSubmissionService.cancel(5, actor)).rejects.toThrow("NOT_EDITABLE");
+    expect(mockPrisma.history.create).not.toHaveBeenCalled();
   });
 });
 
@@ -197,7 +222,6 @@ describe("approve", () => {
     mockPrisma.documentSubmission.findUnique.mockResolvedValueOnce(pendingTicket).mockResolvedValue(notifyRow);
     mockPrisma.ticketRecords.create.mockResolvedValue({ id: 77 });
     mockPrisma.trainingRecords.create.mockResolvedValue({ id: 88 });
-    mockPrisma.documentSubmission.update.mockImplementation(async ({ data }: any) => ({ ...pendingTicket, ...data }));
   });
 
   it("creates the ticket record with images pointing at the submission files, closes the reminder, invalidates the cache, emails", async () => {
@@ -207,9 +231,9 @@ describe("approve", () => {
       employeeId: 1, ticketId: 10, licenseNumber: "L9",
       images: { create: [{ imagePath: "submissions/x.jpg", imageType: "image/jpeg", originalName: "a.jpg" }] },
     });
-    expect(mockPrisma.documentSubmission.update.mock.calls[0][0].data).toMatchObject({
-      status: "Approved", resultRecordId: 77, reviewedByUserId: "a1",
-    });
+    const claim = mockPrisma.documentSubmission.updateMany.mock.calls.at(-1)[0];
+    expect(claim.where).toEqual({ id: 5, status: "Pending" });
+    expect(claim.data).toMatchObject({ status: "Approved", resultRecordId: 77, reviewedByUserId: "a1" });
     expect(mockPrisma.missingDocumentReminder.deleteMany).toHaveBeenCalledWith({
       where: { employeeId: 1, itemType: "Ticket", itemId: 10 },
     });
@@ -247,10 +271,56 @@ describe("approve", () => {
     expect(mockPrisma.ticketRecords.create).not.toHaveBeenCalled();
   });
 
-  it("a unique-index clash (racing approvals) surfaces as DUPLICATE_RECORD", async () => {
-    mockPrisma.ticketRecords.create.mockRejectedValueOnce(Object.assign(new Error("Unique constraint"), { code: "P2002" }));
+  it("a unique-index clash on TrainingRecords (racing approvals) surfaces as DUPLICATE_RECORD", async () => {
+    mockPrisma.documentSubmission.findUnique.mockReset();
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue({
+      ...pendingTicket, kind: "Training", ticketId: null, trainingId: 20, expiryDate: null, licenseNumber: null, provider: "St John",
+    });
+    mockPrisma.trainingRecords.create.mockRejectedValueOnce(Object.assign(new Error("Unique constraint"), { code: "P2002" }));
     await expect(documentSubmissionService.approve(5, {}, admin)).rejects.toThrow("DUPLICATE_RECORD");
     expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("refuses if another reviewer closed it first (atomic claim)", async () => {
+    mockPrisma.documentSubmission.updateMany.mockResolvedValue({ count: 0 });
+    await expect(documentSubmissionService.approve(5, {}, admin)).rejects.toThrow("NOT_PENDING");
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("refuses a submission whose item id for its kind is missing", async () => {
+    mockPrisma.documentSubmission.findUnique.mockReset();
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue({ ...pendingTicket, ticketId: null, trainingId: 20 });
+    await expect(documentSubmissionService.approve(5, {}, admin)).rejects.toThrow("NOT_FOUND");
+    expect(mockPrisma.ticketRecords.create).not.toHaveBeenCalled();
+  });
+
+  it("emails both the submitting manager and the employee (built address when unlinked)", async () => {
+    mockPrisma.documentSubmission.findUnique.mockReset();
+    mockPrisma.documentSubmission.findUnique.mockResolvedValueOnce(pendingTicket).mockResolvedValue({
+      ...notifyRow,
+      employee: { ...notifyRow.employee, User: null },
+      submittedByUser: { id: "m1", email: "mgr@x", employeeId: 9 },
+    });
+
+    await documentSubmissionService.approve(5, {}, admin);
+
+    const email = enqueue.mock.calls.find((c: any[]) => c[0] === "SEND_EMAIL")![1];
+    expect([...email.to].sort()).toEqual(["jo.x@ksb.com.au", "mgr@x"]);
+  });
+
+  it("does not pass a reason token to the approved email", async () => {
+    await documentSubmissionService.approve(5, {}, admin);
+    expect(render).toHaveBeenCalledWith("document.approved", expect.not.objectContaining({ reason: expect.anything() }));
+  });
+
+  it("still resolves when the post-commit side effects fail", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    render.mockRejectedValueOnce(new Error("template store down"));
+    enqueue.mockRejectedValueOnce(new Error("queue down"));
+
+    await expect(documentSubmissionService.approve(5, {}, admin)).resolves.toMatchObject({ recordId: 77 });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 
   it("moving it to another item cancels that item's other open submission", async () => {
@@ -274,13 +344,33 @@ describe("sendBack", () => {
         id: 5, reviewComment: "Blurry", employee: { id: 1, legalFirstName: "Jo", legalLastName: "X", preferredFirstName: null, preferredLastName: null, User: null },
         submittedByUser: { id: "u1", email: "mgr@x", employeeId: 9 }, ticket: { ticketName: "Forklift" }, training: null,
       });
-    mockPrisma.documentSubmission.update.mockResolvedValue({ id: 5 });
 
     await documentSubmissionService.sendBack(5, "Blurry", admin);
 
-    expect(mockPrisma.documentSubmission.update.mock.calls[0][0].data).toMatchObject({
-      status: "ChangesRequested", reviewComment: "Blurry", reviewedByUserId: "a1",
-    });
+    const claim = mockPrisma.documentSubmission.updateMany.mock.calls[0][0];
+    expect(claim.where).toEqual({ id: 5, status: "Pending" });
+    expect(claim.data).toMatchObject({ status: "ChangesRequested", reviewComment: "Blurry", reviewedByUserId: "a1" });
     expect(enqueue).toHaveBeenCalledWith("SEND_EMAIL", expect.objectContaining({ to: ["mgr@x"] }));
+    expect(render).toHaveBeenCalledWith("document.changesRequested", expect.objectContaining({ reason: "Blurry" }));
+  });
+
+  it("refuses when it is no longer Pending (atomic claim)", async () => {
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue({ id: 5, status: "Pending" });
+    mockPrisma.documentSubmission.updateMany.mockResolvedValue({ count: 0 });
+    await expect(documentSubmissionService.sendBack(5, "Blurry", admin)).rejects.toThrow("NOT_PENDING");
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("still resolves when the notification fails", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue({
+      id: 5, status: "Pending", reviewComment: "Blurry",
+      employee: { id: 1, legalFirstName: "Jo", legalLastName: "X", preferredFirstName: null, preferredLastName: null, User: null },
+      submittedByUser: { id: "u1", email: "mgr@x", employeeId: 9 }, ticket: { ticketName: "Forklift" }, training: null,
+    });
+    render.mockRejectedValueOnce(new Error("template store down"));
+    await expect(documentSubmissionService.sendBack(5, "Blurry", admin)).resolves.toBeDefined();
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 });

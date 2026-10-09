@@ -354,7 +354,14 @@ export class EmployeeService {
     await enqueueRequirementsCacheInvalidate(employeeId);
     // Open uploads for someone who has left can never be approved (approve rejects inactive
     // employees); close them so they leave the review queue.
-    await documentSubmissionService.cancelOpenForEmployees([employeeId]);
+    try {
+      await documentSubmissionService.cancelOpenForEmployees([employeeId]);
+    } catch (err) {
+      console.error(
+        `Failed to cancel open document submissions for employee ${employeeId}:`,
+        err,
+      );
+    }
   }
 
   async updateEmployeePartial(

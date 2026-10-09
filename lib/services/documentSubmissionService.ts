@@ -44,7 +44,11 @@ export const OPEN_STATUSES: DocumentSubmissionStatus[] = ["Pending", "ChangesReq
 const itemWhere = (kind: SubmissionFields["kind"], itemId: number) =>
   kind === "Ticket" ? { ticketId: itemId } : { trainingId: itemId };
 
-const itemIdOf = (s: { ticketId: number | null; trainingId: number | null }) => (s.ticketId ?? s.trainingId)!;
+function itemIdOf(s: { kind: SubmissionFields["kind"]; ticketId: number | null; trainingId: number | null }): number {
+  const id = s.kind === "Ticket" ? s.ticketId : s.trainingId;
+  if (id === null) throw new Error("NOT_FOUND");
+  return id;
+}
 
 function toColumns(f: SubmissionFields) {
   return {
@@ -191,10 +195,13 @@ export class DocumentSubmissionService {
       if (saved.length > 0) {
         await tx.documentSubmissionFile.createMany({ data: fileRows(saved).map((r) => ({ ...r, submissionId: id })) });
       }
-      const updated = await tx.documentSubmission.update({
-        where: { id },
+      // Claim the transition atomically: only a still-sent-back submission moves to Pending.
+      const { count } = await tx.documentSubmission.updateMany({
+        where: { id, status: "ChangesRequested" },
         data: { ...toColumns(valid), status: "Pending" },
       });
+      if (count === 0) throw new Error("NOT_EDITABLE");
+      const updated = await tx.documentSubmission.findUnique({ where: { id } });
       await history(tx, "DocumentSubmission", id, "UPDATE", { resubmitted: true, ...updated }, actor.userId);
       return updated;
     });
@@ -205,7 +212,13 @@ export class DocumentSubmissionService {
     if (!sub) throw new Error("NOT_FOUND");
     if (sub.submittedByUserId !== actor.userId && actor.role !== "Admin") throw new Error("NOT_AUTHORISED");
     if (!OPEN_STATUSES.includes(sub.status)) throw new Error("NOT_EDITABLE");
-    return prisma.documentSubmission.update({ where: { id }, data: { status: "Cancelled" } });
+    const { count } = await prisma.documentSubmission.updateMany({
+      where: { id, status: { in: OPEN_STATUSES } },
+      data: { status: "Cancelled" },
+    });
+    if (count === 0) throw new Error("NOT_EDITABLE");
+    await history(prisma, "DocumentSubmission", id, "UPDATE", { id, status: "Cancelled" }, actor.userId);
+    return { ...sub, status: "Cancelled" as const };
   }
 
   /** Called from both deactivation paths (employeeService.updateEmployee, INACTIVE_EMPLOYEE_CHECK). */
@@ -285,13 +298,17 @@ export class DocumentSubmissionService {
         });
       }
 
-      const updated = await tx.documentSubmission.update({
-        where: { id },
+      // Claim the transition atomically: a second reviewer racing this one gets NOT_PENDING.
+      const { count } = await tx.documentSubmission.updateMany({
+        where: { id, status: "Pending" },
         data: {
           ...toColumns(valid), status: "Approved", resultRecordId: record.id,
           reviewedByUserId: actor.userId, reviewedAt: new Date(),
         },
       });
+      if (count === 0) throw new Error("NOT_PENDING");
+      const updated = await tx.documentSubmission.findUnique({ where: { id } });
+      if (!updated) throw new Error("NOT_FOUND");
       await history(tx, valid.kind === "Ticket" ? "TicketRecords" : "TrainingRecords", record.id, "CREATE",
         { ...record, _metadata: { fromDocumentSubmissionId: id } }, actor.userId);
       await history(tx, "DocumentSubmission", id, "UPDATE", updated, actor.userId);
@@ -306,8 +323,17 @@ export class DocumentSubmissionService {
       throw e;
     });
 
-    await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: submission.employeeId });
-    await this.notify(id, "document.approved");
+    // Best-effort: the approval has committed, so nothing after this may surface as an error.
+    try {
+      await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: submission.employeeId });
+    } catch (err) {
+      console.error(`[documentSubmission] cache invalidate enqueue failed for submission ${id}:`, err);
+    }
+    try {
+      await this.notify(id, "document.approved");
+    } catch (err) {
+      console.error(`[documentSubmission] approved notification failed for submission ${id}:`, err);
+    }
     return { submission, recordId };
   }
 
@@ -320,12 +346,17 @@ export class DocumentSubmissionService {
     if (!sub) throw new Error("NOT_FOUND");
     if (sub.status !== "Pending") throw new Error("NOT_PENDING");
 
-    const updated = await prisma.documentSubmission.update({
-      where: { id },
-      data: { status: "ChangesRequested", reviewComment: trimmed, reviewedByUserId: actor.userId, reviewedAt: new Date() },
-    });
+    const data = { status: "ChangesRequested" as const, reviewComment: trimmed, reviewedByUserId: actor.userId, reviewedAt: new Date() };
+    const { count } = await prisma.documentSubmission.updateMany({ where: { id, status: "Pending" }, data });
+    if (count === 0) throw new Error("NOT_PENDING");
+    const updated = { ...sub, ...data };
     await history(prisma, "DocumentSubmission", id, "UPDATE", updated, actor.userId);
-    await this.notify(id, "document.changesRequested");
+    // Best-effort: the send-back has committed.
+    try {
+      await this.notify(id, "document.changesRequested");
+    } catch (err) {
+      console.error(`[documentSubmission] changesRequested notification failed for submission ${id}:`, err);
+    }
     return updated;
   }
 
@@ -344,7 +375,7 @@ export class DocumentSubmissionService {
     const rendered = await emailTemplateService.render(templateKey, {
       employeeName: escapeHtml(employeeDisplayName(sub.employee)),
       itemName: escapeHtml(sub.ticket?.ticketName ?? sub.training?.title ?? "document"),
-      reason: escapeHtml(sub.reviewComment ?? ""),
+      ...(templateKey === "document.changesRequested" ? { reason: escapeHtml(sub.reviewComment ?? "") } : {}),
       submissionUrl: appLink(
         templateKey === "document.approved" ? "/expiring?tab=submitted" : `/forms/document-upload?submission=${id}`,
       ),
