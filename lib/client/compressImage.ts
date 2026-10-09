@@ -1,0 +1,44 @@
+// Shrinks phone photos in the browser before upload (spec decision 6): longest edge 2000px,
+// JPEG q0.85, renamed .jpg so the stored extension and served Content-Type are right.
+// PDFs pass through and are checked against the normal size cap on the server.
+
+export const MAX_EDGE = 2000;
+export const JPEG_QUALITY = 0.85;
+
+export function fitWithin(width: number, height: number, max = MAX_EDGE): { width: number; height: number } {
+  const scale = Math.min(1, max / Math.max(width, height));
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
+}
+
+export function jpegName(name: string): string {
+  const base = name.replace(/\.[^.]*$/, "");
+  return `${base || "photo"}.jpg`;
+}
+
+const isHeic = (f: File) => /image\/hei[cf]/.test(f.type) || /\.hei[cf]$/i.test(f.name);
+
+/**
+ * Throws UNSUPPORTED_FILE (not an image or PDF) or IMAGE_DECODE_FAILED (the browser can't read
+ * it; on iPhone, set Camera → Formats → Most Compatible, or pick the photo as JPEG).
+ */
+export async function prepareUpload(file: File): Promise<File> {
+  if (file.type === "application/pdf") return file;
+  if (!file.type.startsWith("image/") && !isHeic(file)) throw new Error("UNSUPPORTED_FILE");
+
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    throw new Error("IMAGE_DECODE_FAILED");
+  }
+  const { width, height } = fitWithin(bitmap.width, bitmap.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
+  if (!blob) throw new Error("IMAGE_DECODE_FAILED");
+  return new File([blob], jpegName(file.name), { type: "image/jpeg", lastModified: Date.now() });
+}
