@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-// Only the MAX_REQUEST_BYTES constant is needed from the service; don't load prisma/auth.
-vi.mock("@/lib/services/documentSubmissionService", () => ({ MAX_REQUEST_BYTES: 30 * 1024 * 1024 }));
-import { fieldsFromForm, editsSchema, errorResponse, readForm } from "@/lib/documentSubmissionHttp";
+// Only the MAX_FILES / MAX_REQUEST_BYTES constants are needed from the service; don't load prisma/auth.
+vi.mock("@/lib/services/documentSubmissionService", () => ({ MAX_FILES: 6, MAX_REQUEST_BYTES: 30 * 1024 * 1024 }));
+import { fieldsFromForm, editsSchema, errorResponse, parseId, parseJsonBody, readForm } from "@/lib/documentSubmissionHttp";
 
 const form = (o: Record<string, string>) => {
   const fd = new FormData();
@@ -51,5 +51,30 @@ describe("errorResponse", () => {
     expect(errorResponse(new Error("INVALID_FILE_TYPE")).status).toBe(415);
     expect(errorResponse(new Error("boom")).status).toBe(500);
     expect(await errorResponse(new Error("PROVIDER_REQUIRED")).json()).toMatchObject({ code: "PROVIDER_REQUIRED" });
+  });
+});
+
+describe("parseId", () => {
+  it("accepts positive integers only", () => {
+    expect(parseId("12")).toBe(12);
+    for (const bad of ["abc", "0", "-3", "1.5", "", " ", "1e3", "12abc"]) expect(parseId(bad)).toBeNull();
+  });
+});
+
+describe("parseJsonBody", () => {
+  const post = (body?: string) => new Request("http://x", { method: "POST", body });
+  it("treats an empty body as {}", async () => {
+    expect(await parseJsonBody(post())).toEqual({ ok: true, value: {} });
+    expect(await parseJsonBody(post("  "))).toEqual({ ok: true, value: {} });
+  });
+  it("parses JSON and refuses unparseable bodies", async () => {
+    expect(await parseJsonBody(post('{"itemId":4}'))).toEqual({ ok: true, value: { itemId: 4 } });
+    expect((await parseJsonBody(post("{nope"))).ok).toBe(false);
+  });
+});
+
+describe("TOO_MANY_FILES message", () => {
+  it("is built from MAX_FILES", async () => {
+    expect((await errorResponse(new Error("TOO_MANY_FILES")).json()).message).toContain("6 files");
   });
 });

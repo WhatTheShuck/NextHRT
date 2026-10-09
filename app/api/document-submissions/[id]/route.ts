@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuth } from "@/lib/api-auth";
 import { documentSubmissionService } from "@/lib/services/documentSubmissionService";
-import { actorOf, badRequest, errorResponse, fieldsFromForm, filesFromForm, readForm } from "@/lib/documentSubmissionHttp";
+import { actorOf, badRequest, errorResponse, fieldsFromForm, filesFromForm, parseId, readForm } from "@/lib/documentSubmissionHttp";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(request: NextRequest, { params }: Ctx) {
   const session = await getAuth(request);
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  const id = parseId((await params).id);
+  if (id === null) return errorResponse(new Error("NOT_FOUND"));
   try {
-    return NextResponse.json(await documentSubmissionService.get(Number((await params).id), actorOf(session)));
+    return NextResponse.json(await documentSubmissionService.get(id, actorOf(session)));
   } catch (e) {
     return errorResponse(e);
   }
@@ -21,6 +23,8 @@ const removedSchema = z.array(z.number().int().positive());
 export async function PUT(request: NextRequest, { params }: Ctx) {
   const session = await getAuth(request);
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  const id = parseId((await params).id);
+  if (id === null) return errorResponse(new Error("NOT_FOUND"));
 
   const fd = await readForm(request);
   if (fd instanceof NextResponse) return fd;
@@ -35,9 +39,7 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
   const removed = removedSchema.safeParse(removedRaw);
   if (!removed.success) return badRequest(removed.error.issues);
   try {
-    const updated = await documentSubmissionService.resubmit(
-      Number((await params).id), fields.data, filesFromForm(fd), removed.data, actorOf(session),
-    );
+    const updated = await documentSubmissionService.resubmit(id, fields.data, filesFromForm(fd), removed.data, actorOf(session));
     return NextResponse.json(updated);
   } catch (e) {
     return errorResponse(e);

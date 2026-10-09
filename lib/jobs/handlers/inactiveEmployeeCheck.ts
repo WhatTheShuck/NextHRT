@@ -25,7 +25,12 @@ export async function inactiveEmployeeCheckHandler(
     where: { id: { in: exiting.map((e) => e.id) } },
     data: { isActive: false },
   });
-  await documentSubmissionService.cancelOpenForEmployees(exiting.map((e) => e.id));
+  // Best-effort: the deactivation has committed, and asset check-ins must still go out.
+  try {
+    await documentSubmissionService.cancelOpenForEmployees(exiting.map((e) => e.id));
+  } catch (err) {
+    console.error("[inactiveEmployeeCheck] cancelling open document submissions failed:", err);
+  }
 
   for (const employee of exiting) {
     await enqueue("ASSET_CHECKIN", { employeeId: employee.id });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
-import { MAX_REQUEST_BYTES } from "@/lib/services/documentSubmissionService";
+import { MAX_FILES, MAX_REQUEST_BYTES } from "@/lib/services/documentSubmissionService";
 
 // Request parsing and error mapping shared by the /api/document-submissions routes.
 
@@ -48,6 +48,24 @@ export const editsSchema = z
   })
   .partial();
 
+/** A route `[id]` segment as a positive integer, or null when it isn't one. */
+export function parseId(raw: string): number | null {
+  if (!/^\d+$/.test(raw)) return null;
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+/** Reads a JSON body. Only an empty body counts as `{}`; anything unparseable is refused. */
+export async function parseJsonBody(request: Request): Promise<{ ok: true; value: unknown } | { ok: false }> {
+  const text = await request.text();
+  if (!text.trim()) return { ok: true, value: {} };
+  try {
+    return { ok: true, value: JSON.parse(text) };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export const sendBackSchema = z.object({ reason: z.string().min(1) });
 
 const ERRORS: Record<string, [number, string]> = {
@@ -61,7 +79,7 @@ const ERRORS: Record<string, [number, string]> = {
   PROVIDER_REQUIRED: [422, "Enter who delivered the training."],
   DUPLICATE_RECORD: [409, "HRT already has a record for this item on that date."],
   NO_FILES: [422, "Attach at least one photo or file."],
-  TOO_MANY_FILES: [422, "Attach no more than 6 files."],
+  TOO_MANY_FILES: [422, `Attach no more than ${MAX_FILES} files.`],
   REQUEST_TOO_LARGE: [413, "The files are too large together. Remove some and try again."],
   FILE_TOO_LARGE: [413, `Each file must be ${FILE_UPLOAD_CONFIG.MAX_FILE_SIZE_DISPLAY} or smaller.`],
   INVALID_FILE_TYPE: [415, `Only ${FILE_UPLOAD_CONFIG.ALLOWED_TYPES_DISPLAY} files can be uploaded.`],

@@ -80,4 +80,18 @@ describe("inactiveEmployeeCheckHandler", () => {
 
     expect(cancelOpenForEmployees).toHaveBeenCalledWith([3, 4]);
   });
+
+  it("still enqueues ASSET_CHECKIN when cancelling submissions fails", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockPrisma.employee.findMany.mockResolvedValue([{ id: 3 }]);
+    mockPrisma.employee.updateMany.mockResolvedValue({ count: 1 });
+    cancelOpenForEmployees.mockRejectedValueOnce(new Error("db locked"));
+
+    const result = await inactiveEmployeeCheckHandler({});
+
+    expect(mockEnqueue).toHaveBeenCalledWith("ASSET_CHECKIN", { employeeId: 3 });
+    expect(result).toEqual({ deactivated: 1, assetCheckinsEnqueued: 1 });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
 });

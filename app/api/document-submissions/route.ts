@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
   if (!session) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   const sp = request.nextUrl.searchParams;
-  const status = sp.get("status")?.split(",").filter((s) => STATUSES.includes(s)) as DocumentSubmissionStatus[] | undefined;
+  const parsed = sp.get("status")?.split(",").filter((s) => STATUSES.includes(s)) as DocumentSubmissionStatus[] | undefined;
+  // An empty list (no valid statuses given) means no filter, not "match nothing".
+  const status = parsed && parsed.length > 0 ? parsed : undefined;
   const employeeId = Number(sp.get("employeeId")) || undefined;
   try {
     return NextResponse.json(await documentSubmissionService.list({ status, employeeId }, actorOf(session)));

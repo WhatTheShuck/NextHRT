@@ -46,6 +46,16 @@ import { emailTemplateService } from "@/lib/services/emailTemplateService";
 
 const render = vi.mocked(emailTemplateService.render);
 
+// A transaction client distinct from mockPrisma, so tests can tell what ran inside $transaction.
+const useSeparateTx = () => {
+  const tx = {
+    documentSubmission: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    history: { create: vi.fn() },
+  };
+  mockPrisma.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+  return tx;
+};
+
 const jpeg = () => new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0])], "a.jpg", { type: "image/jpeg" });
 const html = () => new File(["<html>"], "a.jpg", { type: "image/jpeg" });
 const actor = { userId: "u1", role: "User" };
@@ -168,6 +178,12 @@ describe("resubmit", () => {
     mockPrisma.documentSubmission.findUnique.mockResolvedValue(sentBack);
     await expect(documentSubmissionService.resubmit(5, { ...ticketFields, employeeId: 2 }, [], [], actor)).rejects.toThrow("INVALID_CHANGE");
   });
+
+  it("refuses when the claimed row vanished before it was re-read", async () => {
+    mockPrisma.documentSubmission.findUnique.mockResolvedValueOnce(sentBack).mockResolvedValueOnce(null);
+    await expect(documentSubmissionService.resubmit(5, ticketFields, [jpeg()], [], actor)).rejects.toThrow("NOT_FOUND");
+    expect(mockPrisma.history.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("cancel", () => {
@@ -189,6 +205,16 @@ describe("cancel", () => {
     mockPrisma.documentSubmission.findUnique.mockResolvedValue({ id: 5, status: "Pending", submittedByUserId: "u1" });
     mockPrisma.documentSubmission.updateMany.mockResolvedValue({ count: 0 });
     await expect(documentSubmissionService.cancel(5, actor)).rejects.toThrow("NOT_EDITABLE");
+    expect(mockPrisma.history.create).not.toHaveBeenCalled();
+  });
+
+  it("claims the status and writes History in one transaction", async () => {
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue({ id: 5, status: "Pending", submittedByUserId: "u1" });
+    const tx = useSeparateTx();
+    await documentSubmissionService.cancel(5, actor);
+    expect(tx.documentSubmission.updateMany).toHaveBeenCalledOnce();
+    expect(tx.history.create).toHaveBeenCalledOnce();
+    expect(mockPrisma.documentSubmission.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.history.create).not.toHaveBeenCalled();
   });
 });
@@ -359,6 +385,22 @@ describe("sendBack", () => {
     mockPrisma.documentSubmission.updateMany.mockResolvedValue({ count: 0 });
     await expect(documentSubmissionService.sendBack(5, "Blurry", admin)).rejects.toThrow("NOT_PENDING");
     expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("claims the status and writes History in one transaction; emails after it", async () => {
+    mockPrisma.documentSubmission.findUnique
+      .mockResolvedValueOnce({ id: 5, status: "Pending" })
+      .mockResolvedValue({
+        id: 5, reviewComment: "Blurry", employee: { id: 1, legalFirstName: "Jo", legalLastName: "X", preferredFirstName: null, preferredLastName: null, User: null },
+        submittedByUser: { id: "u1", email: "mgr@x", employeeId: 9 }, ticket: { ticketName: "Forklift" }, training: null,
+      });
+    const tx = useSeparateTx();
+    await documentSubmissionService.sendBack(5, "Blurry", admin);
+    expect(tx.documentSubmission.updateMany).toHaveBeenCalledOnce();
+    expect(tx.history.create).toHaveBeenCalledOnce();
+    expect(mockPrisma.documentSubmission.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.history.create).not.toHaveBeenCalled();
+    expect(enqueue).toHaveBeenCalledWith("SEND_EMAIL", expect.anything());
   });
 
   it("still resolves when the notification fails", async () => {

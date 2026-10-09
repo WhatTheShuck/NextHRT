@@ -202,6 +202,7 @@ export class DocumentSubmissionService {
       });
       if (count === 0) throw new Error("NOT_EDITABLE");
       const updated = await tx.documentSubmission.findUnique({ where: { id } });
+      if (!updated) throw new Error("NOT_FOUND");
       await history(tx, "DocumentSubmission", id, "UPDATE", { resubmitted: true, ...updated }, actor.userId);
       return updated;
     });
@@ -212,12 +213,14 @@ export class DocumentSubmissionService {
     if (!sub) throw new Error("NOT_FOUND");
     if (sub.submittedByUserId !== actor.userId && actor.role !== "Admin") throw new Error("NOT_AUTHORISED");
     if (!OPEN_STATUSES.includes(sub.status)) throw new Error("NOT_EDITABLE");
-    const { count } = await prisma.documentSubmission.updateMany({
-      where: { id, status: { in: OPEN_STATUSES } },
-      data: { status: "Cancelled" },
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.documentSubmission.updateMany({
+        where: { id, status: { in: OPEN_STATUSES } },
+        data: { status: "Cancelled" },
+      });
+      if (count === 0) throw new Error("NOT_EDITABLE");
+      await history(tx, "DocumentSubmission", id, "UPDATE", { id, status: "Cancelled" }, actor.userId);
     });
-    if (count === 0) throw new Error("NOT_EDITABLE");
-    await history(prisma, "DocumentSubmission", id, "UPDATE", { id, status: "Cancelled" }, actor.userId);
     return { ...sub, status: "Cancelled" as const };
   }
 
@@ -347,10 +350,12 @@ export class DocumentSubmissionService {
     if (sub.status !== "Pending") throw new Error("NOT_PENDING");
 
     const data = { status: "ChangesRequested" as const, reviewComment: trimmed, reviewedByUserId: actor.userId, reviewedAt: new Date() };
-    const { count } = await prisma.documentSubmission.updateMany({ where: { id, status: "Pending" }, data });
-    if (count === 0) throw new Error("NOT_PENDING");
     const updated = { ...sub, ...data };
-    await history(prisma, "DocumentSubmission", id, "UPDATE", updated, actor.userId);
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.documentSubmission.updateMany({ where: { id, status: "Pending" }, data });
+      if (count === 0) throw new Error("NOT_PENDING");
+      await history(tx, "DocumentSubmission", id, "UPDATE", updated, actor.userId);
+    });
     // Best-effort: the send-back has committed.
     try {
       await this.notify(id, "document.changesRequested");
