@@ -210,6 +210,7 @@ const MedicalStandardDirectory = () => {
               </CardDescription>
             </div>
             <Button
+              data-tour="fe-add"
               onClick={() => setIsAddDialogOpen(true)}
               className="w-full sm:w-auto"
             >
@@ -223,6 +224,7 @@ const MedicalStandardDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search medical standards..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -252,7 +254,7 @@ const MedicalStandardDirectory = () => {
               Loading medical standards...
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

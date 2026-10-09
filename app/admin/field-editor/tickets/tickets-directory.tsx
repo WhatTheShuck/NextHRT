@@ -330,7 +330,7 @@ const TicketsDirectory = () => {
                 {tickets.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Button onClick={() => setIsTicketAddDialogOpen(true)} className="w-full sm:w-auto">
+            <Button data-tour="fe-add" onClick={() => setIsTicketAddDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Ticket Type
             </Button>
@@ -341,6 +341,7 @@ const TicketsDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search by ticket name or code..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -370,7 +371,7 @@ const TicketsDirectory = () => {
               <span className="text-muted-foreground">Loading...</span>
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

@@ -159,6 +159,7 @@ export function EmailLogPageContent() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Tabs
+            data-tour="email-log-filters"
             value={filter}
             onValueChange={(v) => {
               setFilter(v);
@@ -174,6 +175,7 @@ export function EmailLogPageContent() {
             </TabsList>
           </Tabs>
           <Input
+            data-tour="email-log-search"
             placeholder="Search recipient or subject…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -188,7 +190,7 @@ export function EmailLogPageContent() {
         )}
 
         {/* Desktop table */}
-        <div className="hidden md:block overflow-x-auto rounded-md border">
+        <div className="hidden md:block overflow-x-auto rounded-md border" data-tour="email-log-list">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40 text-muted-foreground">
@@ -247,7 +249,7 @@ export function EmailLogPageContent() {
         </div>
 
         {/* Mobile cards */}
-        <div className="md:hidden space-y-2">
+        <div className="md:hidden space-y-2" data-tour="email-log-list">
           {!loading && emails.length === 0 && (
             <p className="py-8 text-center text-muted-foreground">No emails found</p>
           )}

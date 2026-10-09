@@ -166,7 +166,7 @@ export function QuizVisualEditor({ doc, onChange, disabled }: Props) {
         const gate = section.showIf ? gates.find((g) => g.id === section.showIf!.itemId) : undefined;
         return (
           <Card key={section.id}>
-            <CardHeader className="space-y-3 pb-3">
+            <CardHeader className="space-y-3 pb-3" data-tour="quiz-section">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="shrink-0">
                   Section {si + 1}
@@ -290,7 +290,7 @@ export function QuizVisualEditor({ doc, onChange, disabled }: Props) {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" size="sm" disabled={disabled}>
+                  <Button type="button" variant="outline" size="sm" disabled={disabled} data-tour="quiz-add-question">
                     <Plus className="h-4 w-4 mr-1" /> Add question
                   </Button>
                 </DropdownMenuTrigger>
@@ -377,7 +377,7 @@ function ItemEditor({
   onDelete,
 }: ItemEditorProps) {
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border" data-tour="quiz-question">
       <div className="flex items-center gap-1 p-1 pl-2">
         <button
           type="button"

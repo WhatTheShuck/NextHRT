@@ -106,7 +106,7 @@ export function MyRequestsContent() {
               {/* Status filter */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" data-tour="my-requests-status-filter">
                     <Filter className="h-4 w-4 mr-2" />
                     {statusFilter === "All" ? "All Statuses" : statusFilter}
                   </Button>
@@ -135,7 +135,7 @@ export function MyRequestsContent() {
               {/* Perspective filter */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" data-tour="my-requests-perspective-filter">
                     <Filter className="h-4 w-4 mr-2" />
                     {perspectiveFilter === "All" ? "All Requests" : perspectiveFilter}
                   </Button>

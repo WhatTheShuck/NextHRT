@@ -188,7 +188,7 @@ export function MarkingContent({ assessmentId }: { assessmentId: number }) {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8 space-y-6">
       {/* Header */}
-      <div className="space-y-2">
+      <div className="space-y-2" data-tour="sop-mark-header">
         <Button
           type="button"
           variant="ghost"
@@ -220,7 +220,7 @@ export function MarkingContent({ assessmentId }: { assessmentId: number }) {
       )}
 
       {!assessment.onCurrentRevision && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+        <div data-tour="sop-mark-old-revision" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <span>
             This assessment was taken on a superseded revision. Passing it
@@ -232,7 +232,7 @@ export function MarkingContent({ assessmentId }: { assessmentId: number }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Procedure viewer */}
-        <div>
+        <div data-tour="sop-mark-pdf">
           {assessment.revision.documentPath ? (
             <iframe
               src={`/api/images/${assessment.revision.documentPath}`}
@@ -257,7 +257,7 @@ export function MarkingContent({ assessmentId }: { assessmentId: number }) {
             if (!answer) return null;
             const state = verdicts[answer.id] ?? { verdict: null, comment: "" };
             return (
-              <div key={question.id} className="rounded-md border p-4 space-y-3">
+              <div key={question.id} className="rounded-md border p-4 space-y-3" data-tour="sop-mark-answer">
                 <p className="text-sm font-medium">
                   {index + 1}. {question.questionText}
                 </p>
@@ -270,7 +270,7 @@ export function MarkingContent({ assessmentId }: { assessmentId: number }) {
                     {question.markerNotes}
                   </p>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" data-tour="sop-mark-verdict">
                   <Button
                     type="button"
                     size="sm"
@@ -312,7 +312,7 @@ export function MarkingContent({ assessmentId }: { assessmentId: number }) {
           })}
 
           {markable && (
-            <div className="flex flex-wrap items-center gap-2 pt-2">
+            <div className="flex flex-wrap items-center gap-2 pt-2" data-tour="sop-mark-actions">
               <Button
                 type="button"
                 onClick={() => handleMark("pass")}

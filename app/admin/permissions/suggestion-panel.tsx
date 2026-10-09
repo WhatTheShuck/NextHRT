@@ -263,6 +263,7 @@ export function SuggestionPanel() {
                     <TableCell className="text-right">
                       <Button
                         size="sm"
+                        data-tour="suggestions-link"
                         onClick={() =>
                           handleLink(suggestion.user.id, top.employee.id)
                         }

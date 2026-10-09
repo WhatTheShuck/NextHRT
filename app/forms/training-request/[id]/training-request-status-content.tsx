@@ -152,14 +152,14 @@ export function TrainingRequestStatusContent({ requestId }: { requestId: number 
               {detail.approvalRequest.submittedByUser.name ?? "Unknown"}
             </p>
           </div>
-          <Badge variant={statusBadgeVariant(detail.approvalRequest.status)}>
+          <Badge variant={statusBadgeVariant(detail.approvalRequest.status)} data-tour="request-status">
             {detail.approvalRequest.status}
           </Badge>
         </div>
 
         {/* Course request warning */}
         {detail.trainingCourseRequest && detail.trainingCourseRequest.status !== "Approved" && (
-          <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950 p-3 text-sm">
+          <div data-tour="request-course-warning" className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950 p-3 text-sm">
             <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
             <span>
               This request is linked to a pending course request (
@@ -170,7 +170,7 @@ export function TrainingRequestStatusContent({ requestId }: { requestId: number 
         )}
 
         {/* Summary */}
-        <Card>
+        <Card data-tour="request-summary">
           <CardHeader>
             <CardTitle className="text-base">Summary</CardTitle>
           </CardHeader>
@@ -244,7 +244,7 @@ export function TrainingRequestStatusContent({ requestId }: { requestId: number 
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             {/* Stage indicators */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-tour="request-stages">
               {(["DepartmentManager", "HRManager", "Admin"] as const).map((stage, idx) => {
                 const action = detail.approvalRequest.actions.find((a) => a.stage === stage);
                 const isCurrent =
@@ -277,7 +277,7 @@ export function TrainingRequestStatusContent({ requestId }: { requestId: number 
             {detail.approvalRequest.actions.length > 0 && (
               <>
                 <Separator />
-                <div className="space-y-3">
+                <div className="space-y-3" data-tour="request-history">
                   {detail.approvalRequest.actions.map((action) => (
                     <div key={action.id} className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -326,7 +326,7 @@ export function TrainingRequestStatusContent({ requestId }: { requestId: number 
           {canCancel && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={cancelling}>
+                <Button variant="destructive" disabled={cancelling} data-tour="request-cancel">
                   {cancelling ? "Cancelling..." : "Cancel Request"}
                 </Button>
               </AlertDialogTrigger>

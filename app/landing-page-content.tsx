@@ -206,7 +206,7 @@ export function LandingPageContent({
         )}
 
         {nonAdminItems.length > 0 && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-tour="dashboard-my-actions">
             <h2 className="text-xl md:text-2xl font-semibold">My Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {nonAdminItems.map((item) => (
@@ -227,7 +227,7 @@ export function LandingPageContent({
         )}
 
         {adminItems.length > 0 && userRole === "Admin" && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-tour="dashboard-admin-tools">
             <h2 className="text-xl md:text-2xl font-semibold">
               Administrative Tools
             </h2>

@@ -219,7 +219,7 @@ export default function Page() {
         </h1>
 
         {/* Configuration toggles */}
-        <div className="p-4 rounded-lg mb-6">
+        <div className="p-4 rounded-lg mb-6" data-tour="report-options">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
             <div className="flex items-center space-x-2">
               <Switch
@@ -252,7 +252,7 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-6" data-tour="report-picker">
           <EmployeeCombobox
             employees={filteredEmployees}
             selectedEmployeeId={selectedEmployeeId?.toString() || null}

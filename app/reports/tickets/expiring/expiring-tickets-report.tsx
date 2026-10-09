@@ -229,7 +229,7 @@ export function ExpiringTicketRecordsPage() {
   return (
     <>
       {/* Configuration toggles */}
-      <div className="rounded-lg mb-4">
+      <div className="rounded-lg mb-4" data-tour="report-options">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-4 lg:gap-8">
             <div className="flex items-center space-x-2">
@@ -263,7 +263,7 @@ export function ExpiringTicketRecordsPage() {
             </div>
 
             {/* Recently expired toggle with day selector */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2" data-tour="report-recently-expired">
               <Switch
                 id="recently-expired"
                 checked={includeRecentlyExpired}
@@ -300,7 +300,7 @@ export function ExpiringTicketRecordsPage() {
       </div>
 
       {/* Ticket selection and expiration filter */}
-      <div className="flex flex-wrap items-center gap-4 ">
+      <div className="flex flex-wrap items-center gap-4 " data-tour="report-picker">
         <TicketCombobox
           tickets={ticketSelection}
           onSelect={handleTicketSelect}
@@ -318,7 +318,7 @@ export function ExpiringTicketRecordsPage() {
             value={selectedExpirationDays}
             onValueChange={handleExpirationDaysChange}
           >
-            <SelectTrigger className="w-[280px]">
+            <SelectTrigger className="w-[280px]" data-tour="report-expiry-window">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -362,7 +362,7 @@ export function ExpiringTicketRecordsPage() {
             </p>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" data-tour="report-location-filter">
                   {selectedLocation
                     ? `Location: ${selectedLocation}`
                     : "Filter Location"}

@@ -55,7 +55,7 @@ export default async function EmailPage() {
 
         <div className="space-y-4">
           <h2 className="text-xl md:text-2xl font-semibold">At a glance</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tour="email-stats">
             {statCards.map(({ label, value, alert }) => (
               <div key={label} className="bg-card p-5 rounded-lg border space-y-2">
                 <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>

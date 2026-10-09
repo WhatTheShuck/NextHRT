@@ -95,7 +95,7 @@ export default function Page() {
       </h1>
 
       {/* Configuration toggles */}
-      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6" data-tour="report-options">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <div className="flex items-center space-x-2">
             <Switch
@@ -113,7 +113,7 @@ export default function Page() {
           </div>
         </div>
       </div>
-      <div className="mb-6">
+      <div className="mb-6" data-tour="report-picker">
         <TrainingCombobox
           trainings={trainings}
           selectedTrainingId={selectedTrainingId}

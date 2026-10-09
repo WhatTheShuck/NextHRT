@@ -153,7 +153,7 @@ export function EmailTemplatesPageContent() {
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-          <nav className="space-y-6" aria-label="Email templates">
+          <nav className="space-y-6" aria-label="Email templates" data-tour="email-template-list">
             {grouped.map(({ group, items }) => (
               <div key={group} className="space-y-1.5">
                 <div>
@@ -372,7 +372,7 @@ function TemplateEditorPanel({
             {template.key}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-tour="email-template-active">
           <Switch
             id="template-active"
             checked={isActive}
@@ -419,7 +419,7 @@ function TemplateEditorPanel({
       )}
 
       <Tabs defaultValue="edit">
-        <TabsList>
+        <TabsList data-tour="email-template-tabs">
           <TabsTrigger value="edit">Edit</TabsTrigger>
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
@@ -447,7 +447,7 @@ function TemplateEditorPanel({
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-2" data-tour="email-template-body">
             <Label>Body</Label>
             <EmailBodyEditor
               value={body}
@@ -494,7 +494,7 @@ function TemplateEditorPanel({
             </Alert>
           )}
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center" data-tour="email-template-actions">
             <Button onClick={save} disabled={saving || !dirty} className="gap-1.5">
               <Save className="h-4 w-4" />
               {saving ? "Saving..." : "Save changes"}

@@ -125,7 +125,7 @@ export function RequiredTrainingPageContent() {
     return (
       <div className="container mx-auto px-4 sm:px-6 py-10 space-y-4">
         <h1 className="text-3xl font-bold">Training I Deliver</h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground" data-tour="required-training-setup">
           No training courses configured yet.{" "}
           <Link href="/admin/settings" className="underline text-foreground">
             Go to App Settings → Training
@@ -140,7 +140,7 @@ export function RequiredTrainingPageContent() {
     return (
       <div className="container mx-auto px-4 sm:px-6 py-10 space-y-4">
         <h1 className="text-3xl font-bold">Training I Deliver</h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground" data-tour="required-training-empty">
           All caught up — no outstanding completions to record.
         </p>
       </div>
@@ -149,7 +149,7 @@ export function RequiredTrainingPageContent() {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 py-10 space-y-6">
-      <div>
+      <div data-tour="required-training-intro">
         <h1 className="text-3xl font-bold">Training I Deliver</h1>
         <p className="text-muted-foreground mt-1">
           {data.rows.length} employee{data.rows.length !== 1 ? "s" : ""} with
@@ -158,7 +158,7 @@ export function RequiredTrainingPageContent() {
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" data-tour="required-training-grid">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b">
@@ -187,6 +187,7 @@ export function RequiredTrainingPageContent() {
                   <span className="font-medium">
                     {row.isNewStarter && (
                       <span
+                        data-tour="required-training-new-starter"
                         className="mr-1 text-amber-500"
                         title="New starter"
                         aria-label="New starter"
@@ -215,6 +216,7 @@ export function RequiredTrainingPageContent() {
                         <Button
                           variant="outline"
                           size="sm"
+                          data-tour="required-training-record"
                           className="h-7 w-7 p-0 font-bold"
                           aria-label={`Record ${course.title} for ${row.employee.legalFirstName} ${row.employee.legalLastName}`}
                           onClick={() => openDialog(row, course)}

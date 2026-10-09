@@ -50,7 +50,7 @@ export function SopReviewsPageContent() {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8 space-y-6">
-      <div>
+      <div data-tour="sop-reviews-header">
         <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
           <ClipboardCheck className="h-6 w-6" />
           SOP Reviews
@@ -75,7 +75,7 @@ export function SopReviewsPageContent() {
       )}
 
       {!loading && !error && rows.length === 0 && (
-        <Card>
+        <Card data-tour="sop-reviews-empty">
           <CardContent className="pt-6">
             <p className="text-muted-foreground">
               No submissions waiting. You only see SOPs you are a designated
@@ -86,7 +86,7 @@ export function SopReviewsPageContent() {
       )}
 
       {!loading && !error && rows.length > 0 && (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-md border overflow-x-auto" data-tour="sop-reviews-table">
           <Table>
             <TableHeader>
               <TableRow>
@@ -116,7 +116,7 @@ export function SopReviewsPageContent() {
                       : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button asChild size="sm">
+                    <Button asChild size="sm" data-tour="sop-reviews-mark">
                       <Link href={`/sop-reviews/${row.id}`}>Mark</Link>
                     </Button>
                   </TableCell>

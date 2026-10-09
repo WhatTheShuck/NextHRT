@@ -95,7 +95,7 @@ export function OverviewTab() {
             </div>
 
             {employee.reportsTo && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" data-tour="employee-reports-to">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Reports To</span>
                 <Link href={`/employees/${employee.reportsTo.id}`} className="ml-auto hover:underline">

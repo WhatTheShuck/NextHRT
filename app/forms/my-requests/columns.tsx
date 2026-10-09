@@ -118,7 +118,7 @@ export const columns: ColumnDef<MyRequest>[] = [
     accessorFn: (row) => row.approvalRequest.status,
     cell: ({ getValue }) => {
       const status = getValue<string>();
-      return <Badge variant={statusBadgeVariant(status)}>{status}</Badge>;
+      return <Badge variant={statusBadgeVariant(status)} data-tour="my-requests-status">{status}</Badge>;
     },
     meta: { headerText: "Status" },
   },
@@ -133,9 +133,9 @@ export const columns: ColumnDef<MyRequest>[] = [
     },
     cell: ({ row }) => {
       const { status, currentStage } = row.original.approvalRequest;
-      if (status === "Pending") return <span>{stageLabel(currentStage)}</span>;
-      if (status === "Approved") return <span className="text-muted-foreground">Completed</span>;
-      return <span className="text-muted-foreground">{status}</span>;
+      if (status === "Pending") return <span data-tour="my-requests-stage">{stageLabel(currentStage)}</span>;
+      if (status === "Approved") return <span data-tour="my-requests-stage" className="text-muted-foreground">Completed</span>;
+      return <span data-tour="my-requests-stage" className="text-muted-foreground">{status}</span>;
     },
     meta: { headerText: "Stage" },
   },
@@ -144,7 +144,7 @@ export const columns: ColumnDef<MyRequest>[] = [
     header: "",
     cell: ({ row }) => (
       <Button variant="ghost" size="sm" asChild>
-        <Link href={`/forms/training-request/${row.original.id}`}>
+        <Link href={`/forms/training-request/${row.original.id}`} data-tour="my-requests-open">
           <ExternalLink className="h-4 w-4" />
         </Link>
       </Button>

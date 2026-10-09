@@ -158,7 +158,7 @@ export function SwitchoverContent() {
         </Button>
       </div>
 
-      <Card className={mode === "lineManager" ? "border-green-300 dark:border-green-800" : ""}>
+      <Card data-tour="switchover-mode" className={mode === "lineManager" ? "border-green-300 dark:border-green-800" : ""}>
         <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-semibold flex items-center gap-2">
@@ -213,13 +213,13 @@ export function SwitchoverContent() {
       </Dialog>
 
       {report.ready ? (
-        <Alert>
+        <Alert data-tour="switchover-readiness">
           <CheckCircle2 className="h-4 w-4 text-green-600" />
           <AlertTitle>Ready</AlertTitle>
           <AlertDescription>Everyone has a reporting line and every department grant is accounted for.</AlertDescription>
         </Alert>
       ) : (
-        <Alert>
+        <Alert data-tour="switchover-readiness">
           <AlertTriangle className="h-4 w-4 text-amber-500" />
           <AlertTitle>Not ready: {blocking} item{blocking === 1 ? "" : "s"} to resolve</AlertTitle>
           <AlertDescription>
@@ -233,7 +233,7 @@ export function SwitchoverContent() {
         </Alert>
       )}
 
-      <Card>
+      <Card data-tour="switchover-unlined">
         <CardHeader>
           <CardTitle className="text-base">No reporting line ({report.unlined.length})</CardTitle>
           <CardDescription>
@@ -264,7 +264,7 @@ export function SwitchoverContent() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card data-tour="switchover-grants">
         <CardHeader>
           <CardTitle className="text-base">Department-manager grants</CardTitle>
           <CardDescription>
@@ -322,7 +322,7 @@ export function SwitchoverContent() {
       </Card>
 
       {open.length > 0 && (
-        <div className="sticky bottom-0 z-30 border-t bg-background/95 backdrop-blur py-3 flex flex-wrap items-center justify-between gap-3">
+        <div data-bottom-bar data-tour="switchover-create" className="sticky bottom-0 z-30 border-t bg-background/95 backdrop-blur py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setSelected(new Set(open.map((s) => s.key)))}>
               Select all ({open.length})

@@ -74,7 +74,7 @@ export function ExportButtons<T extends Record<string, unknown>>({
 
   return (
     <>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" data-tour="report-export">
         <Button
           variant="outline"
           onClick={handleExcelExport}

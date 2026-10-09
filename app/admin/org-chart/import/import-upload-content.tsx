@@ -112,7 +112,7 @@ export function ImportUploadContent() {
             Upload a Workday org chart export to get suggested updates. Nothing changes until you tick it and apply.
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
+        <Button variant="outline" size="sm" asChild data-tour="import-rules-link">
           <Link href="/admin/org-chart/import/rules">
             <ListX className="h-4 w-4 mr-2" />
             Ignore rules
@@ -125,6 +125,7 @@ export function ImportUploadContent() {
           <div
             role="button"
             tabIndex={0}
+            data-tour="import-upload"
             onClick={() => !uploading && inputRef.current?.click()}
             onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && inputRef.current?.click()}
             onDragOver={(e) => {
@@ -172,7 +173,7 @@ export function ImportUploadContent() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card data-tour="import-decisions">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4" />
@@ -234,7 +235,7 @@ export function ImportUploadContent() {
         </DialogContent>
       </Dialog>
 
-      <Card>
+      <Card data-tour="import-recent">
         <CardHeader>
           <CardTitle className="text-base">Recent imports</CardTitle>
           <CardDescription>Older imports stay viewable as a record of what was applied.</CardDescription>

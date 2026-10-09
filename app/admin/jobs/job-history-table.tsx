@@ -117,7 +117,7 @@ export function JobHistoryTable() {
   }
 
   return (
-    <Card>
+    <Card data-tour="jobs-history">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="flex items-center gap-2">

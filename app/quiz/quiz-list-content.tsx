@@ -75,7 +75,7 @@ export function QuizListContent() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" data-tour="quiz-header">
         <ClipboardList className="h-6 w-6" />
         <h1 className="text-xl font-semibold">My questionnaires</h1>
       </div>
@@ -87,7 +87,7 @@ export function QuizListContent() {
       )}
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground" data-tour="quiz-empty">
           You have no questionnaires assigned right now.
         </p>
       ) : (
@@ -97,7 +97,7 @@ export function QuizListContent() {
             const completed = r?.status === "Completed";
             const inProgress = r?.status === "InProgress";
             return (
-              <Card key={row.trainingId}>
+              <Card key={row.trainingId} data-tour="quiz-item">
                 <CardContent className="flex items-center justify-between gap-3 pt-6">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{row.title}</p>
@@ -115,7 +115,7 @@ export function QuizListContent() {
                       <span className="text-xs text-muted-foreground">In progress</span>
                     )}
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0" data-tour="quiz-action">
                     {inProgress ? (
                       <Button size="sm" onClick={() => router.push(`/quiz/${r!.id}`)}>
                         Resume

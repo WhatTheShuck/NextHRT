@@ -52,7 +52,7 @@ export function DataTable<TData extends RowData>({
   return (
     <div>
       <LandscapeHint />
-      <div className="rounded-md border">
+      <div className="rounded-md border" data-tour="data-table">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

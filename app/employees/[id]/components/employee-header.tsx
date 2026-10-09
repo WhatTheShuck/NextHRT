@@ -46,7 +46,7 @@ export function EmployeeHeader() {
     <div className="border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4" data-tour="employee-header">
             <Avatar className="h-14 w-14 shrink-0">
               {/* Could potentially grab avatar from domain at some point? Also just kinda gives UX cues that this is an employee*/}
               <AvatarFallback className="bg-muted">
@@ -73,7 +73,7 @@ export function EmployeeHeader() {
           {isAdmin && (
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
               <SheetTrigger asChild>
-                <Button className="shrink-0 w-full sm:w-auto">
+                <Button className="shrink-0 w-full sm:w-auto" data-tour="employee-edit">
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Profile
                 </Button>

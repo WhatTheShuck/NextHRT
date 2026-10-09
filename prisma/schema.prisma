@@ -632,6 +632,8 @@ model User {
   employeeId                   Int?          @unique // Link to employee if user represents an employee
   employeeLinkedAt             DateTime?     // When employeeId was last set — drives the one-time dashboard welcome
   welcomeDismissedAt           DateTime?     // When the user dismissed the welcome; shown again only after a newer link
+  tutorialMode                 TutorialMode  @default(FirstVisit) // When page tours start on their own; the help button always works
+  tutorialViews                TutorialView[]
   accounts                     Account[]
   sessions                     Session[]
   historyLogs                  History[]
@@ -685,6 +687,23 @@ enum UserRole {
   DepartmentManager
   FireWarden
   Admin
+}
+
+enum TutorialMode {
+  Off        // Only when asked for, from the help button
+  FirstVisit // The first time the user opens each page
+  Always     // Every time the user opens a page
+}
+
+// One row per tour (or "What's new" release) the user has finished or closed.
+// The key carries a version (e.g. "dashboard@1"), so rewriting a tour shows it again.
+model TutorialView {
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key    String
+  seenAt DateTime @default(now())
+
+  @@id([userId, key])
 }
 
 model Account {

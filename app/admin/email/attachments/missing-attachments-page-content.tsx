@@ -135,7 +135,7 @@ export function MissingAttachmentsPageContent() {
         )}
 
         {missingUploads.length > 0 && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" data-tour="missing-uploads">
             <AlertDescription>
               <p>
                 These uploaded forms are also missing — remove and re-upload
@@ -159,7 +159,7 @@ export function MissingAttachmentsPageContent() {
           </Alert>
         )}
 
-        <Card>
+        <Card data-tour="stale-emails">
           <CardHeader>
             <CardTitle className="text-base">
               Emails waiting on missing forms ({emails.length})
@@ -218,6 +218,7 @@ export function MissingAttachmentsPageContent() {
             </ul>
             <div className="flex items-center gap-4">
               <Button
+                data-tour="resend-all"
                 disabled={busy || emails.length === 0}
                 onClick={() => resend(emails.map((e) => e.jobId))}
               >

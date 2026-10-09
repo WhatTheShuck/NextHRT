@@ -383,7 +383,7 @@ const TrainingDirectory = () => {
                 .
               </CardDescription>
             </div>
-            <Button onClick={() => setIsTrainingAddDialogOpen(true)} className="w-full sm:w-auto">
+            <Button data-tour="fe-add" onClick={() => setIsTrainingAddDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Training Course
             </Button>
@@ -394,6 +394,7 @@ const TrainingDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search by title or category..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -443,7 +444,7 @@ const TrainingDirectory = () => {
               <span className="text-muted-foreground">Loading...</span>
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

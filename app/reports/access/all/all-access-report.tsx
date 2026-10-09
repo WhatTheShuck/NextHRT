@@ -94,7 +94,7 @@ export function AllAccessReport() {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8">
-      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6" data-tour="report-options">
         <div className="flex items-center space-x-2">
           <Switch
             id="include-inactive"
@@ -119,7 +119,7 @@ export function AllAccessReport() {
         <p className="font-medium">Employee Count: {filtered.length}</p>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline">
+            <Button variant="outline" data-tour="report-location-filter">
               {selectedLocation ? `Location: ${selectedLocation}` : "Filter Location"}
             </Button>
           </PopoverTrigger>

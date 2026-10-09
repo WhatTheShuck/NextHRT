@@ -243,7 +243,7 @@ export function OnboardingSettings() {
       </Card>
 
       {/* Compliance attachments */}
-      <Card>
+      <Card data-tour="settings-compliance">
         <CardHeader>
           <CardTitle className="text-base">Compliance attachments</CardTitle>
           <CardDescription>

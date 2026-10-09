@@ -44,7 +44,7 @@ export function AccountPendingPanel({
   const firstName = name?.split(" ")[0];
 
   return (
-    <Card className="max-w-3xl">
+    <Card className="max-w-3xl" data-tour="account-pending">
       <CardHeader>
         <CardTitle className="text-xl md:text-2xl">
           Welcome{firstName ? `, ${firstName}` : ""} — your account is almost
@@ -122,6 +122,7 @@ export function AccountPendingPanel({
 
         <Button
           variant="outline"
+          data-tour="account-check-again"
           onClick={() => startChecking(() => router.refresh())}
           disabled={isChecking}
         >

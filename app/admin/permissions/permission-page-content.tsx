@@ -57,9 +57,9 @@ export function PermissionPageContent() {
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
-          <TabsTrigger value="roles">User Roles</TabsTrigger>
-          <TabsTrigger value="mapping">User-Employee Mapping</TabsTrigger>
-          <TabsTrigger value="suggestions">Suggested Links</TabsTrigger>
+          <TabsTrigger value="roles" data-tour="permissions-tab-roles">User Roles</TabsTrigger>
+          <TabsTrigger value="mapping" data-tour="permissions-tab-mapping">User-Employee Mapping</TabsTrigger>
+          <TabsTrigger value="suggestions" data-tour="permissions-tab-suggestions">Suggested Links</TabsTrigger>
         </TabsList>
 
         <TabsContent value="roles">

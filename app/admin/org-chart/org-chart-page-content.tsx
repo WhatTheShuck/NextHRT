@@ -364,7 +364,7 @@ function DepartmentCard({ dept, activeOnly }: { dept: OrgDepartment; activeOnly:
   const noManager = dept.managers.length === 0;
 
   return (
-    <Card className={`h-fit ${hasIssues ? "border-amber-300 dark:border-amber-700" : ""}`}>
+    <Card data-tour="org-department" className={`h-fit ${hasIssues ? "border-amber-300 dark:border-amber-700" : ""}`}>
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger className="w-full flex items-center gap-2 py-3 px-4 rounded-t-lg hover:bg-muted/50 transition-colors text-left">
           {open ? (
@@ -529,19 +529,19 @@ export function OrgChartPageContent() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="sm" asChild data-tour="org-delegated-access">
               <Link href="/admin/org-chart/access">
                 <Share2 className="h-4 w-4 mr-2" />
                 Delegated access
               </Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="sm" asChild data-tour="org-switchover">
               <Link href="/admin/org-chart/switchover">
                 <ShieldAlert className="h-4 w-4 mr-2" />
                 Switch-over readiness
               </Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="sm" asChild data-tour="org-import">
               <Link href="/admin/org-chart/import">
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
                 Workday import
@@ -555,7 +555,7 @@ export function OrgChartPageContent() {
         </div>
 
         {/* View switch */}
-        <div className="inline-flex rounded-md border p-0.5">
+        <div className="inline-flex rounded-md border p-0.5" data-tour="org-view-toggle">
           <Button
             variant={mode === "departments" ? "secondary" : "ghost"}
             size="sm"
@@ -572,7 +572,7 @@ export function OrgChartPageContent() {
 
         {/* Stats */}
         {mode === "departments" && data && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-tour="org-stats">
             <StatCard
               label="Departments"
               value={data.stats.totalDepartments}
@@ -599,7 +599,7 @@ export function OrgChartPageContent() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4" data-tour="org-filters">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -685,7 +685,7 @@ export function OrgChartPageContent() {
 
         {/* Unlinked users */}
         {data && filteredUnlinkedUsers.length > 0 && (
-          <Card className="border-amber-300 dark:border-amber-700">
+          <Card className="border-amber-300 dark:border-amber-700" data-tour="org-unlinked-users">
             <CardContent className="px-4 py-4">
               <div className="flex items-center gap-2 mb-3">
                 <UserX className="h-5 w-5 text-amber-500" />

@@ -54,7 +54,7 @@ export function TeamAccessPanel() {
   };
 
   return (
-    <Card>
+    <Card data-tour="team-access">
       <CardHeader className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="space-y-1">

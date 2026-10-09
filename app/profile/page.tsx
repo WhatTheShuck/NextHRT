@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserProfileDetails from "./profile-details";
 import { AppearanceSettings } from "./appearance-settings";
+import { TutorialSettings } from "./tutorial-settings";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { appSettingService } from "@/lib/services/appSettingService";
@@ -51,12 +52,21 @@ async function Profile() {
           </CardContent>
         </Card>
 
-        <UserProfileDetails userId={session.user.id} />
+        <div data-tour="profile-details">
+          <UserProfileDetails userId={session.user.id} />
+        </div>
 
-        <Card className="shadow-lg">
+        <Card className="shadow-lg" data-tour="profile-appearance">
           <CardContent className="p-5 md:p-8">
             <h2 className="text-lg font-semibold mb-6">Appearance</h2>
             <AppearanceSettings currentThemeId={currentThemeId} locked={locked} />
+          </CardContent>
+        </Card>
+
+        <Card id="tutorials" className="shadow-lg scroll-mt-24" data-tour="profile-tutorials">
+          <CardContent className="p-5 md:p-8">
+            <h2 className="text-lg font-semibold mb-6">Page tips</h2>
+            <TutorialSettings />
           </CardContent>
         </Card>
       </div>

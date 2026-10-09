@@ -109,7 +109,7 @@ export function QuizResultsContent({
         the summary flags where a hand or a tip would help.
       </p>
 
-      <Card>
+      <Card data-tour="questionnaire-list">
         <CardContent className="pt-6 space-y-3">
           <h2 className="text-sm font-medium">Questionnaires</h2>
           {questionnaires.length === 0 ? (
@@ -129,7 +129,7 @@ export function QuizResultsContent({
                       </Badge>
                     )}
                   </span>
-                  <Button size="sm" variant="outline" asChild>
+                  <Button size="sm" variant="outline" asChild data-tour="questionnaire-edit">
                     <Link href={`/admin/quiz-editor/${q.id}`}>
                       <Pencil className="h-4 w-4 mr-1" />
                       Edit questions
@@ -143,7 +143,7 @@ export function QuizResultsContent({
       </Card>
 
       {trainings.length > 1 && (
-        <div className="w-64">
+        <div className="w-64" data-tour="responses-filter">
           <Select value={trainingFilter} onValueChange={setTrainingFilter}>
             <SelectTrigger>
               <SelectValue />
@@ -163,13 +163,13 @@ export function QuizResultsContent({
       {!rows ? (
         <Skeleton className="h-40 w-full" />
       ) : filtered.length === 0 ? (
-        <Card>
+        <Card data-tour="responses-list">
           <CardContent className="pt-6 text-sm text-muted-foreground">
             No completed questionnaires yet.
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-md border overflow-x-auto" data-tour="responses-list">
           <Table>
             <TableHeader>
               <TableRow>

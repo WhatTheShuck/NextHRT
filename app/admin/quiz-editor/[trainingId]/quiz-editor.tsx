@@ -273,7 +273,7 @@ export function QuizEditor({
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
+            <div className="space-y-1" data-tour="quiz-revision">
               <Label htmlFor="quiz-revision" className="text-xs">
                 Revision
               </Label>
@@ -308,6 +308,7 @@ export function QuizEditor({
             )}
             {saved && !hasResponses && !loading && (
               <Button
+                data-tour="quiz-remove"
                 type="button"
                 variant="ghost"
                 size="sm"
@@ -321,7 +322,7 @@ export function QuizEditor({
           </div>
 
           {hasResponses && (
-            <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 border border-amber-200 flex gap-2">
+            <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 border border-amber-200 flex gap-2" data-tour="quiz-has-responses">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
                 People have already started or completed this revision. Wording
@@ -355,14 +356,14 @@ export function QuizEditor({
                   This revision has no questionnaire, so the training isn&apos;t
                   interactive on it.
                 </p>
-                <Button type="button" onClick={() => editDraft(starterDocument())}>
+                <Button type="button" onClick={() => editDraft(starterDocument())} data-tour="quiz-start">
                   Start a questionnaire
                 </Button>
               </CardContent>
             </Card>
           ) : (
             <Tabs value={tab} onValueChange={onTabChange}>
-              <TabsList>
+              <TabsList data-tour="quiz-tabs">
                 <TabsTrigger value="visual" disabled={Boolean(jsonError)}>
                   Visual
                 </TabsTrigger>
@@ -394,7 +395,7 @@ export function QuizEditor({
 
       {/* Sticky save bar */}
       {draft && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur pb-[env(safe-area-inset-bottom,0px)]">
+        <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur pb-[env(safe-area-inset-bottom,0px)]">
           <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1 text-sm">
               {issues.length > 0 ? (

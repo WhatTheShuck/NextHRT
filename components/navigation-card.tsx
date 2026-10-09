@@ -13,6 +13,7 @@ export const NavigationCard: React.FC<NavigationItem> = ({
 }) => (
   <Link
     href={href}
+    data-tour={`card:${href}`}
     className="group hover:border-primary transition-colors cursor-pointer"
   >
     <Card className="h-full">

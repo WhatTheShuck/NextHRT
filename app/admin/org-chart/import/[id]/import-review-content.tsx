@@ -435,7 +435,7 @@ export function ImportReviewContent({ importId }: { importId: number }) {
       {isOpen && (
         <>
           {/* Summary + filters */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5" data-tour="review-filters">
             <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="All" count={view.lines.length} />
             {FIELD_ORDER.filter((f) => counts[f]).map((f) => (
               <FilterChip
@@ -450,7 +450,7 @@ export function ImportReviewContent({ importId }: { importId: number }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <div className="relative flex-1 min-w-[200px] max-w-sm" data-tour="review-search">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search people, titles, departments…"
@@ -459,7 +459,7 @@ export function ImportReviewContent({ importId }: { importId: number }) {
                 className="pl-8"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={() => decide(actionable(shownIds), "tick")}>
+            <Button variant="outline" size="sm" onClick={() => decide(actionable(shownIds), "tick")} data-tour="review-bulk">
               <Check className="h-4 w-4 mr-1.5" />
               Tick all shown
             </Button>
@@ -513,7 +513,7 @@ export function ImportReviewContent({ importId }: { importId: number }) {
 
       {/* Sticky apply bar */}
       {isOpen && (ticked.length > 0 || crossed.length > 0) && (
-        <div className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur">
+        <div data-bottom-bar data-tour="review-apply-bar" className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur">
           <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm">
               <span className="font-semibold">{ticked.length}</span> ticked to apply ·{" "}
@@ -522,6 +522,7 @@ export function ImportReviewContent({ importId }: { importId: number }) {
                 <button
                   type="button"
                   onClick={showNextNeedingChoice}
+                  data-tour="review-needs-manager"
                   className="ml-2 inline-flex items-center gap-1 text-amber-600 underline underline-offset-2 hover:text-amber-700"
                 >
                   <AlertTriangle className="h-3.5 w-3.5" />
@@ -630,7 +631,7 @@ function PersonCard({
   const hasDecidable = group.lines.some((l) => !isFlag(l.field));
 
   return (
-    <Card>
+    <Card data-tour="review-person">
       <CardContent className="p-4 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
@@ -861,7 +862,7 @@ function LineRow({
       </div>
 
       {/* Decision controls */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1 shrink-0" data-tour={flag ? undefined : "review-decide"}>
         {!flag && (
           <>
             <DecisionButton

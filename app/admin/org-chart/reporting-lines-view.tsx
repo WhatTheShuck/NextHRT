@@ -94,7 +94,7 @@ export function ReportingLinesView({ search }: { search: string }) {
 
   if (model.roots.length === 0) {
     return (
-      <Card>
+      <Card data-tour="org-lines-empty">
         <CardContent className="p-6 text-sm text-muted-foreground space-y-2">
           <p>No reporting lines yet.</p>
           <p>
@@ -113,7 +113,7 @@ export function ReportingLinesView({ search }: { search: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground" data-tour="org-lines-legend">
         <span className="flex items-center gap-1.5">
           <Share2 className="h-3.5 w-3.5 text-violet-500" /> Delegated access (acts at another manager&apos;s level; no effect
           until line-manager authority is switched on)
@@ -123,7 +123,7 @@ export function ReportingLinesView({ search }: { search: string }) {
         </span>
       </div>
 
-      <Card>
+      <Card data-tour="org-lines-tree">
         <CardContent className="p-4">
           {model.roots.filter((r) => subtreeMatches(r)).map((root) => (
             <TreeNode key={root.id} employee={root} model={model} depth={0} subtreeMatches={subtreeMatches} forceOpen={!!q} path={new Set()} />
@@ -132,7 +132,7 @@ export function ReportingLinesView({ search }: { search: string }) {
       </Card>
 
       {looseShown.length > 0 && (
-        <Card className="border-amber-300 dark:border-amber-700">
+        <Card className="border-amber-300 dark:border-amber-700" data-tour="org-lines-unplaced">
           <CardContent className="p-4">
             <p className="font-semibold flex items-center gap-2 mb-1">
               <AlertTriangle className="h-4 w-4 text-amber-500" />

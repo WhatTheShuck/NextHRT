@@ -336,7 +336,7 @@ export function UserEmployeeMapping() {
             className="pl-8"
           />
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0" data-tour="mapping-unlinked-only">
           <Switch
             id="unlinked-only"
             checked={unlinkedOnly}
@@ -390,6 +390,7 @@ export function UserEmployeeMapping() {
                         size="sm"
                         onClick={() => handleMapUser(user)}
                         disabled={loading}
+                        data-tour="mapping-map"
                       >
                         <LinkIcon className="h-4 w-4 mr-1" />
                         Map

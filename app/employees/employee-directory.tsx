@@ -218,7 +218,7 @@ const EmployeeDirectory = () => {
             </CardDescription>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-tour="employees-active-only">
               <Switch
                 id="activeEmployees"
                 checked={showActiveOnly}
@@ -229,7 +229,7 @@ const EmployeeDirectory = () => {
             {isAdmin && (
               <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto" data-tour="employees-add">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Employee
                   </Button>
@@ -246,7 +246,7 @@ const EmployeeDirectory = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="relative mb-6">
+        <div className="relative mb-6" data-tour="employees-search">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, title, department, or location..."
@@ -256,7 +256,7 @@ const EmployeeDirectory = () => {
           />
         </div>
 
-        <div className="border rounded-md">
+        <div className="border rounded-md" data-tour="employees-table">
           <Table>
             <TableHeader>
               <TableRow>
@@ -393,6 +393,7 @@ const EmployeeDirectory = () => {
                     </TableCell>
                     <TableCell>
                       <span
+                        data-tour="employees-status"
                         className={`px-2 py-1 rounded-full text-xs ${
                           employee.isActive
                             ? "bg-green-100 text-green-800"

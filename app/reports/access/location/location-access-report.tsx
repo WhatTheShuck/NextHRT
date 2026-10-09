@@ -53,7 +53,7 @@ export function LocationAccessReport() {
 
   return (
     <>
-      <div className="mb-6">
+      <div className="mb-6" data-tour="report-picker">
         <LocationCombobox
           locations={locations}
           onSelect={handleSelect}

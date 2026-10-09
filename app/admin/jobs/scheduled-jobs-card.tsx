@@ -109,7 +109,7 @@ export function ScheduledJobsCard() {
   }
 
   return (
-    <Card>
+    <Card data-tour="jobs-scheduled">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5" />

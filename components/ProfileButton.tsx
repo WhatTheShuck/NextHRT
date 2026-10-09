@@ -39,7 +39,7 @@ export async function ProfileButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="rounded-full p-0 h-10 w-10">
+        <Button variant="ghost" className="rounded-full p-0 h-10 w-10" data-tour="profile-menu">
           <Avatar>
             <AvatarImage
               src={session.user.image || ""}

@@ -272,7 +272,7 @@ export function MySopsPageContent() {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8 space-y-6">
-      <div>
+      <div data-tour="my-sops-header">
         <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
           <BookOpenCheck className="h-6 w-6" />
           My SOPs
@@ -299,7 +299,7 @@ export function MySopsPageContent() {
       )}
 
       {notLinked && (
-        <Card>
+        <Card data-tour="my-sops-not-linked">
           <CardContent className="pt-6">
             <p className="text-muted-foreground">
               Your account isn&apos;t linked to an employee record — ask an
@@ -310,7 +310,7 @@ export function MySopsPageContent() {
       )}
 
       {!loading && !error && !notLinked && rows.length === 0 && (
-        <Card>
+        <Card data-tour="my-sops-empty">
           <CardContent className="pt-6">
             <p className="text-muted-foreground">
               No SOPs are required for your department and location.
@@ -320,15 +320,15 @@ export function MySopsPageContent() {
       )}
 
       {!loading && !error && !notLinked && rows.length > 0 && (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-md border overflow-x-auto" data-tour="my-sops-table">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>SOP</TableHead>
-                <TableHead>Task Sheet</TableHead>
-                <TableHead>Practical</TableHead>
-                <TableHead>Assessment</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead data-tour="my-sops-task-sheet">Task Sheet</TableHead>
+                <TableHead data-tour="my-sops-practical">Practical</TableHead>
+                <TableHead data-tour="my-sops-assessment">Assessment</TableHead>
+                <TableHead className="text-right" data-tour="my-sops-action">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

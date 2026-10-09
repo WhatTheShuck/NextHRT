@@ -68,7 +68,7 @@ export function WelcomeCard({
   ];
 
   return (
-    <Card className="border-primary/40 bg-primary/5">
+    <Card className="border-primary/40 bg-primary/5" data-tour="welcome-card">
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1">
           <CardTitle className="flex items-center gap-2 text-xl">

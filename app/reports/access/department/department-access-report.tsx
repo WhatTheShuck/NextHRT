@@ -53,7 +53,7 @@ export function DepartmentAccessReport() {
 
   return (
     <>
-      <div className="mb-6">
+      <div className="mb-6" data-tour="report-picker">
         <DepartmentCombobox
           departments={departments}
           onSelect={handleSelect}

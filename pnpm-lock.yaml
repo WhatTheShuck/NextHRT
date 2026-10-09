@@ -112,6 +112,9 @@ importers:
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
+      driver.js:
+        specifier: 1.8.0
+        version: 1.8.0
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
@@ -2830,6 +2833,9 @@ packages:
     resolution: {integrity: sha512-aBrGvt6KhjxbEnatqMWOMidftwsrCiCvqh1yNIGB9QyF0J+VcWkKDMsvYOEm7ZS82oiV+BT1sTOtIlAmUlTpwQ==}
     engines: {node: '>=12'}
     hasBin: true
+
+  driver.js@1.8.0:
+    resolution: {integrity: sha512-+8/IO7h1v14IzWh2GP60N7T3PFZweXwdn5e5POuxRSBoCYUojsBxzqawPeXh3YZIibRy7EehYNEyxe7slwwtdg==}
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -7253,6 +7259,8 @@ snapshots:
   dotenv@17.4.2: {}
 
   dotenv@18.0.5: {}
+
+  driver.js@1.8.0: {}
 
   dunder-proto@1.0.1:
     dependencies:

@@ -72,7 +72,7 @@ export function HistoryArchivalCard() {
   }
 
   return (
-    <Card>
+    <Card data-tour="jobs-archival">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Archive className="h-5 w-5" />
