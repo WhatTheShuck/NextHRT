@@ -13,6 +13,10 @@ const { mockPrisma, mockEnqueue } = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 vi.mock("@/lib/jobs/jobQueue", () => ({ enqueue: mockEnqueue }));
+const { cancelOpenForEmployees } = vi.hoisted(() => ({ cancelOpenForEmployees: vi.fn() }));
+vi.mock("@/lib/services/documentSubmissionService", () => ({
+  documentSubmissionService: { cancelOpenForEmployees },
+}));
 
 import { inactiveEmployeeCheckHandler } from "@/lib/jobs/handlers/inactiveEmployeeCheck";
 
@@ -66,5 +70,14 @@ describe("inactiveEmployeeCheckHandler", () => {
     expect(result).toEqual({ deactivated: 0 });
     expect(mockPrisma.employee.updateMany).not.toHaveBeenCalled();
     expect(mockEnqueue).not.toHaveBeenCalled();
+  });
+
+  it("cancels open document submissions for everyone it deactivates", async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([{ id: 3 }, { id: 4 }]);
+    mockPrisma.employee.updateMany.mockResolvedValue({ count: 2 });
+
+    await inactiveEmployeeCheckHandler({});
+
+    expect(cancelOpenForEmployees).toHaveBeenCalledWith([3, 4]);
   });
 });

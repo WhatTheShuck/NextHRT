@@ -6,6 +6,7 @@ import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { auth } from "../auth";
 import { deriveEmploymentType, serializePriorStint } from "@/lib/employment";
 import { enqueue } from "@/lib/jobs/jobQueue";
+import { documentSubmissionService } from "./documentSubmissionService";
 import {
   duplicateSuggestions,
   findNameMatches,
@@ -351,6 +352,9 @@ export class EmployeeService {
     // old dept/location) survive — the nightly rebuild filters `isActive: true` —
     // and are still there, stale, if they are ever rehired.
     await enqueueRequirementsCacheInvalidate(employeeId);
+    // Open uploads for someone who has left can never be approved (approve rejects inactive
+    // employees); close them so they leave the review queue.
+    await documentSubmissionService.cancelOpenForEmployees([employeeId]);
   }
 
   async updateEmployeePartial(

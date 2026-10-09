@@ -13,6 +13,10 @@ vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 vi.mock("@/lib/auth", () => ({ auth: { api: { userHasPermission: vi.fn() } } }));
 vi.mock("@/lib/apiRBAC", () => ({ getChildDepartmentIds: vi.fn() }));
 vi.mock("@/lib/jobs/jobQueue", () => ({ enqueue: mockEnqueue }));
+const { cancelOpenForEmployees } = vi.hoisted(() => ({ cancelOpenForEmployees: vi.fn() }));
+vi.mock("@/lib/services/documentSubmissionService", () => ({
+  documentSubmissionService: { cancelOpenForEmployees },
+}));
 
 import { employeeService } from "@/lib/services/employeeService";
 
@@ -302,6 +306,7 @@ describe("requirements cache invalidation", () => {
     expect(mockEnqueue).toHaveBeenCalledWith("REQUIREMENTS_CACHE_INVALIDATE", {
       employeeId: 5,
     });
+    expect(cancelOpenForEmployees).toHaveBeenCalledWith([5]);
   });
 
   it("enqueues nothing when an update leaves the employee active", async () => {
@@ -313,5 +318,6 @@ describe("requirements cache invalidation", () => {
     await employeeService.updateEmployeePartial(5, { title: "Leading Hand" }, "user1");
 
     expect(mockEnqueue).not.toHaveBeenCalled();
+    expect(cancelOpenForEmployees).not.toHaveBeenCalled();
   });
 });

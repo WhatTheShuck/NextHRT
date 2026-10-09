@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { enqueue } from "@/lib/jobs/jobQueue";
+import { documentSubmissionService } from "@/lib/services/documentSubmissionService";
 
 export async function inactiveEmployeeCheckHandler(
   _payload: Record<string, unknown>,
@@ -24,6 +25,7 @@ export async function inactiveEmployeeCheckHandler(
     where: { id: { in: exiting.map((e) => e.id) } },
     data: { isActive: false },
   });
+  await documentSubmissionService.cancelOpenForEmployees(exiting.map((e) => e.id));
 
   for (const employee of exiting) {
     await enqueue("ASSET_CHECKIN", { employeeId: employee.id });
