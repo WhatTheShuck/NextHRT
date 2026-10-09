@@ -82,9 +82,18 @@ describe("buildSwitchoverReport", () => {
 
   it("recognises grants that have already been migrated", () => {
     const r = report(tree, [{ userId: "rod", employeeId: 7, departmentIds: [20] }], [
-      { granteeEmployeeId: 7, scopeManagerEmployeeId: 3, departmentId: 20 },
+      { granteeEmployeeId: 7, scopeManagerEmployeeId: 3, departmentId: 20, jobFamilyId: null, level: "Act" },
     ] as never);
     expect(r.grants[0].outcome).toBe("migrated");
+  });
+
+  it("doesn't count a View or job-family grant as migrated: neither keeps what a department grant gives", () => {
+    for (const g of [
+      { granteeEmployeeId: 7, scopeManagerEmployeeId: 3, departmentId: 20, jobFamilyId: null, level: "View" },
+      { granteeEmployeeId: 7, scopeManagerEmployeeId: 3, departmentId: 20, jobFamilyId: 5, level: "Act" },
+    ]) {
+      expect(report(tree, [{ userId: "rod", employeeId: 7, departmentIds: [20] }], [g] as never).grants[0].outcome).toBe("needsGrant");
+    }
   });
 
   it("blocks when someone in the department has no reporting line", () => {

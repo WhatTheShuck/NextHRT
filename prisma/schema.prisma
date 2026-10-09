@@ -97,6 +97,7 @@ model JobFamily {
   prefillMarketingInduction Boolean?
   employees                Employee[]
   onboardingRequests       OnboardingRequest[]
+  delegatedAccessGrants    DelegatedAccess[]
 }
 
 // Pre-employment medical standards — managed table, NOT a Prisma enum (§6.6).
@@ -853,8 +854,8 @@ model Apikey {
 // ─── Workday org import & delegated access (docs/workday-org-import-spec.md) ───
 
 // "Grantee acts at the level of scopeManager": scopeManager's sub-tree minus the grantee,
-// optionally narrowed to one exact department. Stored and shown in Phase 1; drives
-// authority from Phase 2.
+// optionally narrowed to one exact department and/or job family. A View grant only adds to
+// what the grantee can see. Stored and shown in Phase 1; drives authority from Phase 2.
 model DelegatedAccess {
   id                     Int         @id @default(autoincrement())
   granteeEmployeeId      Int
@@ -863,12 +864,15 @@ model DelegatedAccess {
   scopeManager           Employee    @relation("DelegateScopeManager", fields: [scopeManagerEmployeeId], references: [id], onDelete: Cascade)
   departmentId           Int? // optional exact-department filter (children not included)
   department             Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade) // never SetNull: that would silently widen the grant
+  jobFamilyId            Int? // optional job-family filter, combined with the department filter when both are set
+  jobFamily              JobFamily?  @relation(fields: [jobFamilyId], references: [id], onDelete: Cascade) // never SetNull, as above
+  level                  String      @default("Act") // Act: sees, approves and gets expiry emails as the manager | View: sees only
   source                 String // Manual | WorkdayStructural | WorkdayTitle | MigratedDeptGrant
   createdByUserId        String?
   createdAt              DateTime    @default(now())
 
   // NULLs are distinct in SQLite, so unfiltered duplicates are checked in createGrantInTx.
-  @@unique([granteeEmployeeId, scopeManagerEmployeeId, departmentId])
+  @@unique([granteeEmployeeId, scopeManagerEmployeeId, departmentId, jobFamilyId])
   @@index([scopeManagerEmployeeId])
 }
 

@@ -14,40 +14,52 @@ export interface OrgGraph {
   children: Map<number, number[]>;
   /** employeeId → departmentId (active). */
   departmentOf: Map<number, number>;
+  /** employeeId → jobFamilyId (active; null when unset). */
+  jobFamilyOf: Map<number, number | null>;
 }
+
+/** Act: sees the scope, approves and gets expiry emails as the scope manager. View: sees only. */
+export type GrantLevel = "Act" | "View";
 
 export interface Grant {
   granteeEmployeeId: number;
   scopeManagerEmployeeId: number;
   departmentId: number | null;
+  jobFamilyId: number | null;
+  level: GrantLevel;
 }
 
-export function buildOrgGraph(employees: { id: number; reportsToId: number | null; departmentId: number }[]): OrgGraph {
+export function buildOrgGraph(
+  employees: { id: number; reportsToId: number | null; departmentId: number; jobFamilyId?: number | null }[],
+): OrgGraph {
   const active = new Set(employees.map((e) => e.id));
   const managers = new Map<number, number | null>();
   const children = new Map<number, number[]>();
   const departmentOf = new Map<number, number>();
+  const jobFamilyOf = new Map<number, number | null>();
   for (const e of employees) {
     const manager = e.reportsToId !== null && active.has(e.reportsToId) && e.reportsToId !== e.id ? e.reportsToId : null;
     managers.set(e.id, manager);
     departmentOf.set(e.id, e.departmentId);
+    jobFamilyOf.set(e.id, e.jobFamilyId ?? null);
     if (manager !== null) children.set(manager, [...(children.get(manager) ?? []), e.id]);
   }
-  return { managers, children, departmentOf };
+  return { managers, children, departmentOf, jobFamilyOf };
 }
 
-/** Who a grant covers: the scope manager's sub-tree (∩ the exact department), minus the grantee (§8.1). */
-export function delegatedScope(grant: Grant, graph: OrgGraph): Set<number> {
+/** Who a grant covers: the scope manager's sub-tree (∩ the exact department, ∩ the job family), minus the grantee (§8.1). */
+export function delegatedScope(grant: Pick<Grant, "granteeEmployeeId" | "scopeManagerEmployeeId" | "departmentId" | "jobFamilyId">, graph: OrgGraph): Set<number> {
   const out = new Set<number>();
   for (const id of descendants(grant.scopeManagerEmployeeId, graph.children)) {
     if (id === grant.granteeEmployeeId) continue;
     if (grant.departmentId !== null && graph.departmentOf.get(id) !== grant.departmentId) continue;
+    if (grant.jobFamilyId !== null && graph.jobFamilyOf.get(id) !== grant.jobFamilyId) continue;
     out.add(id);
   }
   return out;
 }
 
-/** Everyone an employee can see and manage: their whole sub-tree plus their delegated scopes (§9.1). */
+/** Everyone an employee can see: their whole sub-tree plus their delegated scopes, Act and View (§9.1). */
 export function lineScope(employeeId: number, graph: OrgGraph, grants: Grant[]): Set<number> {
   const scope = descendants(employeeId, graph.children);
   for (const g of grants) {
@@ -61,7 +73,7 @@ export function lineScope(employeeId: number, graph: OrgGraph, grants: Grant[]):
 /**
  * Whose stage-1 requests an employee may decide (§9.2): their direct reports and those
  * reports' reports (they're the one-up manager), plus the same for every manager they act for
- * through a grant, within that grant's scope. Value = the manager acted for, or null when it's
+ * through an Act grant, within that grant's scope. Value = the manager acted for, or null when it's
  * the actor's own line. Never includes the actor.
  */
 export function approvableBy(actorEmployeeId: number, graph: OrgGraph, grants: Grant[]): Map<number, number | null> {
@@ -74,7 +86,7 @@ export function approvableBy(actorEmployeeId: number, graph: OrgGraph, grants: G
   for (const id of twoLevels(actorEmployeeId)) if (id !== actorEmployeeId) out.set(id, null);
 
   for (const g of grants) {
-    if (g.granteeEmployeeId !== actorEmployeeId) continue;
+    if (g.granteeEmployeeId !== actorEmployeeId || g.level !== "Act") continue;
     const scope = delegatedScope(g, graph);
     for (const id of twoLevels(g.scopeManagerEmployeeId)) {
       if (id === actorEmployeeId || out.has(id) || !scope.has(id)) continue;
@@ -105,7 +117,7 @@ export function approversFor(requesterEmployeeId: number, graph: OrgGraph, grant
   for (const actingFor of [manager, oneUp]) {
     if (actingFor === null) continue;
     for (const g of grants) {
-      if (g.scopeManagerEmployeeId !== actingFor || g.granteeEmployeeId === requesterEmployeeId) continue;
+      if (g.level !== "Act" || g.scopeManagerEmployeeId !== actingFor || g.granteeEmployeeId === requesterEmployeeId) continue;
       if (seen.has(g.granteeEmployeeId) || !delegatedScope(g, graph).has(requesterEmployeeId)) continue;
       seen.add(g.granteeEmployeeId);
       out.push({ employeeId: g.granteeEmployeeId, actingFor, relation: "delegate" });
@@ -135,4 +147,16 @@ export function effectiveRole(baseRole: string | null | undefined, mode: Authori
   if (!hasScope) return base === "DepartmentManager" ? "User" : base; // department grants no longer give authority
   if (base === "FireWarden") return "FireWarden,DepartmentManager";
   return "DepartmentManager";
+}
+
+/** One line describing a grant, e.g. "Sees Peter Thomas's team, Storeperson only". */
+export function describeGrant(g: {
+  level: GrantLevel;
+  scopeName: string;
+  departmentName?: string | null;
+  jobFamilyName?: string | null;
+}): string {
+  const head = g.level === "View" ? `Sees ${g.scopeName}'s team` : `Acts at ${g.scopeName}'s level`;
+  const filters = [g.departmentName, g.jobFamilyName].filter(Boolean);
+  return filters.length > 0 ? `${head}, ${filters.join(" / ")} only` : head;
 }

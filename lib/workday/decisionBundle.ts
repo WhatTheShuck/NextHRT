@@ -24,6 +24,8 @@ export const decisionBundleSchema = z.object({
   /** Every employee and department in the source, so the target can prove it's the same HRT. */
   employees: z.record(z.string(), z.string()),
   departments: z.record(z.string(), z.string()),
+  /** Job family names by id. Matched by name on replay, since cleanup scripts create them per copy (absent in older exports). */
+  jobFamilies: z.record(z.string(), z.string()).optional(),
   links: z.array(z.object({ workdayNameKey: z.string(), workdayName: z.string(), employeeId: z.number().int().nullable() })),
   ignoreRules: z.array(
     z.object({
@@ -39,6 +41,9 @@ export const decisionBundleSchema = z.object({
       granteeEmployeeId: z.number().int(),
       scopeManagerEmployeeId: z.number().int(),
       departmentId: z.number().int().nullable(),
+      /** Absent in older exports: those grants are unfiltered by job family and Act. */
+      jobFamilyId: z.number().int().nullable().optional(),
+      level: z.enum(["Act", "View"]).optional(),
       source: z.string(),
     }),
   ),

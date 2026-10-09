@@ -15,7 +15,7 @@ import {
   type SuggestEmployee,
 } from "@/lib/workday/suggestions";
 import { normaliseText, rowLinkKeys, type TreeProblem, type WorkdayRow } from "@/lib/workday/types";
-import { buildOrgGraph, delegatedScope, type AuthorityMode } from "@/lib/org/authority";
+import { buildOrgGraph, delegatedScope, describeGrant, type AuthorityMode, type GrantLevel } from "@/lib/org/authority";
 import { getAuthorityMode } from "./authorityService";
 import { requirementService } from "./requirementService";
 import { validateTree } from "@/lib/workday/parseOrgChart";
@@ -253,7 +253,7 @@ class WorkdayImportService {
   }
 
   private async computeLines(rows: WorkdayRow[], options: { impact: boolean }) {
-    const [employees, departments, links, ignoreRules, existingGrants, onboarding, deptManagers, authorityMode] = await Promise.all([
+    const [employees, departments, links, ignoreRules, existingGrants, onboarding, deptManagers, authorityMode, jobFamilies] = await Promise.all([
       prisma.employee.findMany({
         select: {
           id: true,
@@ -266,6 +266,7 @@ class WorkdayImportService {
           status: true,
           startDate: true,
           departmentId: true,
+          jobFamilyId: true,
           locationId: true,
           reportsToId: true,
           location: { select: { name: true } },
@@ -276,7 +277,7 @@ class WorkdayImportService {
       prisma.workdayLink.findMany({ select: { workdayNameKey: true, employeeId: true } }),
       prisma.workdayIgnoreRule.findMany({ select: { subjectKey: true, field: true, value: true } }),
       prisma.delegatedAccess.findMany({
-        select: { id: true, granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true },
+        select: { id: true, granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true, jobFamilyId: true, level: true },
       }),
       prisma.onboardingRequest.findMany({
         where: { status: "Approved", createdEmployeeId: { not: null }, managerEmployeeId: { not: null } },
@@ -288,6 +289,7 @@ class WorkdayImportService {
         select: { employeeId: true, managedDepartments: { select: { id: true } } },
       }),
       getAuthorityMode(),
+      prisma.jobFamily.findMany({ select: { id: true, name: true } }),
     ]);
 
     const suggestEmployees: SuggestEmployee[] = employees.map((e) => ({
@@ -311,6 +313,7 @@ class WorkdayImportService {
       departments,
       ignoreRules,
       existingGrants,
+      jobFamilies: new Map(jobFamilies.map((j) => [j.id, j.name])),
       onboardingManagers,
       departmentManagers,
       lineManagerAuthority: authorityMode === "lineManager",
@@ -354,7 +357,7 @@ class WorkdayImportService {
    */
   private async withDepartmentImpact(
     lines: Line[],
-    employees: { id: number; departmentId: number; reportsToId: number | null; isActive: boolean }[],
+    employees: { id: number; departmentId: number; jobFamilyId: number | null; reportsToId: number | null; isActive: boolean }[],
     departments: { id: number; name: string; parentDepartmentId: number | null }[],
     mode: AuthorityMode,
   ): Promise<ImportLine[]> {
@@ -455,12 +458,12 @@ class WorkdayImportService {
   }
 
   /** Line-manager mode: only grants limited to a department change with someone's department (§8.1). */
-  private async lineManagerImpact(employees: { id: number; departmentId: number; reportsToId: number | null; isActive: boolean }[]) {
+  private async lineManagerImpact(employees: { id: number; departmentId: number; jobFamilyId: number | null; reportsToId: number | null; isActive: boolean }[]) {
     const active = employees.filter((e) => e.isActive);
     const [grants, names] = await Promise.all([
       prisma.delegatedAccess.findMany({
         where: { departmentId: { not: null }, grantee: { isActive: true }, scopeManager: { isActive: true } },
-        select: { granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true },
+        select: { granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true, jobFamilyId: true },
       }),
       prisma.employee.findMany({
         select: { id: true, legalFirstName: true, legalLastName: true, preferredFirstName: true, preferredLastName: true },
@@ -477,7 +480,7 @@ class WorkdayImportService {
       const people = (ids: number[]) => ids.map((id) => nameOf.get(id) ?? `#${id}`).sort();
       return [
         {
-          label: "Delegated access limited to a department (acts with that manager's authority over them)",
+          label: "Delegated access limited to a department (sees them; an Act grant also approves and gets expiry emails)",
           gained: people([...after].filter((id) => !before.has(id))),
           lost: people([...before].filter((id) => !after.has(id))),
         },
@@ -712,6 +715,8 @@ class WorkdayImportService {
             granteeEmployeeId: change.granteeEmployeeId,
             scopeManagerEmployeeId: change.scopeManagerEmployeeId,
             departmentId: change.departmentId,
+            jobFamilyId: null,
+            level: change.level,
             source: change.source,
             createdByUserId: userId,
           });
@@ -725,9 +730,11 @@ class WorkdayImportService {
               employeeName: nameOf(change.granteeEmployeeId) ?? "",
               departmentFilter: filter,
               from: null,
-              to: change.departmentId === null
-                ? `Acts at ${scope}'s level`
-                : `Acts at ${scope}'s level, ${deptName.get(change.departmentId) ?? "one department"} only`,
+              to: describeGrant({
+                level: change.level,
+                scopeName: scope ?? `#${change.scopeManagerEmployeeId}`,
+                departmentName: change.departmentId === null ? null : (deptName.get(change.departmentId) ?? "one department"),
+              }),
             });
           } else {
             stale.push(line.id); // an identical grant already exists (e.g. the edited filter)
@@ -905,9 +912,10 @@ class WorkdayImportService {
 
   /** Everything the review produced, for replaying on another copy (e.g. snapshot → prod). */
   async exportDecisions(): Promise<DecisionBundle> {
-    const [employees, departments, links, rules, grants, imports] = await Promise.all([
+    const [employees, departments, jobFamilies, links, rules, grants, imports] = await Promise.all([
       prisma.employee.findMany({ select: { id: true, legalFirstName: true, legalLastName: true } }),
       prisma.department.findMany({ select: { id: true, name: true } }),
+      prisma.jobFamily.findMany({ select: { id: true, name: true } }),
       prisma.workdayLink.findMany({ orderBy: { confirmedAt: "asc" } }),
       prisma.workdayIgnoreRule.findMany({ orderBy: { createdAt: "asc" } }),
       prisma.delegatedAccess.findMany({ orderBy: { createdAt: "asc" } }),
@@ -920,6 +928,7 @@ class WorkdayImportService {
       exportedAt: new Date().toISOString(),
       employees: Object.fromEntries(employees.map((e) => [e.id, `${e.legalFirstName} ${e.legalLastName}`])),
       departments: Object.fromEntries(departments.map((d) => [d.id, d.name])),
+      jobFamilies: Object.fromEntries(jobFamilies.map((j) => [j.id, j.name])),
       links: links.map((l) => ({ workdayNameKey: l.workdayNameKey, workdayName: l.workdayName, employeeId: l.employeeId })),
       ignoreRules: rules.map((r) => ({
         subjectKey: r.subjectKey,
@@ -932,6 +941,8 @@ class WorkdayImportService {
         granteeEmployeeId: g.granteeEmployeeId,
         scopeManagerEmployeeId: g.scopeManagerEmployeeId,
         departmentId: g.departmentId,
+        jobFamilyId: g.jobFamilyId,
+        level: g.level === "Act" ? ("Act" as const) : ("View" as const),
         source: g.source,
       })),
       sessions: imports
@@ -1022,9 +1033,22 @@ class WorkdayImportService {
     }
 
     // Grants made outside the import (switch-over page) and any the runs didn't recreate.
+    const jobFamilyByName = new Map(
+      (await prisma.jobFamily.findMany({ select: { id: true, name: true } })).map((j) => [normaliseText(j.name), j.id]),
+    );
     await prisma.$transaction(async (tx) => {
       for (const g of bundle.grants) {
-        const created = await createGrantInTx(tx, { ...g, createdByUserId: userId });
+        let jobFamilyId: number | null = null;
+        if (g.jobFamilyId != null) {
+          const name = bundle.jobFamilies?.[g.jobFamilyId];
+          const target = name !== undefined ? jobFamilyByName.get(normaliseText(name)) : undefined;
+          if (target === undefined) {
+            report.grantsSkipped++; // never widen a grant by dropping a filter it can't map
+            continue;
+          }
+          jobFamilyId = target;
+        }
+        const created = await createGrantInTx(tx, { ...g, jobFamilyId, level: g.level ?? "Act", createdByUserId: userId });
         if (created) report.grantsCreated++;
         else report.grantsSkipped++;
       }
@@ -1035,8 +1059,9 @@ class WorkdayImportService {
 }
 
 /**
- * Create a delegated-access grant inside a transaction, writing History. Returns null when an
- * identical grant already exists (NULL departmentIds aren't unique in SQLite, so check first).
+ * Create a delegated-access grant inside a transaction, writing History. Returns null when a
+ * grant with the same scope and filters already exists, whatever its level (NULL filters
+ * aren't unique in SQLite, so check first).
  */
 export async function createGrantInTx(
   tx: Prisma.TransactionClient,
@@ -1044,6 +1069,8 @@ export async function createGrantInTx(
     granteeEmployeeId: number;
     scopeManagerEmployeeId: number;
     departmentId: number | null;
+    jobFamilyId?: number | null;
+    level?: GrantLevel;
     source: string;
     createdByUserId: string;
   },
@@ -1053,6 +1080,7 @@ export async function createGrantInTx(
       granteeEmployeeId: grant.granteeEmployeeId,
       scopeManagerEmployeeId: grant.scopeManagerEmployeeId,
       departmentId: grant.departmentId,
+      jobFamilyId: grant.jobFamilyId ?? null,
     },
   });
   if (existing) return null;

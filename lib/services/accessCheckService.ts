@@ -7,14 +7,14 @@ import { getAuthorityMode, loadOrg } from "./authorityService";
 type AccessorUser = { id: string; name: string | null; email: string | null; role: UserRole | null };
 
 /** employeeId → users who can see them through a reporting line or delegated access. */
-type LineAccess = Map<number, { user: AccessorUser; reason: "LineManager" | "Delegate" }[]>;
+type LineAccess = Map<number, { user: AccessorUser; reason: "LineManager" | "Delegate" | "Viewer" }[]>;
 
 export interface AccessorInfo {
   userId: string;
   name: string | null;
   email: string | null;
   role: string | null;
-  accessReason: "Admin" | "DepartmentManager" | "LineManager" | "Delegate" | "Self";
+  accessReason: "Admin" | "DepartmentManager" | "LineManager" | "Delegate" | "Viewer" | "Self";
 }
 
 export interface EmployeeAccessInfo {
@@ -190,14 +190,17 @@ class AccessCheckService {
       }),
     ]);
     const access: LineAccess = new Map();
-    const add = (employeeId: number, user: AccessorUser, reason: "LineManager" | "Delegate") =>
+    const add = (employeeId: number, user: AccessorUser, reason: "LineManager" | "Delegate" | "Viewer") =>
       access.set(employeeId, [...(access.get(employeeId) ?? []), { user, reason }]);
     for (const u of users) {
       const below = descendants(u.employeeId!, graph.children);
       below.forEach((id) => add(id, u, "LineManager"));
-      for (const g of grants.filter((g) => g.granteeEmployeeId === u.employeeId)) {
-        delegatedScope(g, graph).forEach((id) => !below.has(id) && add(id, u, "Delegate"));
-      }
+      // An Act grant outranks a View grant over the same person.
+      const mine = grants.filter((g) => g.granteeEmployeeId === u.employeeId);
+      const acts = new Set(mine.filter((g) => g.level === "Act").flatMap((g) => [...delegatedScope(g, graph)]));
+      const views = new Set(mine.filter((g) => g.level === "View").flatMap((g) => [...delegatedScope(g, graph)]));
+      acts.forEach((id) => !below.has(id) && add(id, u, "Delegate"));
+      views.forEach((id) => !below.has(id) && !acts.has(id) && add(id, u, "Viewer"));
     }
     return access;
   }

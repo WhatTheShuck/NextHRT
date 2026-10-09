@@ -38,6 +38,7 @@ import {
   FolderInput,
   FileSpreadsheet,
   Network,
+  Share2,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -528,6 +529,12 @@ export function OrgChartPageContent() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/org-chart/access">
+                <Share2 className="h-4 w-4 mr-2" />
+                Delegated access
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link href="/admin/org-chart/switchover">
                 <ShieldAlert className="h-4 w-4 mr-2" />

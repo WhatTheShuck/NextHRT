@@ -34,7 +34,13 @@ export interface SwitchoverInput {
   employees: SwitchoverEmployee[];
   departments: SwitchoverDepartment[];
   departmentGrants: DepartmentGrant[];
-  delegatedGrants: { granteeEmployeeId: number; scopeManagerEmployeeId: number; departmentId: number | null }[];
+  delegatedGrants: {
+    granteeEmployeeId: number;
+    scopeManagerEmployeeId: number;
+    departmentId: number | null;
+    jobFamilyId: number | null;
+    level: string;
+  }[];
 }
 
 export interface SuggestedGrant {
@@ -123,9 +129,10 @@ export function buildSwitchoverReport(input: SwitchoverInput): SwitchoverReport 
   for (const d of input.departments) {
     if (d.parentDepartmentId !== null) childDepts.set(d.parentDepartmentId, [...(childDepts.get(d.parentDepartmentId) ?? []), d.id]);
   }
+  // Only an Act grant on the whole department keeps what a department-manager grant gives today.
   const existing = new Set(
     input.delegatedGrants
-      .filter((g) => g.departmentId !== null)
+      .filter((g) => g.departmentId !== null && g.jobFamilyId === null && g.level === "Act")
       .map((g) => grantKey(g.granteeEmployeeId, g.scopeManagerEmployeeId, g.departmentId!)),
   );
   const allEmployees = new Map(input.employees.map((e) => [e.id, e]));

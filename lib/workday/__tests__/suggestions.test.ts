@@ -250,7 +250,7 @@ describe("buildSuggestions: delegated access", () => {
   it("suggests a coordinator act at the level of the peer who has reports (Signal A)", () => {
     const lines = fields(buildSuggestions(input(rows, employees, link)).lines, "delegatedAccess");
     expect(lines.map((l) => l.change)).toEqual([
-      { kind: "delegatedAccess", granteeEmployeeId: 5, scopeManagerEmployeeId: 4, departmentId: null, source: "WorkdayStructural" },
+      { kind: "delegatedAccess", granteeEmployeeId: 5, scopeManagerEmployeeId: 4, departmentId: null, level: "Act", source: "WorkdayStructural" },
     ]);
   });
 
@@ -259,9 +259,14 @@ describe("buildSuggestions: delegated access", () => {
     const asAdmin = employees.map((e) => (e.id === 5 ? { ...e, userRole: "Admin" } : e));
     expect(fields(buildSuggestions(input(rows, asAdmin, link)).lines, "delegatedAccess")).toEqual([]);
     const granted = input(rows, employees, link, {
-      existingGrants: [{ id: 1, granteeEmployeeId: 5, scopeManagerEmployeeId: 4, departmentId: null }],
+      existingGrants: [{ id: 1, granteeEmployeeId: 5, scopeManagerEmployeeId: 4, departmentId: null, jobFamilyId: null, level: "Act" }],
     });
     expect(fields(buildSuggestions(granted).lines, "delegatedAccess")).toEqual([]);
+    // Any grant on that manager's team counts, even with other filters or level: it's been decided.
+    const narrowed = input(rows, employees, link, {
+      existingGrants: [{ id: 1, granteeEmployeeId: 5, scopeManagerEmployeeId: 4, departmentId: 3, jobFamilyId: 2, level: "View" }],
+    });
+    expect(fields(buildSuggestions(narrowed).lines, "delegatedAccess")).toEqual([]);
   });
 
   it("suggests an oversight title in a flat team, limited to their department (Signal B)", () => {
@@ -277,8 +282,10 @@ describe("buildSuggestions: delegated access", () => {
 
     const lines = fields(buildSuggestions(input(flat, people, flatLink)).lines, "delegatedAccess");
     expect(lines.map((l) => l.change)).toEqual([
-      { kind: "delegatedAccess", granteeEmployeeId: 10, scopeManagerEmployeeId: 3, departmentId: 4, source: "WorkdayTitle" },
+      { kind: "delegatedAccess", granteeEmployeeId: 10, scopeManagerEmployeeId: 3, departmentId: 4, level: "View", source: "WorkdayTitle" },
     ]);
+    // A leading hand sees the team; they don't approve for the manager.
+    expect(lines[0].proposed).toMatch(/^Sees Peter Thomas's team/);
     // The filter can be changed on the line (§8.2); Signal A grants have none to change.
     expect(lines[0].departmentEditable).toBe(true);
     expect(lines[0].notes[0].text).toMatch(/only grants access once/);
@@ -384,7 +391,7 @@ describe("buildSuggestions: delegated access left behind", () => {
     emp(5, "Craig Whelan", { reportsToId: 3 }),
   ];
   const link = { ma: 1, sa: 3, ca: 4, t1: 5 };
-  const grant: SuggestInput["existingGrants"][number] = { id: 9, granteeEmployeeId: 4, scopeManagerEmployeeId: 2, departmentId: null };
+  const grant: SuggestInput["existingGrants"][number] = { id: 9, granteeEmployeeId: 4, scopeManagerEmployeeId: 2, departmentId: null, jobFamilyId: null, level: "Act" };
   const stale = (employees: SuggestEmployee[], g = grant) =>
     fields(buildSuggestions(input(rows, employees, link, { existingGrants: [g] })).lines, "staleDelegatedAccess");
 

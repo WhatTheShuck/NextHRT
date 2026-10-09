@@ -1,5 +1,6 @@
 import { deriveEmploymentType } from "@/lib/employment";
 import { emailNamePart } from "@/lib/employee-email";
+import { describeGrant } from "@/lib/org/authority";
 import type { EmployeeStatus } from "@/generated/prisma_client/client";
 import type { MatchCandidate, MatchResult } from "./matching";
 import { normaliseNameKey, normaliseText, rowLinkKeys, type WorkdayRow } from "./types";
@@ -41,6 +42,8 @@ export type LineChange =
       granteeEmployeeId: number;
       scopeManagerEmployeeId: number;
       departmentId: number | null;
+      /** Structural (Signal A) grants act for the manager; title (Signal B) grants only see. */
+      level: "Act" | "View";
       source: "WorkdayStructural" | "WorkdayTitle";
     }
   | { kind: "removeDelegatedAccess"; grantId: number; granteeEmployeeId: number };
@@ -117,7 +120,11 @@ export interface SuggestInput {
     granteeEmployeeId: number;
     scopeManagerEmployeeId: number;
     departmentId: number | null;
+    jobFamilyId: number | null;
+    level: string;
   }[];
+  /** jobFamilyId → name, for describing existing grants. */
+  jobFamilies?: Map<number, string>;
   /** employeeId → the manager named on the onboarding request that created them (§7.10). */
   onboardingManagers: Map<number, number>;
   /** departmentId → employee ids of users who manage that department today (§7.10). */
@@ -447,28 +454,32 @@ export function buildSuggestions(input: SuggestInput): SuggestResult {
     const grantee = empById.get(g.granteeEmployeeId);
     if (!grantee) continue;
     const scopeName = nameOf(empById, g.scopeManagerEmployeeId);
+    const grantText = describeGrant({
+      level: g.level === "Act" ? "Act" : "View",
+      scopeName,
+      departmentName: g.departmentId === null ? null : (deptName.get(g.departmentId) ?? "one department"),
+      jobFamilyName: g.jobFamilyId === null ? null : (input.jobFamilies?.get(g.jobFamilyId) ?? "one job family"),
+    });
     let reason: string | null = null;
     if (gone(g.granteeEmployeeId)) {
       reason = grantee.isActive
-        ? `${displayName(grantee)} isn't in this Workday export, but still acts at ${scopeName}'s level.`
-        : `${displayName(grantee)} is inactive, but still has a grant to act at ${scopeName}'s level.`;
+        ? `${displayName(grantee)} isn't in this Workday export, but still has a grant on ${scopeName}'s team.`
+        : `${displayName(grantee)} is inactive, but still has a grant on ${scopeName}'s team.`;
     } else if (gone(g.scopeManagerEmployeeId)) {
-      reason = `Acts at ${scopeName}'s level, but ${scopeName} has left. Remove it, and add a grant for whoever now runs that team (a suggestion appears below if one fits).`;
+      reason = `${grantText}, but ${scopeName} has left. Remove it, and add a grant for whoever now runs that team (a suggestion appears below if one fits).`;
     } else if (!activeReports.get(g.scopeManagerEmployeeId)) {
-      reason = `Acts at ${scopeName}'s level, but nobody reports to ${scopeName} any more, so it covers no one.`;
+      reason = `${grantText}, but nobody reports to ${scopeName} any more, so it covers no one.`;
     }
     if (!reason) continue;
     add({
       subjectKey: `emp:${grantee.id}`,
       field: "staleDelegatedAccess",
       // The grant's content, not its id: ids differ between copies of HRT (decision replay).
-      value: `${g.scopeManagerEmployeeId}:${g.departmentId ?? ""}`,
+      value: `${g.scopeManagerEmployeeId}:${g.departmentId ?? ""}${g.jobFamilyId === null ? "" : `:${g.jobFamilyId}`}`,
       employeeId: grantee.id,
       workdayUid: null,
       workdayName: null,
-      current: g.departmentId === null
-        ? `Acts at ${scopeName}'s level`
-        : `Acts at ${scopeName}'s level, ${deptName.get(g.departmentId) ?? "one department"} only`,
+      current: grantText,
       proposed: "Remove the grant",
       reason,
       change: { kind: "removeDelegatedAccess", grantId: g.id, granteeEmployeeId: grantee.id },
@@ -562,9 +573,9 @@ function delegatedAccessLines(
 ): Omit<Line, "id" | "employeeName">[] {
   const out: Omit<Line, "id" | "employeeName">[] = [];
   const roots = new Set(rows.filter((r) => r.managerUid === null).map((r) => r.uid));
-  const existing = new Set(
-    input.existingGrants.map((g) => `${g.granteeEmployeeId}:${g.scopeManagerEmployeeId}:${g.departmentId ?? ""}`),
-  );
+  // Any grant at that manager's level counts, whatever its filters or level: an admin has
+  // already decided how this person relates to that team.
+  const existing = new Set(input.existingGrants.map((g) => `${g.granteeEmployeeId}:${g.scopeManagerEmployeeId}`));
   const hasReports = (r: WorkdayRow) => (childrenByUid.get(r.uid)?.length ?? 0) > 0;
   const eligible = (e: SuggestEmployee | undefined): e is SuggestEmployee => !!e && e.isActive && e.userRole !== "Admin";
 
@@ -574,7 +585,8 @@ function delegatedAccessLines(
   /** `scopeRow` is the manager acted for; until it's linked the line is shown blocked (§7). */
   const push = (grantee: SuggestEmployee, row: WorkdayRow, scopeRow: WorkdayRow, departmentId: number | null, source: "WorkdayStructural" | "WorkdayTitle", reason: string) => {
     const scope = linkedEmp(scopeRow.uid);
-    if (scope && existing.has(`${grantee.id}:${scope.id}:${departmentId ?? ""}`)) return;
+    if (scope && existing.has(`${grantee.id}:${scope.id}`)) return;
+    const level = source === "WorkdayTitle" ? "View" : "Act";
     out.push({
       subjectKey: `emp:${grantee.id}`,
       field: "delegatedAccess",
@@ -583,15 +595,17 @@ function delegatedAccessLines(
       workdayUid: row.uid,
       workdayName: row.name,
       current: null,
-      proposed: departmentId === null
-        ? `Acts at ${scopeRow.name}'s level`
-        : `Acts at ${scopeRow.name}'s level, ${deptName.get(departmentId) ?? "their department"} only`,
+      proposed: describeGrant({
+        level,
+        scopeName: scopeRow.name,
+        departmentName: departmentId === null ? null : (deptName.get(departmentId) ?? "their department"),
+      }),
       reason,
       notes: [{ level: "info", text: note }],
       blocked: scope ? null : linkFirst(scopeRow),
       departmentEditable: scope && source === "WorkdayTitle" ? true : undefined,
       change: scope
-        ? { kind: "delegatedAccess", granteeEmployeeId: grantee.id, scopeManagerEmployeeId: scope.id, departmentId, source }
+        ? { kind: "delegatedAccess", granteeEmployeeId: grantee.id, scopeManagerEmployeeId: scope.id, departmentId, level, source }
         : undefined,
     });
   };
@@ -630,7 +644,7 @@ function delegatedAccessLines(
       }
     }
 
-    // Signal B: in a flat team of 5+, an oversight title acts at their own manager's level.
+    // Signal B: in a flat team of 5+, an oversight title (a leading hand) sees their own manager's team.
     if (peerManagers.length === 0 && team.length >= 5) {
       for (const leafRow of leaves) {
         const leaf = linkedEmp(leafRow.uid);

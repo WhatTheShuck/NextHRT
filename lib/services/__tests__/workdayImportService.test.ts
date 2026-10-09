@@ -5,6 +5,7 @@ const { mockPrisma } = vi.hoisted(() => {
     workdayImport: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     employee: { findMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
     department: { findMany: vi.fn() },
+    jobFamily: { findMany: vi.fn().mockResolvedValue([]) },
     workdayLink: { findMany: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn() },
     workdayIgnoreRule: { findMany: vi.fn(), upsert: vi.fn() },
     delegatedAccess: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },

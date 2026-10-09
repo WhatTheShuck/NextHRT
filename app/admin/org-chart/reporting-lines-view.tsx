@@ -23,6 +23,8 @@ interface Grant {
   granteeEmployeeId: number;
   scopeManagerEmployeeId: number;
   department: string | null;
+  jobFamily: string | null;
+  level: "Act" | "View";
   source: string;
 }
 
@@ -201,13 +203,13 @@ function TreeNode({
               <TooltipTrigger asChild>
                 <span className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2 py-0 text-[10px] text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300">
                   <Share2 className="h-3 w-3" />
-                  acts for {model.byId.get(g.scopeManagerEmployeeId)?.name ?? "a former manager"}
-                  {g.department && ` (${g.department})`}
+                  {g.level === "View" ? "sees" : "acts for"} {model.byId.get(g.scopeManagerEmployeeId)?.name ?? "a former manager"}
+                  {(g.department || g.jobFamily) && ` (${[g.department, g.jobFamily].filter(Boolean).join(" / ")})`}
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                Delegated access ({g.source === "Manual" ? "set by hand" : "from Workday import"}). Stored only; no effect until
-                line-manager authority is switched on.
+                {g.level === "View" ? "View-only" : "Acting"} delegated access ({g.source === "Manual" ? "set by hand" : "from Workday import"}).
+                No effect until line-manager authority is switched on.
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

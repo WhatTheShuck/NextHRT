@@ -334,12 +334,24 @@ people who oversee others without being their line manager.
 | Brody Wagner | Scott Hertrick | none | Scott's 5 service technicians |
 | Kerrod Ward | Peter Thomas | Operations | the workshop tradespeople on Peter's team |
 
-**DECIDED: a delegate has the same authority as the manager they act for**, within their
-scope. That covers viewing and managing records, approvals (§9.2) and expiry notifications
-(§9.3). There is no per-grant approval switch.
+**DECIDED (revised 2026-10-09): each grant has a level.** An **Act** grant has the same
+authority as the manager it acts for, within its scope: viewing records, approvals (§9.2)
+and expiry notifications (§9.3). A **View** grant only adds the scope to what the grantee can
+see (the whole read-only record). It is left out of approvals and expiry emails. Leading hands
+(Zane Mair over stores, Kerrod Ward over the workshop, Nathan Dale over purchasing) hold View
+grants: they need to see their people, not approve for them. Title-based suggestions (§8.2
+Signal B) are created as View; structural ones (Signal A) as Act.
 
-**DECIDED: the only way to narrow a grant is a department filter** (team ∩ department), as in
-Kerrod's row. There's no hand-picking of individuals, so grants stay correct as people join or
+View grants also cover **site resourcing**. Service and production managers and coordinators
+(Marcos Tilly, Rodrigo Monteiro, Peter Thomas, Jaco Tromp, Scott Hertrick, Joshua Noakes,
+Carolyn Molony, Brody Wagner, Sandra Burkhardt) see Marcos's and Rodrigo's teams and Jaco's
+team ∩ Production, so they can find who holds the tickets a site job needs, at any location.
+They're ordinary grants anchored to those managers. There is no "whole company" scope.
+
+**DECIDED (revised 2026-10-09): a grant can be narrowed by department, by job family, or both**
+(team ∩ department ∩ job family), as in Kerrod's row. A job-family filter covers a role that
+isn't a department: Stores was merged into Operations, so Zane's grant is Peter's team ∩
+Storeperson. There's no hand-picking of individuals, so grants stay correct as people join or
 leave the team or department. The filter matches the **exact department only**; child
 departments are not included. `Operations` is a level-0 parent of `Stores`, `Purchasing` and
 `Production`, so including children would widen Kerrod's grant to Zane Mair's (Stores) and
@@ -349,8 +361,9 @@ Nathan Dale's (Purchasing) areas, which is not the "workshop tradespeople" in th
 his grant doesn't cover himself, so he can't approve his own requests.
 
 In Phase 1 grants are stored and shown on the org chart (in a different colour from line
-authority) but have no effect. Creating or removing a grant writes a `History` row
-(`tableName: "DelegatedAccess"`), like any other change.
+authority) but have no effect. Admins add, re-level and remove them at
+`/admin/org-chart/access`, which also shows who each grant covers today. Creating, changing or
+removing a grant writes a `History` row (`tableName: "DelegatedAccess"`), like any other change.
 
 ### 8.2 Suggestion signals: structure first, title second
 
@@ -611,10 +624,13 @@ model DelegatedAccess {
   scopeManager           Employee    @relation("DelegateScopeManager", fields: [scopeManagerEmployeeId], references: [id], onDelete: Cascade)
   departmentId           Int?        // optional filter
   department             Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade) // never SetNull: that would silently widen the grant
+  jobFamilyId            Int?        // optional filter (2026-10-09)
+  jobFamily              JobFamily?  @relation(fields: [jobFamilyId], references: [id], onDelete: Cascade)
+  level                  String      @default("Act") // Act | View (2026-10-09)
   source                 String      // Manual | WorkdayStructural | WorkdayTitle | MigratedDeptGrant
   createdByUserId        String?
   createdAt              DateTime    @default(now())
-  @@unique([granteeEmployeeId, scopeManagerEmployeeId, departmentId]) // only effective when departmentId is set (see below)
+  @@unique([granteeEmployeeId, scopeManagerEmployeeId, departmentId, jobFamilyId]) // only effective when both filters are set (see below)
   @@index([scopeManagerEmployeeId])
 }
 
@@ -855,6 +871,23 @@ Phase 1 is built. Where the build differs from or adds to the sections above:
     - The team account-status view (`accountOnboardingService`, owner's in-progress work) is
       still scoped by department.
 
+- **Department → job family cleanup (2026-10-09).** Several HRT departments were really job
+  families (Finance had four). `scripts/department-cleanup.ts` merges only departments whose
+  requirements are identical to the real department's, so nobody's required training changes:
+  Finance ← its four sub-departments; Sales ← Sales Internal/External/Management, TSS and
+  Product Management; Projects ← Engineering and two inactive ones; Operations ← Stores and
+  Test Bay. It moves people whose department disagrees with Workday (two purchasing officers
+  to Purchasing, which drops their 44 workshop trainings; spare-parts coordinators to Spare
+  Parts; five tradespeople to Production), tidies and fills job families from titles, turns
+  the leading-hand grants into View grants and adds the site-resourcing grants (§8.1).
+  Purchasing, Production and Spare Parts are real departments. **Held back:** Operations
+  Management, Service Coordination and Service Management would change training (managers
+  and coordinators would gain the 44 workshop trainings), so they wait until requirements can
+  be keyed by job family. **Go-live:** run it on prod (`pnpm tsx scripts/department-cleanup.ts
+  --apply`) after `db push` and **before** replaying decisions exported after it ran on the
+  snapshot, because a replay requires both copies to have the same departments. Exports now
+  carry job families by name and each grant's level and job-family filter.
+
 Built files: `lib/workday/{types,parseOrgChart,matching,suggestions,labels}.ts`,
 `lib/org/reportingLine.ts`, `lib/services/workdayImportService.ts`,
 `app/api/workday-import/**`, `app/api/org-chart/reporting-lines`,
@@ -867,8 +900,8 @@ All design questions from the design discussion are resolved (2026-10-07):
 
 | # | Question | Decision |
 |---|---|---|
-| 1 | Can a delegate approve at the level they act at? | **Yes, always.** A delegate has the same authority as the manager they act for (§8.1) |
-| 2 | How is a flat-team grant like Kerrod's narrowed? | **Team ∩ department.** No hand-picking (§8.1) |
+| 1 | Can a delegate approve at the level they act at? | **An Act grant, yes; a View grant, no** (revised 2026-10-09, §8.1) |
+| 2 | How is a flat-team grant like Kerrod's narrowed? | **Team ∩ department ∩ job family**, each optional. No hand-picking (revised 2026-10-09, §8.1) |
 | 3 | How far down can a manager see? | **The whole sub-tree** (§9.1) |
 | 4 | How is the manager role assigned? | **Derived automatically** from a non-empty scope (§9.1) |
 | 5 | Who gets expiry emails? | **Direct manager plus delegates at that level** (§9.3) |

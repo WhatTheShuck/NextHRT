@@ -39,6 +39,8 @@ function AccessorBadge({ reason }: { reason: AccessorInfo["accessReason"] }) {
     return <Badge className="bg-orange-500 text-white shrink-0">Line Manager</Badge>;
   if (reason === "Delegate")
     return <Badge className="bg-violet-500 text-white shrink-0">Delegated</Badge>;
+  if (reason === "Viewer")
+    return <Badge className="bg-violet-500/70 text-white shrink-0">View only</Badge>;
   return <Badge variant="secondary" className="shrink-0">Self</Badge>;
 }
 
@@ -149,7 +151,7 @@ export function AccessCheckAdminContent() {
     accessInfo?.accessors.filter((a) => a.accessReason === "Admin") ?? [];
   const managers =
     accessInfo?.accessors.filter(
-      (a) => ["DepartmentManager", "LineManager", "Delegate"].includes(a.accessReason),
+      (a) => ["DepartmentManager", "LineManager", "Delegate", "Viewer"].includes(a.accessReason),
     ) ?? [];
   const self =
     accessInfo?.accessors.filter((a) => a.accessReason === "Self") ?? [];

@@ -32,7 +32,7 @@ class SwitchoverService {
         orderBy: { name: "asc" },
       }),
       prisma.delegatedAccess.findMany({
-        select: { granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true },
+        select: { granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true, jobFamilyId: true, level: true },
       }),
     ]);
 

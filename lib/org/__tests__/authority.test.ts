@@ -6,6 +6,7 @@ import {
   effectiveRole,
   expiryRecipientsFor,
   lineScope,
+  describeGrant,
   type Grant,
 } from "../authority";
 
@@ -35,8 +36,8 @@ const employees = [
 ];
 const graph = buildOrgGraph(employees);
 const grants: Grant[] = [
-  { granteeEmployeeId: 10, scopeManagerEmployeeId: 8, departmentId: null }, // Carolyn acts for Joshua
-  { granteeEmployeeId: 13, scopeManagerEmployeeId: 12, departmentId: OPS }, // Kerrod acts for Peter, Ops only
+  { granteeEmployeeId: 10, scopeManagerEmployeeId: 8, departmentId: null, jobFamilyId: null, level: "Act" }, // Carolyn acts for Joshua
+  { granteeEmployeeId: 13, scopeManagerEmployeeId: 12, departmentId: OPS, jobFamilyId: null, level: "Act" }, // Kerrod acts for Peter, Ops only
 ];
 const sorted = (s: Iterable<number>) => [...s].sort((a, b) => a - b);
 
@@ -95,6 +96,32 @@ describe("expiryRecipientsFor", () => {
   });
 });
 
+describe("View grants and job-family filters", () => {
+  const STOREPERSON = 7;
+  const withFamilies = buildOrgGraph(employees.map((e) => ({ ...e, jobFamilyId: e.id === 15 ? STOREPERSON : null })));
+  const viewGrants: Grant[] = [
+    ...grants,
+    { granteeEmployeeId: 4, scopeManagerEmployeeId: 7, departmentId: null, jobFamilyId: null, level: "View" }, // Scott sees Marcos's team
+    { granteeEmployeeId: 14, scopeManagerEmployeeId: 12, departmentId: null, jobFamilyId: STOREPERSON, level: "View" }, // Anthony sees Peter's storepeople
+  ];
+
+  it("adds the scope to what the grantee sees", () => {
+    expect(sorted(lineScope(4, withFamilies, viewGrants))).toEqual([5, 6, 8, 9, 10]);
+    expect(sorted(lineScope(14, withFamilies, viewGrants))).toEqual([15]);
+  });
+
+  it("never approves or gets expiry emails", () => {
+    expect(approvableBy(4, withFamilies, viewGrants).has(9)).toBe(false);
+    expect(approversFor(9, withFamilies, viewGrants).map((a) => a.employeeId)).not.toContain(4);
+    expect(expiryRecipientsFor(15, withFamilies, viewGrants)).toEqual([12]);
+  });
+
+  it("narrows by job family, and by department and job family together", () => {
+    const both: Grant = { granteeEmployeeId: 14, scopeManagerEmployeeId: 12, departmentId: OPS, jobFamilyId: STOREPERSON, level: "View" };
+    expect(lineScope(14, withFamilies, [both]).size).toBe(0); // the storeperson is in Stores, not Ops
+  });
+});
+
 describe("buildOrgGraph", () => {
   it("treats a report of an inactive manager as having no manager", () => {
     const g = buildOrgGraph([{ id: 1, reportsToId: 99, departmentId: 1 }]);
@@ -115,5 +142,17 @@ describe("effectiveRole", () => {
     expect(effectiveRole("FireWarden", "lineManager", false)).toBe("FireWarden");
     expect(effectiveRole("Admin", "lineManager", false)).toBe("Admin");
     expect(effectiveRole(null, "lineManager", false)).toBe("User");
+  });
+});
+
+describe("describeGrant", () => {
+  it("says what the grant does and how it's narrowed", () => {
+    expect(describeGrant({ level: "Act", scopeName: "Joshua Noakes" })).toBe("Acts at Joshua Noakes's level");
+    expect(describeGrant({ level: "View", scopeName: "Peter Thomas", jobFamilyName: "Storeperson" })).toBe(
+      "Sees Peter Thomas's team, Storeperson only",
+    );
+    expect(describeGrant({ level: "View", scopeName: "Jaco Tromp", departmentName: "Production", jobFamilyName: "Tradesperson" })).toBe(
+      "Sees Jaco Tromp's team, Production / Tradesperson only",
+    );
   });
 });

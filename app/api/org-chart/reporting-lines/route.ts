@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
           granteeEmployeeId: true,
           scopeManagerEmployeeId: true,
           source: true,
+          level: true,
           department: { select: { name: true } },
+          jobFamily: { select: { name: true } },
         },
       }),
     ]);
@@ -53,6 +55,8 @@ export async function GET(request: NextRequest) {
         granteeEmployeeId: g.granteeEmployeeId,
         scopeManagerEmployeeId: g.scopeManagerEmployeeId,
         department: g.department?.name ?? null,
+        jobFamily: g.jobFamily?.name ?? null,
+        level: g.level === "Act" ? "Act" : "View",
         source: g.source,
       })),
     });

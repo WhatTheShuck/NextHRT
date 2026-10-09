@@ -9,6 +9,7 @@ import {
   type Approver,
   type AuthorityMode,
   type Grant,
+  type GrantLevel,
   type OrgGraph,
 } from "@/lib/org/authority";
 import { appSettingService } from "./appSettingService";
@@ -41,20 +42,25 @@ export async function setAuthorityMode(mode: AuthorityMode, userId: string): Pro
 const ORG_TTL_MS = 5_000;
 let orgCache: { value: { graph: OrgGraph; grants: Grant[] }; at: number } | null = null;
 
+/** Stored levels are strings (column default "Act"); anything unrecognised only views. */
+export function toGrant<T extends { level: string }>(g: T): Omit<T, "level"> & { level: GrantLevel } {
+  return { ...g, level: g.level === "Act" ? "Act" : "View" };
+}
+
 /** The active reporting tree and the grants of active people. */
 export async function loadOrg(): Promise<{ graph: OrgGraph; grants: Grant[] }> {
   if (orgCache && Date.now() - orgCache.at < ORG_TTL_MS) return orgCache.value;
   const [employees, grants] = await Promise.all([
     prisma.employee.findMany({
       where: { isActive: true },
-      select: { id: true, reportsToId: true, departmentId: true },
+      select: { id: true, reportsToId: true, departmentId: true, jobFamilyId: true },
     }),
     prisma.delegatedAccess.findMany({
       where: { grantee: { isActive: true }, scopeManager: { isActive: true } },
-      select: { granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true },
+      select: { granteeEmployeeId: true, scopeManagerEmployeeId: true, departmentId: true, jobFamilyId: true, level: true },
     }),
   ]);
-  const value = { graph: buildOrgGraph(employees), grants };
+  const value = { graph: buildOrgGraph(employees), grants: grants.map(toGrant) };
   orgCache = { value, at: Date.now() };
   return value;
 }
