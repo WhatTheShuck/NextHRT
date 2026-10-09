@@ -240,6 +240,118 @@ export class DocumentSubmissionService {
       orderBy: { createdAt: "desc" },
     });
   }
+
+  async approve(id: number, edits: ReviewEdits, actor: Actor) {
+    if (actor.role !== "Admin") throw new Error("NOT_AUTHORISED");
+
+    const { submission, recordId } = await prisma.$transaction(async (tx) => {
+      const sub = await tx.documentSubmission.findUnique({ where: { id }, include: { files: true } });
+      if (!sub) throw new Error("NOT_FOUND");
+      if (sub.status !== "Pending") throw new Error("NOT_PENDING");
+
+      const merged: SubmissionFields = {
+        employeeId: sub.employeeId,
+        kind: sub.kind,
+        itemId: edits.itemId ?? itemIdOf(sub),
+        dateIssued: edits.dateIssued ?? sub.dateIssued,
+        expiryDate: edits.expiryDate !== undefined ? edits.expiryDate : sub.expiryDate,
+        licenseNumber: edits.licenseNumber !== undefined ? edits.licenseNumber : sub.licenseNumber,
+        provider: edits.provider !== undefined ? edits.provider : sub.provider,
+      };
+      const valid = await validateFields(merged, tx);
+      if (valid.itemId !== itemIdOf(sub)) await cancelOtherOpen(tx, valid, id);
+
+      // The record's images share the submission's files (spec decision 13): nothing is moved.
+      const images = { create: sub.files.map((f) => ({ imagePath: f.filePath, imageType: f.fileType, originalName: f.originalName })) };
+      let record: { id: number };
+      if (valid.kind === "Ticket") {
+        record = await tx.ticketRecords.create({
+          data: {
+            employeeId: valid.employeeId, ticketId: valid.itemId, dateIssued: valid.dateIssued,
+            expiryDate: valid.expiryDate, licenseNumber: valid.licenseNumber, images,
+          },
+        });
+      } else {
+        const training = await tx.training.findUnique({
+          where: { id: valid.itemId },
+          select: { revisions: { select: { id: true, effectiveDate: true, createdAt: true, overrideRequiresRetraining: true } } },
+        });
+        record = await tx.trainingRecords.create({
+          data: {
+            employeeId: valid.employeeId, trainingId: valid.itemId, dateCompleted: valid.dateIssued,
+            trainer: valid.provider!, revisionId: currentRevision(training?.revisions ?? [], valid.dateIssued)?.id ?? null,
+            images,
+          },
+        });
+      }
+
+      const updated = await tx.documentSubmission.update({
+        where: { id },
+        data: {
+          ...toColumns(valid), status: "Approved", resultRecordId: record.id,
+          reviewedByUserId: actor.userId, reviewedAt: new Date(),
+        },
+      });
+      await history(tx, valid.kind === "Ticket" ? "TicketRecords" : "TrainingRecords", record.id, "CREATE",
+        { ...record, _metadata: { fromDocumentSubmissionId: id } }, actor.userId);
+      await history(tx, "DocumentSubmission", id, "UPDATE", updated, actor.userId);
+      await tx.missingDocumentReminder.deleteMany({
+        where: { employeeId: valid.employeeId, itemType: valid.kind, itemId: valid.itemId },
+      });
+      return { submission: updated, recordId: record.id };
+    }).catch((e: unknown) => {
+      // Two approvals racing past the findFirst check. TrainingRecords' unique index is the
+      // backstop (TicketRecords has none; its duplicate check is findFirst only, as in manual entry).
+      if ((e as { code?: string }).code === "P2002") throw new Error("DUPLICATE_RECORD");
+      throw e;
+    });
+
+    await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: submission.employeeId });
+    await this.notify(id, "document.approved");
+    return { submission, recordId };
+  }
+
+  async sendBack(id: number, reason: string, actor: Actor) {
+    if (actor.role !== "Admin") throw new Error("NOT_AUTHORISED");
+    const trimmed = reason.trim();
+    if (!trimmed) throw new Error("REASON_REQUIRED");
+
+    const sub = await prisma.documentSubmission.findUnique({ where: { id } });
+    if (!sub) throw new Error("NOT_FOUND");
+    if (sub.status !== "Pending") throw new Error("NOT_PENDING");
+
+    const updated = await prisma.documentSubmission.update({
+      where: { id },
+      data: { status: "ChangesRequested", reviewComment: trimmed, reviewedByUserId: actor.userId, reviewedAt: new Date() },
+    });
+    await history(prisma, "DocumentSubmission", id, "UPDATE", updated, actor.userId);
+    await this.notify(id, "document.changesRequested");
+    return updated;
+  }
+
+  /** Approved → submitter + the employee (if someone else submitted). Sent back → submitter. */
+  private async notify(id: number, templateKey: "document.approved" | "document.changesRequested") {
+    const sub = await prisma.documentSubmission.findUnique({ where: { id }, include: DETAIL_INCLUDE });
+    if (!sub) return;
+
+    const to = new Set<string>();
+    if (sub.submittedByUser?.email) to.add(sub.submittedByUser.email);
+    if (templateKey === "document.approved" && sub.submittedByUser?.employeeId !== sub.employee.id) {
+      to.add(employeeAddress(sub.employee));
+    }
+    if (to.size === 0) return;
+
+    const rendered = await emailTemplateService.render(templateKey, {
+      employeeName: escapeHtml(employeeDisplayName(sub.employee)),
+      itemName: escapeHtml(sub.ticket?.ticketName ?? sub.training?.title ?? "document"),
+      reason: escapeHtml(sub.reviewComment ?? ""),
+      submissionUrl: appLink(
+        templateKey === "document.approved" ? "/expiring?tab=submitted" : `/forms/document-upload?submission=${id}`,
+      ),
+    });
+    if (!rendered) return;
+    await enqueue("SEND_EMAIL", { to: [...to], subject: rendered.subject, html: rendered.body });
+  }
 }
 
 export const documentSubmissionService = new DocumentSubmissionService();

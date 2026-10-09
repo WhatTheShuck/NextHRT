@@ -177,3 +177,110 @@ describe("cancelOpenForEmployees", () => {
     });
   });
 });
+
+describe("approve", () => {
+  const admin = { userId: "a1", role: "Admin" };
+  const pendingTicket = {
+    id: 5, employeeId: 1, kind: "Ticket", ticketId: 10, trainingId: null, status: "Pending",
+    dateIssued: new Date("2026-01-09T14:00:00.000Z"), expiryDate: new Date("2029-01-09T14:00:00.000Z"),
+    licenseNumber: "L1", provider: null, submittedByUserId: "u1",
+    files: [{ id: 1, filePath: "submissions/x.jpg", fileType: "image/jpeg", originalName: "a.jpg" }],
+  };
+  const notifyRow = {
+    ...pendingTicket,
+    employee: { id: 1, legalFirstName: "Jo", legalLastName: "X", preferredFirstName: null, preferredLastName: null, User: { email: "jo@x" } },
+    submittedByUser: { id: "u1", email: "jo@x", employeeId: 1 },
+    ticket: { ticketName: "Forklift" }, training: null,
+  };
+
+  beforeEach(() => {
+    mockPrisma.documentSubmission.findUnique.mockResolvedValueOnce(pendingTicket).mockResolvedValue(notifyRow);
+    mockPrisma.ticketRecords.create.mockResolvedValue({ id: 77 });
+    mockPrisma.trainingRecords.create.mockResolvedValue({ id: 88 });
+    mockPrisma.documentSubmission.update.mockImplementation(async ({ data }: any) => ({ ...pendingTicket, ...data }));
+  });
+
+  it("creates the ticket record with images pointing at the submission files, closes the reminder, invalidates the cache, emails", async () => {
+    await documentSubmissionService.approve(5, { licenseNumber: "L9" }, admin);
+
+    expect(mockPrisma.ticketRecords.create.mock.calls[0][0].data).toMatchObject({
+      employeeId: 1, ticketId: 10, licenseNumber: "L9",
+      images: { create: [{ imagePath: "submissions/x.jpg", imageType: "image/jpeg", originalName: "a.jpg" }] },
+    });
+    expect(mockPrisma.documentSubmission.update.mock.calls[0][0].data).toMatchObject({
+      status: "Approved", resultRecordId: 77, reviewedByUserId: "a1",
+    });
+    expect(mockPrisma.missingDocumentReminder.deleteMany).toHaveBeenCalledWith({
+      where: { employeeId: 1, itemType: "Ticket", itemId: 10 },
+    });
+    expect(enqueue).toHaveBeenCalledWith("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: 1 });
+    expect(enqueue).toHaveBeenCalledWith("SEND_EMAIL", expect.objectContaining({ to: ["jo@x"] }));
+  });
+
+  it("stamps the current revision on a training record", async () => {
+    mockPrisma.documentSubmission.findUnique.mockReset();
+    mockPrisma.documentSubmission.findUnique
+      .mockResolvedValueOnce({ ...pendingTicket, kind: "Training", ticketId: null, trainingId: 20, expiryDate: null, licenseNumber: null, provider: "St John" })
+      .mockResolvedValue({ ...notifyRow, ticket: null, training: { title: "First Aid" } });
+    mockPrisma.training.findUnique.mockResolvedValue({
+      isActive: true, category: "External",
+      revisions: [{ id: 3, effectiveDate: new Date("2025-01-01"), createdAt: new Date("2025-01-01"), overrideRequiresRetraining: null }],
+    });
+
+    await documentSubmissionService.approve(5, {}, admin);
+
+    expect(mockPrisma.trainingRecords.create.mock.calls[0][0].data).toMatchObject({
+      trainingId: 20, trainer: "St John", revisionId: 3,
+    });
+  });
+
+  it("refuses non-admins, non-pending submissions, and duplicate records (nothing written)", async () => {
+    await expect(documentSubmissionService.approve(5, {}, actor)).rejects.toThrow("NOT_AUTHORISED");
+
+    mockPrisma.documentSubmission.findUnique.mockReset();
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue({ ...pendingTicket, status: "Approved" });
+    await expect(documentSubmissionService.approve(5, {}, admin)).rejects.toThrow("NOT_PENDING");
+
+    mockPrisma.documentSubmission.findUnique.mockResolvedValue(pendingTicket);
+    mockPrisma.ticketRecords.findFirst.mockResolvedValue({ id: 1 });
+    await expect(documentSubmissionService.approve(5, {}, admin)).rejects.toThrow("DUPLICATE_RECORD");
+    expect(mockPrisma.ticketRecords.create).not.toHaveBeenCalled();
+  });
+
+  it("a unique-index clash (racing approvals) surfaces as DUPLICATE_RECORD", async () => {
+    mockPrisma.ticketRecords.create.mockRejectedValueOnce(Object.assign(new Error("Unique constraint"), { code: "P2002" }));
+    await expect(documentSubmissionService.approve(5, {}, admin)).rejects.toThrow("DUPLICATE_RECORD");
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("moving it to another item cancels that item's other open submission", async () => {
+    await documentSubmissionService.approve(5, { itemId: 11 }, admin);
+    expect(mockPrisma.documentSubmission.updateMany).toHaveBeenCalledWith({
+      where: { employeeId: 1, ticketId: 11, status: { in: ["Pending", "ChangesRequested"] }, id: { not: 5 } },
+      data: { status: "Cancelled" },
+    });
+  });
+});
+
+describe("sendBack", () => {
+  const admin = { userId: "a1", role: "Admin" };
+
+  it("requires a reason, sets ChangesRequested and emails the submitter", async () => {
+    await expect(documentSubmissionService.sendBack(5, "  ", admin)).rejects.toThrow("REASON_REQUIRED");
+
+    mockPrisma.documentSubmission.findUnique
+      .mockResolvedValueOnce({ id: 5, status: "Pending" })
+      .mockResolvedValue({
+        id: 5, reviewComment: "Blurry", employee: { id: 1, legalFirstName: "Jo", legalLastName: "X", preferredFirstName: null, preferredLastName: null, User: null },
+        submittedByUser: { id: "u1", email: "mgr@x", employeeId: 9 }, ticket: { ticketName: "Forklift" }, training: null,
+      });
+    mockPrisma.documentSubmission.update.mockResolvedValue({ id: 5 });
+
+    await documentSubmissionService.sendBack(5, "Blurry", admin);
+
+    expect(mockPrisma.documentSubmission.update.mock.calls[0][0].data).toMatchObject({
+      status: "ChangesRequested", reviewComment: "Blurry", reviewedByUserId: "a1",
+    });
+    expect(enqueue).toHaveBeenCalledWith("SEND_EMAIL", expect.objectContaining({ to: ["mgr@x"] }));
+  });
+});
