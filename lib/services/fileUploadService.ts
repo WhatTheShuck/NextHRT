@@ -4,6 +4,10 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { FILE_UPLOAD_CONFIG } from "@/lib/file-config";
 
+// Submission files are shared with the records approved from them, so record edits/deletes
+// must not unlink them. ORPHANED_IMAGE_CLEANUP removes them once nothing references them.
+export const SUBMISSIONS_DIR = "submissions";
+
 export class FileUploadService {
   validateFile(file: File): void {
     if (!FILE_UPLOAD_CONFIG.ALLOWED_TYPES.includes(file.type)) {
@@ -107,6 +111,7 @@ export class FileUploadService {
 
   async deleteFile(relativePath: string): Promise<void> {
     try {
+      if (relativePath.startsWith(`${SUBMISSIONS_DIR}/`)) return;
       const fullPath = path.join(process.cwd(), "uploads", relativePath);
       if (existsSync(fullPath)) {
         await unlink(fullPath);
