@@ -99,7 +99,7 @@ export const documentTours: PageTour[] = [
       {
         target: "expiring-status",
         title: "Status",
-        body: "Awaiting review means it hasn't been checked yet, and Accepted means it's on the record. Sent back means it needs a change, with the reason shown in quotes.",
+        body: "Awaiting review means it hasn't been checked yet, and Approved means it's on the record. Sent back means it needs a change, with the reason shown in quotes.",
       },
       {
         target: "expiring-fix",

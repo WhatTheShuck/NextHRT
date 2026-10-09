@@ -332,8 +332,15 @@ export function DocumentUploadContent({
               </div>
             ) : (
               <div className="space-y-2" data-tour="docs-provider">
-                <Label htmlFor="provider">Who delivered it?</Label>
-                <Input id="provider" placeholder="e.g. St John Ambulance" value={provider} onChange={(e) => setProvider(e.target.value)} />
+                <Label htmlFor="provider">Who delivered it? (required)</Label>
+                <Input
+                  id="provider"
+                  required
+                  aria-required="true"
+                  placeholder="e.g. St John Ambulance"
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value)}
+                />
               </div>
             )}
           </fieldset>

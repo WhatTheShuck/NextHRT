@@ -53,6 +53,8 @@ export interface ExpiringStatus {
   missing: MissingRow[];
   submitted: SubmissionRow[];
   reviewQueue: SubmissionRow[] | null;
+  /** How far ahead "Expiring" looks: the furthest employee reminder milestone, in days. */
+  windowDays: number;
 }
 
 const OPEN: DocumentSubmissionStatus[] = ["Pending", "ChangesRequested"];
@@ -174,6 +176,7 @@ export class DocumentStatusService {
       missing,
       submitted: submissions.map(toRow).reverse(), // newest first
       reviewQueue: actor.role === "Admin" ? submissions.filter((s) => s.status === "Pending").map(toRow) : null,
+      windowDays,
     };
   }
 

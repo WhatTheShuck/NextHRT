@@ -69,6 +69,7 @@ describe("documentStatusService.getStatus", () => {
     expect(s.missing.map((r) => r.itemId)).toEqual([16]);
     expect(s.submitted.map((r) => r.id)).toEqual([9]);
     expect(s.reviewQueue).toBeNull();
+    expect(s.windowDays).toBe(90); // the furthest employee milestone ("90,30")
   });
 
   it("marks a chip isMine: false when someone else submitted it", async () => {

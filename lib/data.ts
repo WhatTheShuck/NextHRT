@@ -76,7 +76,7 @@ export const landingPageNavigationItems: NavigationItem[] = [
   },
   {
     title: "Expiring & Missing",
-    description: "Tickets and training that are expiring, expired or still needed",
+    description: "Tickets that are expiring or expired, and tickets or training still needed",
     icon: CalendarClock,
     href: "/expiring",
     minimumAllowedPermission: "employee:viewSelf",

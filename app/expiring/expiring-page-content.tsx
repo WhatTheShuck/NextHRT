@@ -174,7 +174,7 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
             ) : (
               <div className="flex items-center gap-2">
                 <Badge variant={s.status === "ChangesRequested" ? "destructive" : s.status === "Approved" ? "default" : "secondary"} data-tour="expiring-status">
-                  {s.status === "ChangesRequested" ? "Sent back" : s.status === "Pending" ? "Awaiting review" : "Accepted"}
+                  {s.status === "ChangesRequested" ? "Sent back" : s.status === "Pending" ? "Awaiting review" : "Approved"}
                 </Badge>
                 {s.isMine && s.status === "ChangesRequested" && (
                   <Button asChild size="sm" variant="outline" data-tour="expiring-fix"><Link href={`/forms/document-upload?submission=${s.id}`}>Fix</Link></Button>
@@ -199,7 +199,7 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div data-tour="expiring-intro">
           <h1 className="text-2xl md:text-3xl font-bold">Expiring &amp; Missing</h1>
-          <p className="text-muted-foreground mt-1">Tickets and training that are expiring, expired or still needed.</p>
+          <p className="text-muted-foreground mt-1">Tickets that are expiring or expired, and tickets or training still needed.</p>
         </div>
         <Button asChild data-tour="expiring-upload"><Link href="/forms/document-upload">Upload a document</Link></Button>
       </div>
@@ -225,7 +225,12 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
           <TabsTrigger value="submitted">Submitted ({keep(data.submitted).length})</TabsTrigger>
           {isAdmin && data.reviewQueue && <TabsTrigger value="review" data-tour="expiring-review-tab">Review queue ({keep(data.reviewQueue).length})</TabsTrigger>}
         </TabsList>
-        <TabsContent value="expiring" data-tour="expiring-tab-expiring">{expiryList(data.expiring, false)}</TabsContent>
+        <TabsContent value="expiring" data-tour="expiring-tab-expiring">
+          <p className="text-sm text-muted-foreground pt-2">
+            Tickets expiring in the next {data.windowDays} day{data.windowDays === 1 ? "" : "s"}.
+          </p>
+          {expiryList(data.expiring, false)}
+        </TabsContent>
         <TabsContent value="expired" data-tour="expiring-tab-expired">{expiryList(data.expired, true)}</TabsContent>
         <TabsContent value="missing" data-tour="expiring-tab-missing">{missingList(data.missing)}</TabsContent>
         <TabsContent value="submitted" data-tour="expiring-tab-submitted">{submissionList(data.submitted, false)}</TabsContent>
