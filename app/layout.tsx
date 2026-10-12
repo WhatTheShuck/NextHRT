@@ -13,6 +13,7 @@ import { themeService } from "@/lib/services/themeService";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { ThemeScript } from "@/components/theme-script";
 import { Toaster } from "sonner";
+import { SearchProvider } from "@/components/search/search-provider";
 import { TutorialProvider } from "@/components/tutorials/tutorial-provider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -73,12 +74,14 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TutorialProvider signedIn={!!session}>
-            <Header />
-            <ConditionalBreadcrumbs />
-            {children}
-            <Footer />
-          </TutorialProvider>
+          <SearchProvider userId={session?.user?.id ?? null}>
+            <TutorialProvider signedIn={!!session}>
+              <Header />
+              <ConditionalBreadcrumbs />
+              {children}
+              <Footer />
+            </TutorialProvider>
+          </SearchProvider>
           <Toaster richColors position="bottom-right" />
         </ThemeProvider>
       </body>
