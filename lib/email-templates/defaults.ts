@@ -297,8 +297,8 @@ export const TEMPLATE_DEFAULTS: EmailTemplateDefault[] = [
   },
   {
     key: "document.approved",
-    name: "Upload accepted (to the submitter)",
-    subject: "Document accepted: {itemName}",
+    name: "Upload approved (to the submitter)",
+    subject: "Document approved: {itemName}",
     body: `<p>Hi,</p>
 <p>The {itemName} document for {employeeName} has been checked and added to their record in HRT.</p>
 <p><a href="{submissionUrl}">View it in HRT</a></p>`,

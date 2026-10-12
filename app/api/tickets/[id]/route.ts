@@ -157,7 +157,7 @@ export async function DELETE(
         case "TICKET_HAS_RECORDS":
           return NextResponse.json(
             {
-              error: "Cannot delete ticket with existing ticket records",
+              error: "Cannot delete ticket: it has ticket records or uploads waiting for review",
               code: "TICKET_HAS_RECORDS",
             },
             { status: 409 },

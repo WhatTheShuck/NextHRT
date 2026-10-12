@@ -34,6 +34,7 @@ export function LandingPageContent({
   const [pendingOnboardingCount, setPendingOnboardingCount] = useState(0);
   const [unlinkedUserCount, setUnlinkedUserCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
   const isLinked = accountStatus.state === "linked";
 
   useEffect(() => {
@@ -110,8 +111,11 @@ export function LandingPageContent({
         .then((res) => setUnlinkedUserCount(res.data.count))
         .catch(() => {});
       api
-        .get<{ count: number }>("/api/expiring/count")
-        .then((res) => setExpiringCount(res.data.count))
+        .get<{ count: number; reviewCount: number }>("/api/expiring/count")
+        .then((res) => {
+          setExpiringCount(res.data.count);
+          setReviewCount(res.data.reviewCount);
+        })
         .catch(() => {});
     }
 
@@ -242,7 +246,7 @@ export function LandingPageContent({
                       : item.href === "/admin/access"
                         ? unlinkedUserCount
                         : item.href === "/expiring?tab=review"
-                          ? expiringCount
+                          ? reviewCount
                           : undefined
                   }
                 />

@@ -6,6 +6,8 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 // track and the employee track starts empty. Employees then get one go-live digest of
 // everything in their window, which is intended.
 //
+// The app must NOT have run the new TICKET_EXPIRY yet: once it has, old manager-era stages sit
+// on the employee track and can no longer be told apart from new ones.
 // Run after `prisma db push && prisma generate`, with the new code deployed and the app stopped:
 //   pnpm tsx scripts/backfill-manager-expiry-stage.ts          # dry run
 //   pnpm tsx scripts/backfill-manager-expiry-stage.ts --apply
@@ -17,7 +19,18 @@ const APPLY = process.argv.includes("--apply");
 async function main() {
   const alreadyRun = await prisma.ticketRecords.count({ where: { managerExpiryNotificationStage: { not: null } } });
   if (alreadyRun > 0) {
+    const employeeOnly = await prisma.ticketRecords.count({
+      where: { managerExpiryNotificationStage: null, expiryNotificationStage: { not: null } },
+    });
     console.log(`${alreadyRun} record(s) already have a manager stage — this has been run. Nothing to do.`);
+    if (employeeOnly > 0) {
+      console.log(
+        `Warning: ${employeeOnly} record(s) have an employee stage but no manager stage. If the new ` +
+          "TICKET_EXPIRY ran before this script, some of those are old manager stages and those " +
+          "employees will miss their go-live reminder. Check against the pre-deploy backup.",
+      );
+      process.exitCode = 1;
+    }
     return;
   }
 

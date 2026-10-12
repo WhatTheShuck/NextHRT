@@ -96,7 +96,9 @@ export async function missingDocumentReminderHandler(
       pageUrl: appLink("/expiring?tab=missing"),
       unlinkedNote: employee.User?.email ? "" : UNLINKED_NOTE,
     });
-    if (!rendered) break; // switched off: send none, mark none
+    // Switched off: send none and mark none, deliberately. Unlike TICKET_EXPIRY (which records the
+    // stage anyway), turning this template back on catches every open gap up in one digest.
+    if (!rendered) break;
 
     await enqueue("SEND_EMAIL", { to: employeeAddress(employee), subject: rendered.subject, html: rendered.body });
     const listed = { employeeId, OR: items.map((g) => ({ itemType: g.kind, itemId: g.itemId })) };

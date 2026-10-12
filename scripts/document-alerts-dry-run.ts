@@ -38,7 +38,7 @@ async function main() {
   ]);
 
   console.log(`Employee expiry digests:   ${employeesEmailed.size} employee(s)`);
-  console.log(`Manager expiry items:      ${managerItems} (consolidated per manager)`);
+  console.log(`Manager expiry items:      ${managerItems} (grouped into fewer emails, one per manager set; none if no manager)`);
   console.log(`Missing-item first notices: ${new Set(missing.map((m) => m.employeeId)).size} employee(s), ${missing.length} item(s)`);
   console.log(`Requirements configured:   ${ticketReqs} ticket, ${externalReqs} External training`);
   if (ticketReqs + externalReqs === 0) console.log("  → No requirements: missing-item reminders will send nothing.");

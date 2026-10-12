@@ -18,6 +18,7 @@ export interface MissingItem {
  *   - a required External training with no record ("NotProvided") or whose records a revision
  *     invalidated ("RetrainingRequired").
  * Internal/SOP training is never missing here: there is nothing for the employee to upload.
+ * Inactive tickets/training are skipped here too, in case the cache is stale.
  * Prisma-only on purpose so the job and the go-live script can use it without auth.
  */
 export async function findMissingItems(employeeWhere: Prisma.EmployeeWhereInput): Promise<MissingItem[]> {
@@ -41,9 +42,9 @@ export async function findMissingItems(employeeWhere: Prisma.EmployeeWhereInput)
       where: { employeeId: { in: employeeIds }, trainingId: { in: trainingIds } },
       select: { employeeId: true, trainingId: true },
     }),
-    prisma.ticket.findMany({ where: { id: { in: ticketIds } }, select: { id: true, ticketName: true } }),
+    prisma.ticket.findMany({ where: { id: { in: ticketIds }, isActive: true }, select: { id: true, ticketName: true } }),
     prisma.training.findMany({
-      where: { id: { in: trainingIds } },
+      where: { id: { in: trainingIds }, isActive: true },
       select: { id: true, title: true, category: true },
     }),
   ]);

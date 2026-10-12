@@ -4,7 +4,9 @@ import { appSettingService } from "./appSettingService";
 import { getEmployeeIdsInScope, scopeWhere } from "./employeeScopeService";
 import { findMissingItems, type MissingReason } from "./missingItems";
 import { employeeDisplayName } from "./employeeAddress";
-import { DAY_MS, DEFAULT_EMPLOYEE_MILESTONES, parseMilestones, pickCurrentRecords } from "./ticketExpiryShared";
+import {
+  DAY_MS, DEFAULT_EMPLOYEE_MILESTONES, DEFAULT_MANAGER_MILESTONES, parseMilestones, pickCurrentRecords,
+} from "./ticketExpiryShared";
 import type { Actor } from "./documentSubmissionService";
 
 /** Data for the viewer-scoped Expiring & Missing page (spec "Expiring & Missing" page). */
@@ -28,6 +30,8 @@ export interface ExpiryRow extends PersonCols {
   expiryDate: string;
   days: number; // ≤ 0 once expired
   open: OpenChip | null;
+  /** The viewer may upload for this employee (Act scope); View-only rows get no Upload button. */
+  canAct: boolean;
 }
 export interface MissingRow extends PersonCols {
   kind: "Ticket" | "Training";
@@ -35,6 +39,8 @@ export interface MissingRow extends PersonCols {
   itemName: string;
   reason: MissingReason;
   open: OpenChip | null;
+  /** The viewer may upload for this employee (Act scope). */
+  canAct: boolean;
 }
 export interface SubmissionRow extends PersonCols {
   id: number;
@@ -53,7 +59,7 @@ export interface ExpiringStatus {
   missing: MissingRow[];
   submitted: SubmissionRow[];
   reviewQueue: SubmissionRow[] | null;
-  /** How far ahead "Expiring" looks: the furthest employee reminder milestone, in days. */
+  /** How far ahead "Expiring" looks: the furthest reminder milestone on either track, in days. */
   windowDays: number;
 }
 
@@ -68,7 +74,12 @@ export class DocumentStatusService {
     filters: { departmentId?: number; employeeId?: number } = {},
     now = new Date(),
   ): Promise<ExpiringStatus> {
-    const scope = await getEmployeeIdsInScope(actor.userId, actor.role, { level: "View" });
+    const [scope, actScope] = await Promise.all([
+      getEmployeeIdsInScope(actor.userId, actor.role, { level: "View" }),
+      getEmployeeIdsInScope(actor.userId, actor.role, { level: "Act" }),
+    ]);
+    const actIds = actScope === "all" ? null : new Set(actScope);
+    const canAct = (employeeId: number) => actIds === null || actIds.has(employeeId);
     // The page's employee/department filters alone. They also narrow the viewer's own
     // submissions, which bypass scope and isActive.
     const filterWhere: Prisma.EmployeeWhereInput = {
@@ -80,7 +91,11 @@ export class DocumentStatusService {
       AND: [scopeWhere(scope), filterWhere],
     };
     const settings = await appSettingService.getSettings();
-    const windowDays = parseMilestones(settings["tickets.expiryReminderDays"], DEFAULT_EMPLOYEE_MILESTONES)[0];
+    // Far enough to show everything either reminder track will email about.
+    const windowDays = Math.max(
+      parseMilestones(settings["tickets.expiryReminderDays"], DEFAULT_EMPLOYEE_MILESTONES)[0],
+      parseMilestones(settings["tickets.managerExpiryReminderDays"], DEFAULT_MANAGER_MILESTONES)[0],
+    );
 
     const [employees, records, missingItems, submissions] = await Promise.all([
       prisma.employee.findMany({
@@ -143,6 +158,7 @@ export class DocumentStatusService {
       const row: ExpiryRow = {
         ...who, kind: "Ticket", itemId: r.ticketId, itemName: r.ticket.ticketName, recordId: r.id,
         expiryDate: r.expiryDate.toISOString(), days, open: openByItem.get(chipKey(r.employeeId, "Ticket", r.ticketId)) ?? null,
+        canAct: canAct(r.employeeId),
       };
       if (r.expiryDate.getTime() <= now.getTime()) expired.push(row);
       else if (days <= windowDays) expiring.push(row);
@@ -152,7 +168,9 @@ export class DocumentStatusService {
 
     const missing: MissingRow[] = missingItems.flatMap((m) => {
       const who = person.get(m.employeeId);
-      return who ? [{ ...who, ...m, open: openByItem.get(chipKey(m.employeeId, m.kind, m.itemId)) ?? null }] : [];
+      return who
+        ? [{ ...who, ...m, open: openByItem.get(chipKey(m.employeeId, m.kind, m.itemId)) ?? null, canAct: canAct(m.employeeId) }]
+        : [];
     });
 
     const toRow = (s: (typeof submissions)[number]): SubmissionRow => ({
@@ -180,12 +198,18 @@ export class DocumentStatusService {
     };
   }
 
-  /** Nav-card badge (spec "Badge"). */
-  async count(actor: Actor, now = new Date()): Promise<number> {
+  /**
+   * Nav-card badges (spec "Badge"). `count` is the Expiring & Missing card; `reviewCount` the
+   * admin Document Reviews card. Items with a Pending upload are left out of `count`: the
+   * employee has already acted. A sent-back upload still counts, as they have to act again.
+   */
+  async count(actor: Actor, now = new Date()): Promise<{ count: number; reviewCount: number }> {
     const s = await this.getStatus(actor, {}, now);
-    const urgent = s.expiring.filter((r) => r.days <= URGENT_DAYS).length;
-    if (actor.role === "Admin") return (s.reviewQueue?.length ?? 0) + urgent;
-    return s.expired.length + s.missing.length + urgent;
+    const waiting = (r: { open: OpenChip | null }) => r.open?.status !== "Pending";
+    const urgent = s.expiring.filter((r) => r.days <= URGENT_DAYS && waiting(r)).length;
+    const reviewCount = s.reviewQueue?.length ?? 0;
+    if (actor.role === "Admin") return { count: urgent, reviewCount };
+    return { count: s.expired.filter(waiting).length + s.missing.filter(waiting).length + urgent, reviewCount };
   }
 }
 

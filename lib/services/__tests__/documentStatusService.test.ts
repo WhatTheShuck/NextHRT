@@ -19,9 +19,8 @@ vi.mock("@/lib/services/employeeScopeService", () => ({
 }));
 const { findMissingItems } = vi.hoisted(() => ({ findMissingItems: vi.fn() }));
 vi.mock("@/lib/services/missingItems", () => ({ findMissingItems }));
-vi.mock("@/lib/services/appSettingService", () => ({
-  appSettingService: { getSettings: vi.fn().mockResolvedValue({ "tickets.expiryReminderDays": "90,30" }) },
-}));
+const { getSettings } = vi.hoisted(() => ({ getSettings: vi.fn() }));
+vi.mock("@/lib/services/appSettingService", () => ({ appSettingService: { getSettings } }));
 
 import { documentStatusService } from "@/lib/services/documentStatusService";
 
@@ -41,6 +40,7 @@ const sub9 = {
 beforeEach(() => {
   vi.clearAllMocks();
   getEmployeeIdsInScope.mockResolvedValue([1]);
+  getSettings.mockResolvedValue({ "tickets.expiryReminderDays": "90,30", "tickets.managerExpiryReminderDays": "30" });
   mockPrisma.employee.findMany.mockResolvedValue([emp]);
   mockPrisma.ticketRecords.findMany.mockResolvedValue([
     rec(1, 10, 20),     // expiring (≤30)
@@ -118,6 +118,37 @@ describe("documentStatusService.getStatus", () => {
     expect(subWhere.AND[0].OR[1]).toEqual({ submittedByUserId: "u1", employee: {} });
   });
 
+  it("windowDays is the furthest milestone on either track", async () => {
+    getSettings.mockResolvedValue({ "tickets.expiryReminderDays": "60,30", "tickets.managerExpiryReminderDays": "100" });
+    const s = await documentStatusService.getStatus({ userId: "u1", role: "User" }, {}, now);
+    expect(s.windowDays).toBe(100);
+    expect(s.expiring.map((r) => r.itemId)).toContain(22); // 90 days out, inside the manager window
+  });
+
+  it("canAct marks rows whose employee is in the viewer's Act scope", async () => {
+    const emp2 = { ...emp, id: 2, legalFirstName: "Al" };
+    getEmployeeIdsInScope.mockImplementation(async (_u: string, _r: string, { level }: { level: string }) =>
+      level === "Act" ? [1] : [1, 2],
+    );
+    mockPrisma.employee.findMany.mockResolvedValue([emp, emp2]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([rec(1, 10, 20), { ...rec(2, 11, -3), employeeId: 2 }]);
+    findMissingItems.mockResolvedValue([
+      { employeeId: 1, kind: "Ticket", itemId: 16, itemName: "T16", reason: "NotProvided" },
+      { employeeId: 2, kind: "Training", itemId: 17, itemName: "X17", reason: "NotProvided" },
+    ]);
+    const s = await documentStatusService.getStatus({ userId: "u1", role: "User" }, {}, now);
+    expect(getEmployeeIdsInScope).toHaveBeenCalledWith("u1", "User", { level: "Act" });
+    expect(s.expiring.map((r) => [r.employeeId, r.canAct])).toEqual([[1, true]]);
+    expect(s.expired.map((r) => [r.employeeId, r.canAct])).toEqual([[2, false]]);
+    expect(s.missing.map((r) => [r.employeeId, r.canAct])).toEqual([[1, true], [2, false]]);
+  });
+
+  it("canAct is true for everyone when the Act scope is all", async () => {
+    getEmployeeIdsInScope.mockResolvedValue("all");
+    const s = await documentStatusService.getStatus({ userId: "a", role: "Admin" }, {}, now);
+    expect([...s.expiring, ...s.expired, ...s.missing].every((r) => r.canAct)).toBe(true);
+  });
+
   it("admins get the review queue", async () => {
     getEmployeeIdsInScope.mockResolvedValue("all");
     const s = await documentStatusService.getStatus({ userId: "a", role: "Admin" }, {}, now);
@@ -126,11 +157,17 @@ describe("documentStatusService.getStatus", () => {
 });
 
 describe("documentStatusService.count", () => {
-  it("employee/manager: expired + missing + expiring within 30 days", async () => {
-    expect(await documentStatusService.count({ userId: "u1", role: "User" }, now)).toBe(5); // 24, 13 + 16 + 10, 20
+  it("employee/manager: expired + missing + expiring within 30 days, minus items with a Pending upload", async () => {
+    // 24, 13 + 16 + 20; item 10 has Pending upload 9, so the employee has already acted.
+    expect(await documentStatusService.count({ userId: "u1", role: "User" }, now)).toEqual({ count: 4, reviewCount: 0 });
   });
-  it("admin: pending reviews + expiring within 30 days (long-expired items don't count)", async () => {
+  it("a sent-back upload still counts: the employee has to act again", async () => {
+    mockPrisma.documentSubmission.findMany.mockResolvedValue([{ ...sub9, status: "ChangesRequested" }]);
+    expect(await documentStatusService.count({ userId: "u1", role: "User" }, now)).toEqual({ count: 5, reviewCount: 0 });
+  });
+  it("admin: expiring within 30 days (long-expired items don't count); reviews counted separately", async () => {
     getEmployeeIdsInScope.mockResolvedValue("all");
-    expect(await documentStatusService.count({ userId: "a", role: "Admin" }, now)).toBe(3); // review 9 + items 10, 20
+    // item 20 (item 10 has a Pending upload); review queue: 9
+    expect(await documentStatusService.count({ userId: "a", role: "Admin" }, now)).toEqual({ count: 1, reviewCount: 1 });
   });
 });

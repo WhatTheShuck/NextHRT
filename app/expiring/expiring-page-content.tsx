@@ -136,7 +136,7 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
           ]
             .filter(Boolean)
             .join(" — ")}
-          right={r.open ? <Chip open={r.open} /> : <Button asChild size="sm" data-tour="expiring-row-upload"><Link href={uploadHref(r)}>Upload renewal</Link></Button>}
+          right={r.open ? <Chip open={r.open} /> : r.canAct ? <Button asChild size="sm" data-tour="expiring-row-upload"><Link href={uploadHref(r)}>Upload renewal</Link></Button> : null}
         />
       ))}
       {keep(rows).length === 0 && <p className="py-6 text-center text-muted-foreground">Nothing here.</p>}
@@ -149,7 +149,7 @@ export function ExpiringPageContent({ isAdmin, initialTab }: { isAdmin: boolean;
           key={`${r.employeeId}:${r.kind}:${r.itemId}`}
           title={r.itemName}
           sub={[who(r), missingLabel(r)].filter(Boolean).join(" — ")}
-          right={r.open ? <Chip open={r.open} /> : <Button asChild size="sm" data-tour="expiring-row-upload"><Link href={uploadHref(r)}>Upload</Link></Button>}
+          right={r.open ? <Chip open={r.open} /> : r.canAct ? <Button asChild size="sm" data-tour="expiring-row-upload"><Link href={uploadHref(r)}>Upload</Link></Button> : null}
         />
       ))}
       {keep(rows).length === 0 && <p className="py-6 text-center text-muted-foreground">Nothing missing.</p>}

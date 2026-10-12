@@ -95,6 +95,8 @@ export function DocumentUploadContent({
   const [loadError, setLoadError] = useState<string | null>(null);
   /** A deep link named an item that isn't an active ticket / External training. */
   const [unknownItem, setUnknownItem] = useState(false);
+  /** A deep link named an employee the viewer can't upload for; the form fell back to the viewer. */
+  const [unknownEmployee, setUnknownEmployee] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -107,8 +109,14 @@ export function DocumentUploadContent({
         setEmployees(emps.data);
         setTickets(tks.data);
         setTrainings(trs.data);
+        // A link can name anyone; only keep an employee the viewer may upload for (the Act list).
+        const linkedOk = initial.employeeId !== null && emps.data.some((e) => e.id === initial.employeeId);
+        if (!submissionId && initial.employeeId !== null && !linkedOk) {
+          setEmployeeId(ownEmployeeId);
+          setUnknownEmployee(true);
+        }
         // Nobody chosen yet and only one person to choose from: choose them.
-        if (!submissionId && (initial.employeeId ?? ownEmployeeId) === null && emps.data.length === 1) {
+        if (!submissionId && ((linkedOk ? initial.employeeId : null) ?? ownEmployeeId) === null && emps.data.length === 1) {
           setEmployeeId(emps.data[0].id);
         }
         if (!submissionId && initial.itemId) {
@@ -181,6 +189,7 @@ export function DocumentUploadContent({
 
   async function submit() {
     if (!employeeId || !itemId) return toast.error("Choose who it's for and what it is.");
+    if (kind === "Training" && !provider.trim()) return toast.error("Enter who delivered the training.");
     if (files.length + existing.length === 0) return toast.error("Attach at least one photo or file.");
     const fd = new FormData();
     fd.append("employeeId", String(employeeId));
@@ -240,6 +249,11 @@ export function DocumentUploadContent({
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm" data-tour="docs-sent-back">
           <p className="font-medium">Sent back for a change</p>
           <p className="mt-1">{submission.reviewComment}</p>
+        </div>
+      )}
+      {unknownEmployee && (
+        <div role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          You can&apos;t upload documents for the person in that link, so this form is for {ownEmployeeId !== null ? "you" : "someone you choose"} instead.
         </div>
       )}
       {unknownItem && (

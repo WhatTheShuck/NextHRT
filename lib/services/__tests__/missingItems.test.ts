@@ -39,4 +39,19 @@ describe("findMissingItems", () => {
       { employeeId: 1, kind: "Training", itemId: 21, itemName: "Confined Space", reason: "RetrainingRequired" },
     ]);
   });
+
+  it("only looks up active tickets and training, so a deactivated item is never missing", async () => {
+    mockPrisma.requirementsCacheEntry.findMany.mockResolvedValue([
+      { employeeId: 1, itemType: "Ticket", itemId: 10 },
+      { employeeId: 1, itemType: "Training", itemId: 20 },
+    ]);
+    mockPrisma.ticketRecords.findMany.mockResolvedValue([]);
+    mockPrisma.trainingRecords.findMany.mockResolvedValue([]);
+    mockPrisma.ticket.findMany.mockResolvedValue([]); // ticket 10 is inactive: filtered out by the query
+    mockPrisma.training.findMany.mockResolvedValue([]);
+
+    expect(await findMissingItems({ isActive: true })).toEqual([]);
+    expect(mockPrisma.ticket.findMany.mock.lastCall![0].where).toEqual({ id: { in: [10] }, isActive: true });
+    expect(mockPrisma.training.findMany.mock.lastCall![0].where).toEqual({ id: { in: [20] }, isActive: true });
+  });
 });
