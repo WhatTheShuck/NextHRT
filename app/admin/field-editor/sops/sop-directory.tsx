@@ -231,11 +231,11 @@ const ReadinessCell = ({ sop }: { sop: SopSummary }) => {
   );
 };
 
-const SopDirectory = () => {
+const SopDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [sops, setSops] = useState<SopSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "title", desc: false },

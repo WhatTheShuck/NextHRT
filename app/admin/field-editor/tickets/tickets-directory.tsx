@@ -126,7 +126,7 @@ const ExemptionsCell = ({ ticket }: { ticket: TicketWithRelations }) => {
   );
 };
 
-const TicketsDirectory = () => {
+const TicketsDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [tickets, setTickets] = useState<TicketWithRelations[]>([]);
   const [isTicketAddDialogOpen, setIsTicketAddDialogOpen] = useState(false);
   const [isTicketEditDialogOpen, setIsTicketEditDialogOpen] = useState(false);
@@ -135,7 +135,7 @@ const TicketsDirectory = () => {
   const [selectedRecord, setSelectedRecord] =
     useState<TicketWithRelations | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },

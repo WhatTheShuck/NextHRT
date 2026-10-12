@@ -48,7 +48,7 @@ interface LocationWithCount extends Location {
   };
 }
 
-const LocationsDirectory = () => {
+const LocationsDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [locations, setLocations] = useState<LocationWithCount[]>([]);
   const [isLocationAddDialogOpen, setIsLocationAddDialogOpen] = useState(false);
   const [isLocationEditDialogOpen, setIsLocationEditDialogOpen] =
@@ -58,7 +58,7 @@ const LocationsDirectory = () => {
   const [selectedRecord, setSelectedRecord] =
     useState<LocationWithCount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },

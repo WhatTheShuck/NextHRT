@@ -81,9 +81,9 @@ const getSortValue = (
   }
 };
 
-const EmployeeDirectory = () => {
+const EmployeeDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [employees, setEmployees] = useState<EmployeeWithRelations[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);

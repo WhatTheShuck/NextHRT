@@ -137,7 +137,7 @@ const ExemptionsCell = ({
   );
 };
 
-const TrainingDirectory = () => {
+const TrainingDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [trainings, setTrainings] = useState<TrainingWithRelations[]>([]);
   const [isTrainingAddDialogOpen, setIsTrainingAddDialogOpen] = useState(false);
   const [isTrainingEditDialogOpen, setIsTrainingEditDialogOpen] =
@@ -147,7 +147,7 @@ const TrainingDirectory = () => {
   const [selectedRecord, setSelectedRecord] =
     useState<TrainingWithRelations | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },

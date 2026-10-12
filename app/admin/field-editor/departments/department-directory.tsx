@@ -48,7 +48,7 @@ interface DepartmentWithCount extends Department {
   };
 }
 
-const DepartmentsDirectory = () => {
+const DepartmentsDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [departments, setDepartments] = useState<DepartmentWithCount[]>([]);
   const [isDepartmentAddDialogOpen, setIsDepartmentAddDialogOpen] =
     useState(false);
@@ -59,7 +59,7 @@ const DepartmentsDirectory = () => {
   const [selectedRecord, setSelectedRecord] =
     useState<DepartmentWithCount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },
