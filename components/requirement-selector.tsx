@@ -72,6 +72,18 @@ export function RequirementSelector({
     setRequirements(value);
   }, [value]);
 
+  const canAddRequirement = () => {
+    return (
+      currentDepartmentId !== null &&
+      currentLocationId !== null &&
+      !requirements.some(
+        (req) =>
+          req.departmentId === currentDepartmentId &&
+          req.locationId === currentLocationId,
+      )
+    );
+  };
+
   // Check for unsaved changes and notify parent
   useEffect(() => {
     const hasUnsavedChanges =
@@ -135,18 +147,6 @@ export function RequirementSelector({
     );
     setRequirements(updatedRequirements);
     onChange?.(updatedRequirements);
-  };
-
-  const canAddRequirement = () => {
-    return (
-      currentDepartmentId !== null &&
-      currentLocationId !== null &&
-      !requirements.some(
-        (req) =>
-          req.departmentId === currentDepartmentId &&
-          req.locationId === currentLocationId,
-      )
-    );
   };
 
   const hasUnsavedChanges =

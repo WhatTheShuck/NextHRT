@@ -253,13 +253,6 @@ export function AddTrainingTicketExemptionDialog({
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
-  // Fetch data when dialog opens
-  useEffect(() => {
-    if (open && (tickets.length === 0 || trainings.length === 0)) {
-      fetchData();
-    }
-  }, [open]);
-
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
@@ -278,6 +271,13 @@ export function AddTrainingTicketExemptionDialog({
       setIsLoadingData(false);
     }
   };
+
+  // Fetch data when dialog opens
+  useEffect(() => {
+    if (open && (tickets.length === 0 || trainings.length === 0)) {
+      fetchData();
+    }
+  }, [open]);
 
   const handleClose = () => onOpenChange(false);
 

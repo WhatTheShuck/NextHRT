@@ -57,7 +57,7 @@ export function TicketCombobox({
     (ticket) => ticket.id.toString() === selectedTicketId,
   );
 
-  const ComboboxContent = () => {
+  const renderCombobox = () => {
     if (isDesktop) {
       return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -158,7 +158,7 @@ export function TicketCombobox({
         </div>
       )}
 
-      <ComboboxContent />
+      {renderCombobox()}
 
       {/* Only render the dialog if showAddButton is true and onNewTicket is provided */}
       {showAddButton && onNewTicket && (

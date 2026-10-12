@@ -388,7 +388,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
     (u) => u.id === selectedApproverUserId,
   );
 
-  const SuggestedApproverCombobox = () => {
+  const renderSuggestedApproverCombobox = () => {
     const trigger = (
       <Button
         variant="outline"
@@ -654,7 +654,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
               <p className="text-xs text-muted-foreground">
                 Showing the selected employee&apos;s managers.
               </p>
-              <SuggestedApproverCombobox />
+              {renderSuggestedApproverCombobox()}
             </>
           ) : (
             <>

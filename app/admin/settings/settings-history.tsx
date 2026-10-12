@@ -49,10 +49,6 @@ export function SettingsHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchHistory();
-  }, [page]);
-
   const fetchHistory = async () => {
     setLoading(true);
     setError(null);
@@ -72,6 +68,10 @@ export function SettingsHistory() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchHistory();
+  }, [page]);
 
   const paginationControls = (
     <div className="flex items-center gap-2">

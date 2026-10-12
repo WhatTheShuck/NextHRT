@@ -416,7 +416,7 @@ export class TrainingService {
         }
       }
 
-      let updatedTraining = await prisma.training.update({
+      const updatedTraining = await prisma.training.update({
         where: { id },
         data: {
           category: data.category,

@@ -44,19 +44,6 @@ export function HistoryTab() {
 
   const limit = 20;
 
-  useEffect(() => {
-    if (employee?.id) {
-      setPage(0);
-      fetchHistoryRecords();
-    }
-  }, [employee?.id, includeOrphaned]);
-
-  useEffect(() => {
-    if (employee?.id) {
-      fetchHistoryRecords();
-    }
-  }, [page]);
-
   const fetchHistoryRecords = async () => {
     if (!employee?.id) return;
 
@@ -83,6 +70,19 @@ export function HistoryTab() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (employee?.id) {
+      setPage(0);
+      fetchHistoryRecords();
+    }
+  }, [employee?.id, includeOrphaned]);
+
+  useEffect(() => {
+    if (employee?.id) {
+      fetchHistoryRecords();
+    }
+  }, [page]);
 
   const handleViewDetails = (record: HistoryWithRelations) => {
     setSelectedRecord(record);
