@@ -13,7 +13,12 @@ interface AssignedRow {
   trainingId: number;
   title: string;
   currentRevisionId: number;
-  response: { id: number; status: string; onCurrentRevision: boolean } | null;
+  response: {
+    id: number;
+    status: string;
+    onCurrentRevision: boolean;
+    hasProgress: boolean;
+  } | null;
 }
 
 function apiError(err: unknown, fallback: string): string {
@@ -115,11 +120,25 @@ export function QuizListContent() {
                       <span className="text-xs text-muted-foreground">In progress</span>
                     )}
                   </div>
-                  <div className="shrink-0" data-tour="quiz-action">
+                  <div className="shrink-0 flex flex-wrap justify-end gap-2" data-tour="quiz-action">
                     {inProgress ? (
-                      <Button size="sm" onClick={() => router.push(`/quiz/${r!.id}`)}>
-                        Resume
-                      </Button>
+                      <>
+                        {/* A stale-revision response opens on the restart
+                            prompt either way, so only offer the choice when
+                            there is progress on the current version. */}
+                        {r!.onCurrentRevision && r!.hasProgress && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(`/quiz/${r!.id}?from=start`)}
+                          >
+                            From the start
+                          </Button>
+                        )}
+                        <Button size="sm" onClick={() => router.push(`/quiz/${r!.id}`)}>
+                          {r!.hasProgress ? "Resume where I left off" : "Resume"}
+                        </Button>
+                      </>
                     ) : completed ? (
                       <Button
                         size="sm"

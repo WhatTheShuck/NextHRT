@@ -74,7 +74,14 @@ function InfoBody({ body }: { body: string }) {
   );
 }
 
-export function QuizPlayer({ responseId }: { responseId: number }) {
+export function QuizPlayer({
+  responseId,
+  startAt = "resume",
+}: {
+  responseId: number;
+  /** "resume" jumps to the first unanswered item; "start" opens at the top. */
+  startAt?: "resume" | "start";
+}) {
   const router = useRouter();
   const [data, setData] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,15 +100,25 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
     setLoadError("");
     try {
       const res = await api.get<ResponseData>(`/api/quiz-responses/${responseId}`);
+      const loadedAnswers = res.data.answers ?? {};
       setData(res.data);
-      setAnswers(res.data.answers ?? {});
+      setAnswers(loadedAnswers);
       setReveals(res.data.reveals ?? {});
+      // Opening position: the first visible item without a saved answer (every
+      // forward step saves, so that's where the employee left off), or the
+      // last item when only Submit remains. Reloads after submit are no longer
+      // InProgress, so they never move the employee.
+      if (startAt === "resume" && res.data.status === "InProgress") {
+        const items = visibleItems(res.data.document, loadedAnswers);
+        const firstOpen = items.findIndex((v) => loadedAnswers[v.item.id] === undefined);
+        setIndex(firstOpen === -1 ? Math.max(items.length - 1, 0) : firstOpen);
+      }
     } catch (err) {
       setLoadError(apiError(err, "Failed to load questionnaire"));
     } finally {
       setLoading(false);
     }
-  }, [responseId]);
+  }, [responseId, startAt]);
 
   useEffect(() => {
     load();

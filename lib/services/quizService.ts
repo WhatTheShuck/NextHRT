@@ -965,7 +965,12 @@ class QuizService {
       trainingId: number;
       title: string;
       currentRevisionId: number;
-      response: { id: number; status: string; onCurrentRevision: boolean } | null;
+      response: {
+        id: number;
+        status: string;
+        onCurrentRevision: boolean;
+        hasProgress: boolean;
+      } | null;
     }[] = [];
 
     for (const [trainingId, title] of byId) {
@@ -980,7 +985,7 @@ class QuizService {
       const response = await prisma.quizResponse.findFirst({
         where: { employeeId, revision: { trainingId } },
         orderBy: { startedAt: "desc" },
-        select: { id: true, status: true, revisionId: true },
+        select: { id: true, status: true, revisionId: true, answers: true },
       });
 
       rows.push({
@@ -992,6 +997,7 @@ class QuizService {
               id: response.id,
               status: response.status,
               onCurrentRevision: response.revisionId === cur.id,
+              hasProgress: Object.keys(JSON.parse(response.answers)).length > 0,
             }
           : null,
       });
