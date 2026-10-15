@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Archive } from "lucide-react";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, RowData } from "@/lib/table";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +11,7 @@ import { ExportButtons } from "@/components/ExportButtons";
 import { EmployeeCombobox } from "@/components/combobox/employee-combobox";
 import { EmployeeWithRelations } from "@/lib/types";
 
-interface EmployeeReportShellProps<T> {
+interface EmployeeReportShellProps<T extends RowData> {
   heading: string;
   /** Employees offered in the combobox, already filtered by the toggle. */
   employees: EmployeeWithRelations[];
@@ -63,7 +63,7 @@ export function EmployeeReportShell<T extends Record<string, unknown>>({
       <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">{heading}</h1>
 
       {/* Configuration toggles */}
-      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6" data-tour="report-options">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <div className="flex items-center space-x-2">
             <Switch
@@ -84,7 +84,7 @@ export function EmployeeReportShell<T extends Record<string, unknown>>({
       </div>
 
       {/* Employee selection */}
-      <div className="mb-6">
+      <div className="mb-6" data-tour="report-picker">
         <EmployeeCombobox
           employees={employees}
           selectedEmployeeId={selectedEmployeeId?.toString() ?? null}

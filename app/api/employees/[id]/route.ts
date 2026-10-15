@@ -47,6 +47,15 @@ export async function GET(
         { status: 404 },
       );
     }
+    if (error instanceof Error && error.message === "REPORTING_CYCLE") {
+      return NextResponse.json(
+        { error: "That manager reports to this employee, so it would create a reporting loop" },
+        { status: 400 },
+      );
+    }
+    if (error instanceof Error && error.message === "MANAGER_NOT_FOUND") {
+      return NextResponse.json({ error: "Manager not found" }, { status: 400 });
+    }
 
     return NextResponse.json(
       {
@@ -99,6 +108,15 @@ export async function PATCH(
         { error: "Employee not found" },
         { status: 404 },
       );
+    }
+    if (error instanceof Error && error.message === "REPORTING_CYCLE") {
+      return NextResponse.json(
+        { error: "That manager reports to this employee, so it would create a reporting loop" },
+        { status: 400 },
+      );
+    }
+    if (error instanceof Error && error.message === "MANAGER_NOT_FOUND") {
+      return NextResponse.json({ error: "Manager not found" }, { status: 400 });
     }
 
     return NextResponse.json(

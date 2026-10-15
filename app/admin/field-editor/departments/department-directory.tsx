@@ -37,11 +37,9 @@ import {
   ColumnFiltersState,
   SortingState,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  appTableFeatures,
+  useTable,
+} from "@/lib/table";
 
 interface DepartmentWithCount extends Department {
   _count?: {
@@ -50,7 +48,7 @@ interface DepartmentWithCount extends Department {
   };
 }
 
-const DepartmentsDirectory = () => {
+const DepartmentsDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [departments, setDepartments] = useState<DepartmentWithCount[]>([]);
   const [isDepartmentAddDialogOpen, setIsDepartmentAddDialogOpen] =
     useState(false);
@@ -61,7 +59,7 @@ const DepartmentsDirectory = () => {
   const [selectedRecord, setSelectedRecord] =
     useState<DepartmentWithCount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },
@@ -201,7 +199,8 @@ const DepartmentsDirectory = () => {
     [departments],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: departments,
     columns,
     state: {
@@ -212,9 +211,6 @@ const DepartmentsDirectory = () => {
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     globalFilterFn: "includesString",
   });
 
@@ -241,7 +237,7 @@ const DepartmentsDirectory = () => {
                 {departments.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Button onClick={() => setIsDepartmentAddDialogOpen(true)} className="w-full sm:w-auto">
+            <Button data-tour="fe-add" onClick={() => setIsDepartmentAddDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Department
             </Button>
@@ -252,6 +248,7 @@ const DepartmentsDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search departments..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -281,7 +278,7 @@ const DepartmentsDirectory = () => {
               Loading departments...
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

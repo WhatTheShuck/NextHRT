@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef } from "@/lib/table";
 import { DataTable } from "@/components/table-component";
 import { ExportButtons } from "@/components/ExportButtons";
 
@@ -53,7 +53,7 @@ export function DepartmentAccessReport() {
 
   return (
     <>
-      <div className="mb-6">
+      <div className="mb-6" data-tour="report-picker">
         <DepartmentCombobox
           departments={departments}
           onSelect={handleSelect}

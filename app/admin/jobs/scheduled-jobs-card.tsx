@@ -23,7 +23,7 @@ const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     type: "TICKET_EXPIRY",
     label: "Ticket Expiry",
-    description: "Summarises expired and expiring-soon ticket records.",
+    description: "Emails employees at each expiry milestone and managers at 30 days and on expiry.",
     schedule: "Daily at midnight",
   },
   {
@@ -46,6 +46,13 @@ const SCHEDULED_JOBS: ScheduledJob[] = [
     schedule: "Daily at 3am",
   },
   {
+    type: "ACCOUNT_LINK_DIGEST",
+    label: "Account Link Digest",
+    description:
+      "Emails admins a list of people who signed in over a day ago and still aren't linked to an employee record. Sends nothing if nobody is waiting.",
+    schedule: "Weekly — Monday at 8am",
+  },
+  {
     type: "ORPHANED_IMAGE_CLEANUP",
     label: "Orphaned Image Cleanup",
     description: "Removes image records and files no longer linked to any record.",
@@ -56,6 +63,13 @@ const SCHEDULED_JOBS: ScheduledJob[] = [
     label: "Requirements Cache Rebuild",
     description: "Rebuilds the full requirements cache for all employees.",
     schedule: "Nightly at 1am / on boot",
+  },
+  {
+    type: "MISSING_DOCUMENT_REMINDER",
+    label: "Missing Document Reminder",
+    description:
+      "Emails employees about required tickets and External training they haven't provided: once when the gap appears, then every documents.missingReminderIntervalDays days.",
+    schedule: "Daily, after the 1:00 AM requirements cache rebuild",
   },
   {
     type: "REEVALUATE_PENDING_APPROVALS",
@@ -95,7 +109,7 @@ export function ScheduledJobsCard() {
   }
 
   return (
-    <Card>
+    <Card data-tour="jobs-scheduled">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5" />

@@ -108,7 +108,7 @@ export function OnboardingListContent() {
             </CardDescription>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]" data-tour="onboarding-status-filter">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -139,7 +139,7 @@ export function OnboardingListContent() {
               : "No onboarding requests found."}
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" data-tour="onboarding-list">
             <Table>
               <TableHeader>
                 <TableRow>

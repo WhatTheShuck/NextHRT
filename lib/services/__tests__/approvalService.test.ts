@@ -33,10 +33,25 @@ vi.mock("@/lib/auth", () => ({ auth: { api: { userHasPermission: vi.fn() } } }))
 vi.mock("../auth", () => ({ auth: { api: { userHasPermission: vi.fn() } } }));
 vi.mock("@/lib/services/logService", () => ({ logService: mockLogService }));
 
-import { approvalService } from "@/lib/services/approvalService";
+// Department mode unless a test says otherwise.
+const { mockAuthority } = vi.hoisted(() => ({
+  mockAuthority: {
+    getApprovableForUser: vi.fn(),
+    getApproversFor: vi.fn(),
+    getAuthorityMode: vi.fn(),
+  },
+}));
+vi.mock("../authorityService", () => mockAuthority);
+
+import { approvalService, decidesOnBehalf } from "@/lib/services/approvalService";
 import { auth } from "../../auth";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockAuthority.getApprovableForUser.mockResolvedValue(null);
+  mockAuthority.getApproversFor.mockResolvedValue([]);
+  mockAuthority.getAuthorityMode.mockResolvedValue("department");
+});
 
 describe("approvalService.createRequest", () => {
   it("creates an ApprovalRequest with Pending status at DepartmentManager stage", async () => {
@@ -74,6 +89,77 @@ describe("approvalService.recordDecision", () => {
     mockPrisma.user.findUnique.mockResolvedValue({ id: "user-1", employeeId: 99 }); // not nominated
     mockPrisma.approvalAction.create.mockResolvedValue({});
     mockPrisma.approvalRequest.update.mockResolvedValue({});
+    // Default actor is an admin who is allowed to decide the request.
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: true } as any);
+    mockPrisma.approvalRequest.count.mockResolvedValue(1);
+  });
+
+  const manager = (overrides: Record<string, unknown> = {}) => ({
+    id: "user-1",
+    employeeId: 99,
+    role: "DepartmentManager",
+    canManageChildrenDepartments: false,
+    managedDepartments: [{ id: 5, childDepartments: [] }],
+    ...overrides,
+  });
+
+  it("rejects a user with no approval access", async () => {
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: false } as any);
+    mockPrisma.user.findUnique.mockResolvedValue(manager({ role: "User", managedDepartments: [] }));
+
+    await expect(
+      approvalService.recordDecision({ requestId: 1, userId: "user-1", decision: "Approved", comment: "x" }),
+    ).rejects.toThrow("NOT_AUTHORISED");
+    expect(mockPrisma.approvalAction.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a manager when the request is outside what they can decide", async () => {
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: false } as any);
+    mockPrisma.user.findUnique.mockResolvedValue(manager());
+    mockPrisma.approvalRequest.count.mockResolvedValue(0);
+
+    await expect(
+      approvalService.recordDecision({ requestId: 1, userId: "user-1", decision: "Approved", comment: "x" }),
+    ).rejects.toThrow("NOT_AUTHORISED");
+    expect(mockPrisma.approvalRequest.count).toHaveBeenCalledWith({
+      where: {
+        AND: [
+          { id: 1 },
+          {
+            status: "Pending",
+            OR: [
+              {
+                currentStage: "DepartmentManager",
+                trainingRequest: { employee: { departmentId: { in: [5] } } },
+              },
+            ],
+            NOT: { trainingRequest: { employeeId: 99 } },
+          },
+        ],
+      },
+    });
+    expect(mockPrisma.approvalAction.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects anyone deciding a request about themselves, admins included", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(manager({ role: "Admin", employeeId: 10 }));
+
+    await expect(
+      approvalService.recordDecision({ requestId: 1, userId: "user-1", decision: "Approved", comment: "x" }),
+    ).rejects.toThrow("SELF_APPROVAL");
+    expect(mockPrisma.approvalAction.create).not.toHaveBeenCalled();
+  });
+
+  it("lets a department manager decide a request in a department they manage", async () => {
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: false } as any);
+    mockPrisma.user.findUnique.mockResolvedValue(manager({ employeeId: 42 }));
+    mockPrisma.approvalRequest.findUnique
+      .mockResolvedValueOnce(baseRequest)
+      .mockResolvedValue({ ...baseRequest, actions: [], trainingRequest: null });
+
+    await approvalService.recordDecision({ requestId: 1, userId: "user-1", decision: "Approved" });
+
+    expect(mockPrisma.approvalAction.create).toHaveBeenCalled();
   });
 
   it("throws when onBehalfOf is true and no comment provided", async () => {
@@ -246,5 +332,93 @@ describe("approvalService.reevaluatePendingRequests", () => {
       "Warning",
       "REEVALUATE_PENDING_APPROVALS",
     );
+  });
+});
+
+describe("approvalService under line-manager authority", () => {
+  const request = {
+    id: 1,
+    status: "Pending",
+    currentStage: "DepartmentManager",
+    nominatedApproverEmployeeId: null,
+    submittedByUserId: "submitter-1",
+    trainingRequest: { employeeId: 9 }, // Craig Whelan
+  };
+  const carolyn = { id: "user-carolyn", employeeId: 10, role: "FireWarden", canManageChildrenDepartments: false, managedDepartments: [] };
+
+  beforeEach(() => {
+    mockPrisma.approvalRequest.findUnique.mockResolvedValueOnce(request).mockResolvedValue({ ...request, actions: [], trainingRequest: null });
+    mockPrisma.approvalRequest.count.mockResolvedValue(1);
+    mockPrisma.approvalAction.create.mockResolvedValue({});
+    mockPrisma.approvalRequest.update.mockResolvedValue({});
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: false } as any);
+  });
+
+  it("offers manager-stage requests for the people in the approver's line", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(carolyn);
+    mockAuthority.getApprovableForUser.mockResolvedValue(new Map([[9, 8]])); // acts for Joshua (8)
+    await approvalService.recordDecision({ requestId: 1, userId: "user-carolyn", decision: "Approved" });
+
+    expect(mockPrisma.approvalRequest.count).toHaveBeenCalledWith({
+      where: {
+        AND: [
+          { id: 1 },
+          {
+            status: "Pending",
+            OR: [{ currentStage: "DepartmentManager", trainingRequest: { employeeId: { in: [9] } } }],
+            NOT: { trainingRequest: { employeeId: 10 } },
+          },
+        ],
+      },
+    });
+  });
+
+  it("records a delegate as acting for the manager, with no comment needed", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(carolyn);
+    mockAuthority.getApprovableForUser.mockResolvedValue(new Map([[9, 8]]));
+    await approvalService.recordDecision({ requestId: 1, userId: "user-carolyn", decision: "Approved" });
+
+    expect(mockPrisma.approvalAction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ onBehalfOf: false, actingForEmployeeId: 8 }),
+    });
+  });
+
+  it("treats an admin outside the line as stepping in: on behalf, comment required", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ ...carolyn, id: "admin", employeeId: 50, role: "Admin" });
+    vi.mocked(auth.api.userHasPermission).mockResolvedValue({ success: true } as any);
+    mockAuthority.getApprovableForUser.mockResolvedValue(new Map());
+
+    await expect(
+      approvalService.recordDecision({ requestId: 1, userId: "admin", decision: "Approved" }),
+    ).rejects.toThrow("COMMENT_REQUIRED");
+  });
+
+  it("warns about a manager-stage request nobody in the line can approve", async () => {
+    mockAuthority.getAuthorityMode.mockResolvedValue("lineManager");
+    mockPrisma.approvalRequest.findMany.mockResolvedValue([{ ...request, requestType: "Training", trainingRequest: { employeeId: 9, employee: { departmentId: 33 } } }]);
+    mockAuthority.getApproversFor.mockResolvedValue([{ employeeId: 8, actingFor: null, relation: "manager" }]);
+    (mockPrisma.user as any).count = vi.fn().mockResolvedValue(0);
+
+    await approvalService.reevaluatePendingRequests();
+    expect(mockLogService.log).toHaveBeenCalledWith(expect.stringContaining("no line manager"), "Warning", "REEVALUATE_PENDING_APPROVALS");
+  });
+});
+
+describe("decidesOnBehalf", () => {
+  it("is false for the nominated approver themselves", () => {
+    expect(decidesOnBehalf(false, 7, 7)).toBe(false);
+  });
+
+  it("is false when nobody was nominated", () => {
+    expect(decidesOnBehalf(false, null, 7)).toBe(false);
+  });
+
+  it("is true for anyone other than the nominated approver", () => {
+    expect(decidesOnBehalf(false, 7, 8)).toBe(true);
+    expect(decidesOnBehalf(false, 7, null)).toBe(true);
+  });
+
+  it("is true for an admin stepping in", () => {
+    expect(decidesOnBehalf(true, null, 7)).toBe(true);
   });
 });

@@ -127,7 +127,7 @@ export function EmployeeListReport() {
           </p>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" data-tour="report-location-filter">
                 <MapPin className="h-4 w-4 mr-2" />
                 {selectedLocation ? selectedLocation : "All Locations"}
               </Button>

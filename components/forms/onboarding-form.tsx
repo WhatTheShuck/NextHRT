@@ -618,7 +618,7 @@ export function OnboardingForm({
     <form onSubmit={handleSubmit} className="space-y-6 pt-6">
       {/* ── Section 1: Employee Details ───────────────────────────────────────── */}
       <Card>
-        <CardHeader>
+        <CardHeader data-tour="onboarding-details">
           <CardTitle>Employee Details</CardTitle>
           <CardDescription>
             Core HR information for the new hire.
@@ -856,6 +856,7 @@ export function OnboardingForm({
                 size="icon"
                 variant="outline"
                 onClick={() => setIsDepartmentDialogOpen(true)}
+                data-tour="onboarding-new-department"
                 title={
                   userRole === "Admin"
                     ? "Add new department"
@@ -1031,7 +1032,7 @@ export function OnboardingForm({
 
       {/* ── Section 2: Forms & Compliance ────────────────────────────────────── */}
       <Card>
-        <CardHeader>
+        <CardHeader data-tour="onboarding-compliance">
           <CardTitle>Forms &amp; Compliance</CardTitle>
           <CardDescription>
             Pre-employment forms and compliance requirements.
@@ -1122,7 +1123,7 @@ export function OnboardingForm({
 
       {/* ── Section 3: Software Access ────────────────────────────────────────── */}
       <Card>
-        <CardHeader>
+        <CardHeader data-tour="onboarding-software">
           <CardTitle>Software Access</CardTitle>
           <CardDescription>
             Select the programs and licences this employee will need.
@@ -1162,7 +1163,7 @@ export function OnboardingForm({
 
       {/* ── Section 4: Hardware ───────────────────────────────────────────────── */}
       <Card>
-        <CardHeader>
+        <CardHeader data-tour="onboarding-hardware">
           <CardTitle>Hardware</CardTitle>
           <CardDescription>
             Select the hardware items this employee will need.
@@ -1354,7 +1355,7 @@ export function OnboardingForm({
 
       {/* ── Section 5: Department Notes ───────────────────────────────────────── */}
       <Card>
-        <CardHeader>
+        <CardHeader data-tour="onboarding-notes">
           <CardTitle>Department Notes</CardTitle>
           <CardDescription>
             Optional notes included in emails to each department.
@@ -1403,7 +1404,7 @@ export function OnboardingForm({
         </Alert>
       )}
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button type="submit" className="w-full" disabled={isSubmitting} data-tour="onboarding-submit">
         {isSubmitting ? "Submitting..." : "Submit Onboarding Request"}
       </Button>
 

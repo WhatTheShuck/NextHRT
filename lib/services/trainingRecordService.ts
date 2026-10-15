@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getLineScopeForUser } from "@/lib/services/authorityService";
 import { UserRole } from "@/generated/prisma_client/client";
 import { fileUploadService } from "./fileUploadService";
 import { auth } from "../auth";
@@ -58,6 +59,16 @@ export class TrainingRecordService {
     });
 
     if (canViewDepartment.success) {
+      // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+      const lineScope = await getLineScopeForUser(userId, { includeSelf: true });
+      if (lineScope) {
+        return await prisma.trainingRecords.findMany({
+          where: { employeeId: { in: lineScope }, ...whereClause },
+          include: includeClause,
+          orderBy: { dateCompleted: "desc" as const },
+        });
+      }
+
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },

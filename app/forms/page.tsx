@@ -22,7 +22,7 @@ export default async function LandingPage() {
             </p>
           </div>
           <Button asChild variant="outline">
-            <Link href="/forms/my-requests">
+            <Link href="/forms/my-requests" data-tour="forms-my-requests">
               <ClipboardList className="h-4 w-4 mr-2" />
               My Requests
             </Link>

@@ -181,7 +181,7 @@ export function CompletedTicketPage() {
   return (
     <>
       {/* Configuration toggles */}
-      <div className="bg-muted/50 border rounded-lg p-4 mb-6">
+      <div className="bg-muted/50 border rounded-lg p-4 mb-6" data-tour="report-options">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <div className="flex items-center space-x-2">
             <Switch
@@ -225,7 +225,7 @@ export function CompletedTicketPage() {
       </div>
 
       {/* Ticket selection */}
-      <div className="mb-6">
+      <div className="mb-6" data-tour="report-picker">
         <TicketCombobox
           tickets={ticketSelection}
           onSelect={handleTicketSelect}
@@ -267,7 +267,7 @@ export function CompletedTicketPage() {
             </p>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" data-tour="report-location-filter">
                   {selectedLocation
                     ? `Location: ${selectedLocation}`
                     : "Filter Location"}

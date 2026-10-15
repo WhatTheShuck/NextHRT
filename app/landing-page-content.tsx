@@ -5,8 +5,25 @@ import { authClient } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/axios";
+import type { AccountStatus } from "@/lib/services/accountOnboardingService";
+import { AccountPendingPanel } from "@/components/onboarding/account-pending-panel";
+import { WelcomeCard } from "@/components/onboarding/welcome-card";
+import { TeamAccessPanel } from "@/components/onboarding/team-access-panel";
+import Link from "next/link";
 
-export function LandingPageContent() {
+// Self-service cards are about "my" records, so they're dead ends until the
+// account is linked to an employee record.
+const SELF_SERVICE_PERMISSION = "employee:viewSelf";
+
+export function LandingPageContent({
+  accountStatus,
+  userName,
+  userEmail,
+}: {
+  accountStatus: AccountStatus;
+  userName: string | null;
+  userEmail: string | null;
+}) {
   const { data: session } = authClient.useSession();
   const userRole = session?.user.role || "User";
   const [visibleItems, setVisibleItems] = useState<
@@ -15,6 +32,10 @@ export function LandingPageContent() {
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingOnboardingCount, setPendingOnboardingCount] = useState(0);
+  const [unlinkedUserCount, setUnlinkedUserCount] = useState(0);
+  const [expiringCount, setExpiringCount] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
+  const isLinked = accountStatus.state === "linked";
 
   useEffect(() => {
     async function checkPermissions() {
@@ -85,13 +106,26 @@ export function LandingPageContent() {
         .get<{ count: number }>("/api/onboarding/pending/count")
         .then((res) => setPendingOnboardingCount(res.data.count))
         .catch(() => {});
+      api
+        .get<{ count: number }>("/api/users/unlinked/count")
+        .then((res) => setUnlinkedUserCount(res.data.count))
+        .catch(() => {});
+      api
+        .get<{ count: number; reviewCount: number }>("/api/expiring/count")
+        .then((res) => {
+          setExpiringCount(res.data.count);
+          setReviewCount(res.data.reviewCount);
+        })
+        .catch(() => {});
     }
 
     checkPermissions();
   }, [session?.user?.id]);
 
   const nonAdminItems = visibleItems.filter(
-    (item) => item.minimumAllowedPermission !== "user:impersonate",
+    (item) =>
+      item.minimumAllowedPermission !== "user:impersonate" &&
+      (isLinked || item.minimumAllowedPermission !== SELF_SERVICE_PERMISSION),
   );
   const adminItems = visibleItems.filter(
     (item) => item.minimumAllowedPermission === "user:impersonate",
@@ -133,16 +167,50 @@ export function LandingPageContent() {
     );
   }
 
+  // Admins can work without an employee record, so they keep the full
+  // dashboard and get a nudge instead of the waiting-room panel.
+  const isAdmin = userRole === "Admin";
+  const showPendingPanel = !isLinked && !isAdmin;
+
   return (
     <div className="max-w-screen-2xl mx-auto min-h-screen bg-background p-4 ">
       <div className="space-y-6 md:space-y-8">
-        <div>
-          <h1 className="text-2xl md:text-4xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-2">{getWelcomeMessage()}</p>
-        </div>
+        {showPendingPanel ? (
+          <AccountPendingPanel name={userName} email={userEmail} />
+        ) : (
+          <div>
+            <h1 className="text-2xl md:text-4xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground mt-2">{getWelcomeMessage()}</p>
+          </div>
+        )}
+
+        {accountStatus.state === "linked" && accountStatus.showWelcome && (
+          <WelcomeCard
+            firstName={accountStatus.firstName}
+            title={accountStatus.title}
+            department={accountStatus.department}
+            employeeId={accountStatus.employeeId}
+          />
+        )}
+
+        <TeamAccessPanel />
+
+        {!isLinked && isAdmin && (
+          <div className="rounded-lg border bg-muted/50 p-4 text-sm">
+            Your account isn&apos;t linked to an employee record, so personal
+            pages like My SOPs are hidden.{" "}
+            <Link
+              href="/admin/permissions?tab=mapping"
+              className="underline underline-offset-2"
+            >
+              Link it in User Permissions
+            </Link>
+            .
+          </div>
+        )}
 
         {nonAdminItems.length > 0 && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-tour="dashboard-my-actions">
             <h2 className="text-xl md:text-2xl font-semibold">My Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {nonAdminItems.map((item) => (
@@ -152,7 +220,9 @@ export function LandingPageContent() {
                   badge={
                     item.href === "/approvals"
                       ? pendingApprovalCount
-                      : undefined
+                      : item.href === "/expiring" && userRole !== "Admin"
+                        ? expiringCount
+                        : undefined
                   }
                 />
               ))}
@@ -161,7 +231,7 @@ export function LandingPageContent() {
         )}
 
         {adminItems.length > 0 && userRole === "Admin" && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-tour="dashboard-admin-tools">
             <h2 className="text-xl md:text-2xl font-semibold">
               Administrative Tools
             </h2>
@@ -173,7 +243,11 @@ export function LandingPageContent() {
                   badge={
                     item.href === "/admin/onboarding"
                       ? pendingOnboardingCount
-                      : undefined
+                      : item.href === "/admin/access"
+                        ? unlinkedUserCount
+                        : item.href === "/expiring?tab=review"
+                          ? reviewCount
+                          : undefined
                   }
                 />
               ))}
@@ -181,7 +255,7 @@ export function LandingPageContent() {
           </div>
         )}
 
-        {visibleItems.length === 0 && (
+        {visibleItems.length === 0 && !showPendingPanel && (
           <div className="text-centre py-12">
             <p className="text-muted-foreground">
               No available actions for your current role. Please contact an

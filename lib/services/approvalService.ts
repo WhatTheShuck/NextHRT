@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { auth } from "../auth";
 import { logService } from "./logService";
+import { getApprovableForUser, getApproversFor, getAuthorityMode } from "./authorityService";
 import {
   Prisma,
   ApprovalRequestType,
@@ -9,6 +10,41 @@ import {
 } from "@/generated/prisma_client/client";
 
 const STAGE_ORDER: ApprovalStage[] = ["DepartmentManager", "HRManager", "Admin"];
+
+type ApproverUser = Prisma.UserGetPayload<{
+  include: { managedDepartments: { include: { childDepartments: true } } };
+}>;
+
+const nameSelect = { select: { id: true, legalFirstName: true, legalLastName: true, preferredFirstName: true, preferredLastName: true } };
+
+/**
+ * Deciding on someone else's behalf needs a comment whichever way it goes: an
+ * admin stepping in from outside the line, or anyone other than the approver
+ * the requester nominated.
+ */
+export function decidesOnBehalf(
+  adminSteppingIn: boolean,
+  nominatedApproverEmployeeId: number | null,
+  actorEmployeeId: number | null,
+): boolean {
+  return (
+    adminSteppingIn ||
+    (nominatedApproverEmployeeId !== null && actorEmployeeId !== nominatedApproverEmployeeId)
+  );
+}
+
+const pendingRequestInclude = {
+  actions: { include: { user: { select: { id: true, name: true } }, actingFor: nameSelect } },
+  trainingRequest: {
+    include: {
+      employee: { select: { id: true, legalFirstName: true, legalLastName: true } },
+      training: { select: { id: true, title: true } },
+      trainingCourseRequest: { select: { id: true, name: true } },
+    },
+  },
+  nominatedApproverEmployee: { select: { id: true, legalFirstName: true, legalLastName: true } },
+  submittedByUser: { select: { id: true, name: true } },
+} satisfies Prisma.ApprovalRequestInclude;
 
 class ApprovalService {
   async createRequest(options: {
@@ -44,13 +80,35 @@ class ApprovalService {
     if (!request) throw new Error("REQUEST_NOT_FOUND");
     if (request.status !== "Pending") throw new Error("REQUEST_NOT_PENDING");
 
-    const actor = await prisma.user.findUnique({ where: { id: userId } });
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { managedDepartments: { include: { childDepartments: true } } },
+    });
+    if (!actor) throw new Error("NOT_AUTHORISED");
 
-    // Compute onBehalfOf
-    const onBehalfOf =
-      request.nominatedApproverEmployeeId !== null &&
-      (actor?.employeeId == null ||
-        actor.employeeId !== request.nominatedApproverEmployeeId);
+    // Nobody decides a request about themselves, admins included.
+    if (actor.employeeId != null && actor.employeeId === request.trainingRequest?.employeeId) {
+      throw new Error("SELF_APPROVAL");
+    }
+
+    // Deciding is allowed on exactly what the approvals list shows this user.
+    const decidable = await this.decidableFilter(actor);
+    if (!decidable) throw new Error("NOT_AUTHORISED");
+    const allowed = await prisma.approvalRequest.count({
+      where: { AND: [{ id: requestId }, decidable] },
+    });
+    if (allowed === 0) throw new Error("NOT_AUTHORISED");
+
+    // Line-manager authority, manager stage (spec §9.2): a delegate decides at the level of the
+    // manager they act for (recorded, no comment needed); anyone else here is an admin
+    // stepping in, which goes through the on-behalf-of path and needs a comment.
+    const approvable = request.currentStage === "DepartmentManager" ? await getApprovableForUser(userId) : null;
+    const subjectId = request.trainingRequest?.employeeId ?? null;
+    const inLine = approvable !== null && subjectId !== null && approvable.has(subjectId);
+    const actingForEmployeeId = inLine ? (approvable.get(subjectId!) ?? null) : null;
+    const adminSteppingIn = approvable !== null && !inLine;
+
+    const onBehalfOf = decidesOnBehalf(adminSteppingIn, request.nominatedApproverEmployeeId, actor.employeeId);
 
     // Validate comment requirements (must happen before any write)
     if ((onBehalfOf || decision === "Rejected") && !comment) {
@@ -66,6 +124,7 @@ class ApprovalService {
         decision,
         comment: comment ?? null,
         onBehalfOf,
+        actingForEmployeeId,
       },
     });
 
@@ -102,13 +161,12 @@ class ApprovalService {
     });
   }
 
-  async getPendingRequestsForUser(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { managedDepartments: { include: { childDepartments: true } } },
-    });
-    if (!user) return [];
-
+  /**
+   * The pending-request filter for what `user` may decide, or null when they have no approval
+   * access. Shared by the approvals list and `recordDecision`, so being able to see a request
+   * and being able to decide it can't drift apart.
+   */
+  private async decidableFilter(user: ApproverUser): Promise<Prisma.ApprovalRequestWhereInput | null> {
     const userRole = user.role ?? "User";
 
     const [canApproveAsHR, canAdminApprove] = await Promise.all([
@@ -120,35 +178,33 @@ class ApprovalService {
       }),
     ]);
 
-    // Admins (adminApprove) can see all pending requests regardless of stage or department.
-    if (canAdminApprove?.success) {
-      return prisma.approvalRequest.findMany({
-        where: { status: "Pending" },
-        include: {
-          actions: { include: { user: { select: { id: true, name: true } } } },
-          trainingRequest: {
-            include: {
-              employee: { select: { id: true, legalFirstName: true, legalLastName: true } },
-              training: { select: { id: true, title: true } },
-              trainingCourseRequest: { select: { id: true, name: true } },
-            },
-          },
-          nominatedApproverEmployee: { select: { id: true, legalFirstName: true, legalLastName: true } },
-          submittedByUser: { select: { id: true, name: true } },
-        },
-        orderBy: { createdAt: "asc" },
-      });
+    // Never offer a user a request about themselves.
+    const notOwn: Prisma.ApprovalRequestWhereInput =
+      user.employeeId != null ? { NOT: { trainingRequest: { employeeId: user.employeeId } } } : {};
+
+    // Admins (adminApprove) can act on all pending requests regardless of stage or department.
+    if (canAdminApprove?.success) return { status: "Pending", ...notOwn };
+
+    // Build OR clauses for non-admin approvers.
+    const orClauses: Prisma.ApprovalRequestWhereInput[] = [];
+
+    // Line-manager authority: direct manager and one up, delegates as the manager they act for.
+    const approvable = await getApprovableForUser(user.id);
+    if (approvable) {
+      if (approvable.size > 0) {
+        orClauses.push({
+          currentStage: ApprovalStage.DepartmentManager,
+          trainingRequest: { employeeId: { in: [...approvable.keys()] } },
+        });
+      }
     }
 
-    const managedDeptIds = user.managedDepartments.map((d) => d.id);
-    if (user.canManageChildrenDepartments) {
+    const managedDeptIds = approvable ? [] : user.managedDepartments.map((d) => d.id);
+    if (!approvable && user.canManageChildrenDepartments) {
       user.managedDepartments.forEach((d) =>
         d.childDepartments.forEach((c) => managedDeptIds.push(c.id)),
       );
     }
-
-    // Build OR clauses for non-admin approvers.
-    const orClauses: Prisma.ApprovalRequestWhereInput[] = [];
 
     if (managedDeptIds.length > 0) {
       orClauses.push({
@@ -162,23 +218,57 @@ class ApprovalService {
     }
 
     // No matching clauses — user has no approval access.
-    if (orClauses.length === 0) return [];
+    if (orClauses.length === 0) return null;
 
-    return prisma.approvalRequest.findMany({
-      where: { status: "Pending", OR: orClauses },
-      include: {
-        actions: { include: { user: { select: { id: true, name: true } } } },
-        trainingRequest: {
-          include: {
-            employee: { select: { id: true, legalFirstName: true, legalLastName: true } },
-            training: { select: { id: true, title: true } },
-            trainingCourseRequest: { select: { id: true, name: true } },
-          },
-        },
-        nominatedApproverEmployee: { select: { id: true, legalFirstName: true, legalLastName: true } },
-        submittedByUser: { select: { id: true, name: true } },
-      },
+    return { status: "Pending", OR: orClauses, ...notOwn };
+  }
+
+  async getPendingRequestsForUser(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { managedDepartments: { include: { childDepartments: true } } },
+    });
+    if (!user) return [];
+
+    const where = await this.decidableFilter(user);
+    if (!where) return [];
+
+    const requests = await prisma.approvalRequest.findMany({
+      where,
+      include: pendingRequestInclude,
       orderBy: { createdAt: "asc" },
+    });
+
+    // Line-manager authority: tell the approver whose behalf they act on at the manager stage.
+    // onBehalfOf: the decision needs a comment whichever way it goes (see decide).
+    const approvable = await getApprovableForUser(userId);
+    if (!approvable) {
+      return requests.map((r) => ({
+        ...r,
+        actingFor: null,
+        adminSteppingIn: false,
+        onBehalfOf: decidesOnBehalf(false, r.nominatedApproverEmployeeId, user.employeeId),
+      }));
+    }
+    const actingForIds = [...new Set([...approvable.values()].filter((v): v is number => v !== null))];
+    const names = new Map(
+      (await prisma.employee.findMany({ where: { id: { in: actingForIds } }, ...nameSelect })).map((e) => [
+        e.id,
+        `${e.preferredFirstName || e.legalFirstName} ${e.preferredLastName || e.legalLastName}`,
+      ]),
+    );
+    return requests.map((r) => {
+      const subjectId = r.trainingRequest?.employeeId;
+      const managerStage = r.currentStage === "DepartmentManager";
+      const inLine = subjectId !== undefined && approvable.has(subjectId);
+      const actingForId = inLine ? approvable.get(subjectId!) ?? null : null;
+      const adminSteppingIn = managerStage && !inLine;
+      return {
+        ...r,
+        actingFor: managerStage && actingForId !== null ? { id: actingForId, name: names.get(actingForId) ?? "" } : null,
+        adminSteppingIn,
+        onBehalfOf: decidesOnBehalf(adminSteppingIn, r.nominatedApproverEmployeeId, user.employeeId),
+      };
     });
   }
 
@@ -195,7 +285,24 @@ class ApprovalService {
       },
     });
 
+    const lineMode = (await getAuthorityMode()) === "lineManager";
     for (const request of pending) {
+      if (lineMode && request.currentStage === "DepartmentManager") {
+        const subjectId = request.trainingRequest?.employeeId;
+        if (!subjectId) continue;
+        const approvers = await getApproversFor(subjectId);
+        const withAccount = await prisma.user.count({
+          where: { employeeId: { in: approvers.map((a) => a.employeeId) } },
+        });
+        if (withAccount === 0) {
+          await logService.log(
+            `Approval request #${request.id} (${request.requestType}) has no line manager with an HRT account who can approve it. An admin can step in, or set the employee's Reports To.`,
+            "Warning",
+            "REEVALUATE_PENDING_APPROVALS",
+          );
+        }
+        continue;
+      }
       if (request.currentStage === "DepartmentManager") {
         const deptId = request.trainingRequest?.employee?.departmentId;
         if (!deptId) continue;

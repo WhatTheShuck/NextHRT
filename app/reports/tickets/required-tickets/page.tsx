@@ -69,7 +69,7 @@ export default function Page() {
             <ExportButtons
               data={allEmployees}
               columns={columns}
-              filename={`ticket-requirements-complete)}`}
+              filename="all-required-tickets"
               title={`Ticket Requirements Report`}
               sortedData={sortedData}
               isSorted={isSorted}

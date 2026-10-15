@@ -59,7 +59,7 @@ export function TrainingCombobox({
     (training) => training.id.toString() === selectedTrainingId,
   );
 
-  const ComboboxContent = () => {
+  const renderCombobox = () => {
     if (isDesktop) {
       return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -161,7 +161,7 @@ export function TrainingCombobox({
         </div>
       )}
 
-      <ComboboxContent />
+      {renderCombobox()}
 
       {/* Only render the dialog if showAddButton is true and onNewTraining is provided */}
       {showAddButton && onNewTraining && (

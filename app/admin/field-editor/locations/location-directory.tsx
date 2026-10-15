@@ -37,11 +37,9 @@ import {
   ColumnFiltersState,
   SortingState,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  appTableFeatures,
+  useTable,
+} from "@/lib/table";
 
 interface LocationWithCount extends Location {
   _count?: {
@@ -50,7 +48,7 @@ interface LocationWithCount extends Location {
   };
 }
 
-const LocationsDirectory = () => {
+const LocationsDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [locations, setLocations] = useState<LocationWithCount[]>([]);
   const [isLocationAddDialogOpen, setIsLocationAddDialogOpen] = useState(false);
   const [isLocationEditDialogOpen, setIsLocationEditDialogOpen] =
@@ -60,7 +58,7 @@ const LocationsDirectory = () => {
   const [selectedRecord, setSelectedRecord] =
     useState<LocationWithCount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },
@@ -208,7 +206,8 @@ const LocationsDirectory = () => {
     [],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: locations,
     columns,
     state: {
@@ -219,9 +218,6 @@ const LocationsDirectory = () => {
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     globalFilterFn: "includesString",
   });
 
@@ -246,7 +242,7 @@ const LocationsDirectory = () => {
                 {locations.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Button onClick={() => setIsLocationAddDialogOpen(true)} className="w-full sm:w-auto">
+            <Button data-tour="fe-add" onClick={() => setIsLocationAddDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Location
             </Button>
@@ -257,6 +253,7 @@ const LocationsDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search locations..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -306,7 +303,7 @@ const LocationsDirectory = () => {
               Loading locations...
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

@@ -40,11 +40,9 @@ import {
   ColumnFiltersState,
   SortingState,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  appTableFeatures,
+  useTable,
+} from "@/lib/table";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -233,11 +231,11 @@ const ReadinessCell = ({ sop }: { sop: SopSummary }) => {
   );
 };
 
-const SopDirectory = () => {
+const SopDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [sops, setSops] = useState<SopSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "title", desc: false },
@@ -399,16 +397,14 @@ const SopDirectory = () => {
     [],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: sops,
     columns,
     state: { sorting, columnFilters, globalFilter },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     globalFilterFn: "includesString",
   });
 
@@ -452,7 +448,7 @@ const SopDirectory = () => {
                 )}
               </CardDescription>
             </div>
-            <Button onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto">
+            <Button data-tour="fe-add" onClick={() => setIsAddOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add SOP
             </Button>
@@ -463,6 +459,7 @@ const SopDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search SOPs..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -477,7 +474,7 @@ const SopDirectory = () => {
                   ?.setFilterValue(value === "all" ? undefined : value)
               }
             >
-              <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]" data-tour="fe-sop-setup">
                 <SelectValue placeholder="Setup" />
               </SelectTrigger>
               <SelectContent>
@@ -517,7 +514,7 @@ const SopDirectory = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table data-tour="fe-table">
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id}>

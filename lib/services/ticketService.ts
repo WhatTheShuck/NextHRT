@@ -269,6 +269,7 @@ export class TicketService {
         _count: {
           select: {
             ticketRecords: true,
+            documentSubmissions: { where: { status: { in: ["Pending", "ChangesRequested"] } } },
           },
         },
       },
@@ -279,6 +280,9 @@ export class TicketService {
     }
 
     if (existingTicket._count.ticketRecords > 0) {
+      throw new Error("TICKET_HAS_RECORDS");
+    }
+    if (existingTicket._count.documentSubmissions > 0) {
       throw new Error("TICKET_HAS_RECORDS");
     }
 

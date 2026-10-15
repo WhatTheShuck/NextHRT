@@ -75,9 +75,9 @@ export default function Page() {
       <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">New Hires Report</h1>
 
       {/* Configuration section */}
-      <div className="p-4 rounded-lg mb-6 space-y-4 border">
+      <div className="p-4 rounded-lg mb-6 space-y-4 border" data-tour="report-options">
         {/* Date range selectors */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4" data-tour="report-dates">
           <div className="flex-1">
             <DateSelector
               selectedDate={startedFrom}

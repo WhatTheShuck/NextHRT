@@ -14,6 +14,8 @@ import { hardwareRequestHandler } from "@/lib/jobs/handlers/hardwareRequest";
 import { snipePhoneSyncHandler } from "@/lib/jobs/handlers/snipePhoneSync";
 import { assetCheckinHandler } from "@/lib/jobs/handlers/assetCheckin";
 import { trainingRevisionCrossingHandler } from "@/lib/jobs/handlers/trainingRevisionCrossing";
+import { accountLinkDigestHandler } from "@/lib/jobs/handlers/accountLinkDigest";
+import { missingDocumentReminderHandler } from "@/lib/jobs/handlers/missingDocumentReminder";
 
 export async function start(): Promise<void> {
   registerHandler("EXEMPTION_EXPIRY", exemptionExpiryHandler);
@@ -29,6 +31,8 @@ export async function start(): Promise<void> {
   registerHandler("HARDWARE_REQUEST", hardwareRequestHandler);
   registerHandler("ASSET_CHECKIN", assetCheckinHandler);
   registerHandler("SNIPE_PHONE_SYNC", snipePhoneSyncHandler);
+  registerHandler("ACCOUNT_LINK_DIGEST", accountLinkDigestHandler);
+  registerHandler("MISSING_DOCUMENT_REMINDER", missingDocumentReminderHandler);
 
   // Warm the requirements cache on boot
   await enqueue("REQUIREMENTS_CACHE_REBUILD");

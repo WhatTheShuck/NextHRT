@@ -121,6 +121,7 @@ export function ReportsContent({ category }: { category?: ReportCategory }) {
             <Link
               href={cat.href}
               className="inline-flex items-center gap-1 group"
+              data-tour="report-category"
             >
               <h2 className="text-xl font-semibold group-hover:underline">
                 {cat.label}
@@ -135,7 +136,10 @@ export function ReportsContent({ category }: { category?: ReportCategory }) {
           </div>
         ))
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          data-tour="report-cards"
+        >
           {visibleItems.map((item) => (
             <NavigationCard key={item.href} {...item} />
           ))}

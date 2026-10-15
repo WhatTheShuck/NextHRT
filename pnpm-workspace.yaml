@@ -1,6 +1,8 @@
 overrides:
-  '@types/react': 19.2.8
-  '@types/react-dom': 19.2.3
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0
+  # Security: patched versions of transitive deps (Prisma CLI)
+  mysql2: ^3.23.1
 
 allowBuilds:
   '@prisma/engines': true
@@ -10,3 +12,6 @@ allowBuilds:
   prisma: true
   sharp: true
   unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - vite@8.3.2

@@ -72,7 +72,12 @@ class TrainingRequestService {
         approvalRequest: {
           include: {
             actions: {
-              include: { user: { select: { id: true, name: true } } },
+              include: {
+                user: { select: { id: true, name: true } },
+                actingFor: {
+                  select: { legalFirstName: true, legalLastName: true, preferredFirstName: true, preferredLastName: true },
+                },
+              },
               orderBy: { createdAt: "asc" },
             },
             submittedByUser: { select: { id: true, name: true } },

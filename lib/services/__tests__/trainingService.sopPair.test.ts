@@ -13,6 +13,7 @@ const { mockPrisma } = vi.hoisted(() => {
     trainingTicketExemption: { deleteMany: vi.fn() },
     trainingRecords: { count: vi.fn() },
     sopAssessment: { count: vi.fn() },
+    documentSubmission: { count: vi.fn().mockResolvedValue(0) },
     history: { create: vi.fn() },
   };
   return { mockPrisma };

@@ -79,13 +79,6 @@ function TrainingTicketExemptionEditForm({
     useState<ExemptionStatus>("Active");
   const [error, setError] = useState<string | null>(null);
 
-  // Load exemption data when exemption changes
-  useEffect(() => {
-    if (exemption) {
-      resetForm();
-    }
-  }, [exemption]);
-
   const resetForm = () => {
     if (exemption) {
       setExemptionType(exemption.type || "Ticket");
@@ -101,6 +94,13 @@ function TrainingTicketExemptionEditForm({
     }
     setError(null);
   };
+
+  // Load exemption data when exemption changes
+  useEffect(() => {
+    if (exemption) {
+      resetForm();
+    }
+  }, [exemption]);
 
   const handleUpdate = async () => {
     if (!exemptionNameId) {
@@ -298,13 +298,6 @@ export function EditTrainingTicketExemptionDialog({
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  // Fetch data when dialog opens
-  useEffect(() => {
-    if (open && (tickets.length === 0 || trainings.length === 0)) {
-      fetchData();
-    }
-  }, [open]);
-
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
@@ -323,6 +316,14 @@ export function EditTrainingTicketExemptionDialog({
       setIsLoadingData(false);
     }
   };
+
+  // Fetch data when dialog opens
+  useEffect(() => {
+    if (open && (tickets.length === 0 || trainings.length === 0)) {
+      fetchData();
+    }
+  }, [open]);
+
   const handleClose = () => onOpenChange(false);
 
   if (isDesktop) {

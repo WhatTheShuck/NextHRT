@@ -12,6 +12,9 @@ const { mockPrisma } = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
+vi.mock("@/lib/services/accountOnboardingService", () => ({
+  accountOnboardingService: { notifyUserLinked: vi.fn() },
+}));
 
 import { userService } from "@/lib/services/userService";
 

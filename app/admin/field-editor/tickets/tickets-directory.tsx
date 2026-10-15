@@ -43,11 +43,9 @@ import {
   ColumnFiltersState,
   SortingState,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  appTableFeatures,
+  useTable,
+} from "@/lib/table";
 
 const RequirementsCell = ({ ticket }: { ticket: TicketWithRelations }) => {
   const requirementCount = ticket.requirements?.length || 0;
@@ -128,7 +126,7 @@ const ExemptionsCell = ({ ticket }: { ticket: TicketWithRelations }) => {
   );
 };
 
-const TicketsDirectory = () => {
+const TicketsDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [tickets, setTickets] = useState<TicketWithRelations[]>([]);
   const [isTicketAddDialogOpen, setIsTicketAddDialogOpen] = useState(false);
   const [isTicketEditDialogOpen, setIsTicketEditDialogOpen] = useState(false);
@@ -137,7 +135,7 @@ const TicketsDirectory = () => {
   const [selectedRecord, setSelectedRecord] =
     useState<TicketWithRelations | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },
@@ -293,7 +291,8 @@ const TicketsDirectory = () => {
     [],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: tickets,
     columns,
     state: {
@@ -304,9 +303,6 @@ const TicketsDirectory = () => {
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     globalFilterFn: "includesString",
   });
 
@@ -334,7 +330,7 @@ const TicketsDirectory = () => {
                 {tickets.length !== 1 ? "s" : ""}
               </CardDescription>
             </div>
-            <Button onClick={() => setIsTicketAddDialogOpen(true)} className="w-full sm:w-auto">
+            <Button data-tour="fe-add" onClick={() => setIsTicketAddDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Ticket Type
             </Button>
@@ -345,6 +341,7 @@ const TicketsDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search by ticket name or code..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -374,7 +371,7 @@ const TicketsDirectory = () => {
               <span className="text-muted-foreground">Loading...</span>
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

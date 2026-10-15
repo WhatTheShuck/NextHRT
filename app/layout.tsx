@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import "driver.js/dist/driver.css"; // before globals.css, which themes the tours
 import "./globals.css";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
@@ -12,6 +13,8 @@ import { themeService } from "@/lib/services/themeService";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { ThemeScript } from "@/components/theme-script";
 import { Toaster } from "sonner";
+import { SearchProvider } from "@/components/search/search-provider";
+import { TutorialProvider } from "@/components/tutorials/tutorial-provider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -71,10 +74,14 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Header />
-          <ConditionalBreadcrumbs />
-          {children}
-          <Footer />
+          <SearchProvider userId={session?.user?.id ?? null}>
+            <TutorialProvider signedIn={!!session}>
+              <Header />
+              <ConditionalBreadcrumbs />
+              {children}
+              <Footer />
+            </TutorialProvider>
+          </SearchProvider>
           <Toaster richColors position="bottom-right" />
         </ThemeProvider>
       </body>

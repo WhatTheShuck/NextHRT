@@ -25,14 +25,23 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     label: "Training",
     parent: "/admin/field-editor",
   },
-  "/admin/permissions": { label: "Permissions" },
+  "/admin/access": { label: "Users & Access" },
+  "/admin/permissions": { label: "Permissions", parent: "/admin/access" },
+  "/admin/org-chart": { label: "Org Chart", parent: "/admin/access" },
+  "/admin/org-chart/import": { label: "Workday Import", parent: "/admin/org-chart" },
+  "/admin/org-chart/import/[id]": { label: "Review", parent: "/admin/org-chart/import" },
+  "/admin/org-chart/import/rules": { label: "Ignore Rules", parent: "/admin/org-chart/import" },
+  "/admin/org-chart/switchover": { label: "Switch-over Readiness", parent: "/admin/org-chart" },
+  "/admin/org-chart/access": { label: "Delegated Access", parent: "/admin/org-chart" },
+  "/admin/api-keys": { label: "API Keys", parent: "/admin/access" },
+  "/admin/system": { label: "System" },
+  "/admin/settings": { label: "App Settings", parent: "/admin/system" },
+  "/admin/jobs": { label: "Background Jobs", parent: "/admin/system" },
+  "/admin/logs": { label: "Admin Logs", parent: "/admin/system" },
 
   // Employees
   "/employees": { label: "Employees" },
   "/employees/[id]": { label: "Employee Profile", parent: "/employees" },
-
-  // Bulk Training
-  "/bulk-training": { label: "Bulk Training" },
 
   // Profile
   "/profile": { label: "Profile" },
@@ -115,9 +124,17 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem> = {
     parent: "/forms/training-request",
   },
   "/forms/my-requests": { label: "My Requests", parent: "/forms" },
+  "/forms/document-upload": { label: "Upload a Document", parent: "/forms" },
   "/approvals": { label: "Approvals" },
-  "/admin/logs": { label: "Admin Logs" },
-  "/admin/org-chart": { label: "Org Chart" },
+  "/expiring": { label: "Expiring & Missing" },
+  "/expiring/review/[id]": { label: "Review upload", parent: "/expiring" },
+  "/admin/email": { label: "Email" },
+  "/admin/email/templates": { label: "Templates", parent: "/admin/email" },
+  "/admin/email/log": { label: "Email Log", parent: "/admin/email" },
+  "/admin/email/attachments": {
+    label: "Missing Attachments",
+    parent: "/admin/email",
+  },
   "/admin/onboarding": { label: "Onboarding Requests" },
   "/admin/onboarding/[id]": {
     label: "Request Detail",

@@ -45,6 +45,20 @@ model Employee {
   sopTrainerAssignments    SopTrainerAssignment[]
   sopAssessments           SopAssessment[]
   quizResponses            QuizResponse[]
+  // Line manager. Workday-owned for internal staff, set by hand for external staff
+  // (docs/workday-org-import-spec.md §4). Every write goes through the cycle check.
+  reportsToId              Int?
+  reportsTo                Employee?                 @relation("ReportsTo", fields: [reportsToId], references: [id], onDelete: SetNull)
+  directReports            Employee[]                @relation("ReportsTo")
+  delegatedAccessGrants    DelegatedAccess[]         @relation("DelegateGrantee")
+  delegatedAccessScopes    DelegatedAccess[]         @relation("DelegateScopeManager")
+  workdayLinks             WorkdayLink[]
+  workdayIgnoreRules       WorkdayIgnoreRule[]
+  approvalsActedFor        ApprovalAction[]          @relation("ApprovalActingFor")
+  documentSubmissions      DocumentSubmission[]
+  missingDocumentReminders MissingDocumentReminder[]
+
+  @@index([reportsToId])
 }
 
 enum EmployeeStatus {
@@ -85,6 +99,7 @@ model JobFamily {
   prefillMarketingInduction Boolean?
   employees                Employee[]
   onboardingRequests       OnboardingRequest[]
+  delegatedAccessGrants    DelegatedAccess[]
 }
 
 // Pre-employment medical standards — managed table, NOT a Prisma enum (§6.6).
@@ -253,6 +268,7 @@ model Department {
   managers             User[]                @relation("DepartmentManager")
   trainingRequirements TrainingRequirement[]
   ticketRequirements   TicketRequirement[]
+  delegatedAccessGrants DelegatedAccess[]
 }
 
 model Training {
@@ -274,6 +290,7 @@ model Training {
   sopPartner            Training?              @relation("SopPair", fields: [sopPartnerId], references: [id])
   sopPartnerOf          Training?              @relation("SopPair")
   sopTrainerAssignments SopTrainerAssignment[]
+  documentSubmissions DocumentSubmission[]
 }
 
 model TrainingRevision {
@@ -438,6 +455,7 @@ model Ticket {
   ticketRecords    TicketRecords[]
   requirements     TicketRequirement[]
   ticketExemptions TrainingTicketExemption[]
+  documentSubmissions DocumentSubmission[]
 }
 
 model TicketRecords {
@@ -449,7 +467,8 @@ model TicketRecords {
   ticketId      Int
   licenseNumber String? // Optional unique number for the actual license instance
   expiryDate    DateTime?
-  expiryNotificationStage String? // null | "<milestoneDays>" (e.g. "365"/"90") | "ExpiredSent" — idempotency anchor for the TICKET_EXPIRY job: the last reminder milestone sent. NOT compliance state.
+  expiryNotificationStage String? // null | "<milestoneDays>" (e.g. "365"/"90") | "ExpiredSent" — idempotency anchor for the employee track of the TICKET_EXPIRY job: the last reminder milestone sent. NOT compliance state.
+  managerExpiryNotificationStage String? // manager track of TICKET_EXPIRY; expiryNotificationStage is now the employee track
   images        TicketImage[]
 
   @@index([employeeId])
@@ -466,6 +485,79 @@ model TicketImage {
   uploadedAt     DateTime      @default(now())
 
   @@index([ticketRecordId])
+}
+
+enum DocumentSubmissionKind {
+  Ticket
+  Training
+}
+
+enum DocumentSubmissionStatus {
+  Pending
+  ChangesRequested
+  Approved
+  Cancelled
+}
+
+// Employee/manager-submitted ticket or External training evidence, held until an admin
+// approves it (docs/superpowers/specs/2026-10-09-document-upload-design.md). Approval creates
+// the record; its image rows point at these same files under uploads/submissions/.
+model DocumentSubmission {
+  id                Int                      @id @default(autoincrement())
+  employeeId        Int
+  employee          Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  submittedByUserId String?
+  submittedByUser   User?                    @relation("DocumentSubmissions", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  kind              DocumentSubmissionKind
+  ticketId          Int?
+  ticket            Ticket?                  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  trainingId        Int?
+  training          Training?                @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  dateIssued        DateTime                 // ticket dateIssued / training dateCompleted
+  expiryDate        DateTime?                // tickets only
+  licenseNumber     String?                  // tickets only
+  provider          String?                  // training only → TrainingRecords.trainer
+  status            DocumentSubmissionStatus @default(Pending)
+  reviewComment     String?
+  reviewedByUserId  String?
+  reviewedByUser    User?                    @relation("DocumentSubmissionReviews", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime?
+  resultRecordId    Int?                     // TicketRecords.id or TrainingRecords.id, per kind (polymorphic, no FK)
+  files             DocumentSubmissionFile[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+model DocumentSubmissionFile {
+  id           Int                @id @default(autoincrement())
+  submission   DocumentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submissionId Int
+  filePath     String             // relative to uploads/: "submissions/<uuid>.<ext>"
+  fileType     String
+  originalName String
+  uploadedAt   DateTime           @default(now())
+
+  @@index([submissionId])
+  @@index([filePath])
+}
+
+// Cadence anchor for MISSING_DOCUMENT_REMINDER: one row per open gap. Deleted when the gap
+// closes so a reopened gap gets a fresh first notice.
+model MissingDocumentReminder {
+  id              Int           @id @default(autoincrement())
+  employeeId      Int
+  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  itemType        CacheItemType
+  itemId          Int
+  firstNotifiedAt DateTime?
+  lastNotifiedAt  DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@unique([employeeId, itemType, itemId])
+  @@index([employeeId])
 }
 
 model TicketRequirement {
@@ -531,7 +623,6 @@ model User {
   emailVerified                Boolean?
   image                        String?
   role                         UserRole?     @default(User)
-  receivesExpiryNotifications  Boolean       @default(true) // opt-out: admins receive ticket-expiry emails unless they turn this off (spec §5.6)
   banned                       Boolean?      // better-auth admin plugin
   banReason                    String?       // better-auth admin plugin
   banExpires                   DateTime?     // better-auth admin plugin
@@ -539,6 +630,10 @@ model User {
   canManageChildrenDepartments Boolean       @default(false) // Can manage child departments
   employee                     Employee?     @relation(fields: [employeeId], references: [id])
   employeeId                   Int?          @unique // Link to employee if user represents an employee
+  employeeLinkedAt             DateTime?     // When employeeId was last set — drives the one-time dashboard welcome
+  welcomeDismissedAt           DateTime?     // When the user dismissed the welcome; shown again only after a newer link
+  tutorialMode                 TutorialMode  @default(FirstVisit) // When page tours start on their own; the help button always works
+  tutorialViews                TutorialView[]
   accounts                     Account[]
   sessions                     Session[]
   historyLogs                  History[]
@@ -552,6 +647,8 @@ model User {
   orgRequestReviews            OrgRequest[]           @relation("OrgRequestReviews")
   approvalActions              ApprovalAction[]       @relation("ApprovalActions")
   courseRequests               TrainingCourseRequest[] @relation("CourseRequests")
+  documentSubmissions          DocumentSubmission[]   @relation("DocumentSubmissions")
+  documentSubmissionReviews    DocumentSubmission[]   @relation("DocumentSubmissionReviews")
   apiKeys                      Apikey[]
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
@@ -592,6 +689,23 @@ enum UserRole {
   Admin
 }
 
+enum TutorialMode {
+  Off        // Only when asked for, from the help button
+  FirstVisit // The first time the user opens each page
+  Always     // Every time the user opens a page
+}
+
+// One row per tour (or "What's new" release) the user has finished or closed.
+// The key carries a version (e.g. "dashboard@1"), so rewriting a tour shows it again.
+model TutorialView {
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key    String
+  seenAt DateTime @default(now())
+
+  @@id([userId, key])
+}
+
 model Account {
   id                   String    @id @default(cuid())
   userId               String
@@ -600,8 +714,10 @@ model Account {
   refreshToken         String?   @map("refresh_token")
   accessToken          String?   @map("access_token")
   accessTokenExpiresAt DateTime? @map("expires_at")
+  refreshTokenExpiresAt DateTime?
   scope                String?
   idToken              String?   @map("id_token")
+  password             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -619,6 +735,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ipAddress String?
   userAgent String?
+  impersonatedBy String? // better-auth admin plugin
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -682,6 +799,8 @@ enum JobType {
   HARDWARE_REQUEST
   ASSET_CHECKIN
   SNIPE_PHONE_SYNC
+  ACCOUNT_LINK_DIGEST
+  MISSING_DOCUMENT_REMINDER
 }
 
 enum JobStatus {
@@ -740,6 +859,9 @@ model ApprovalAction {
   decision   ApprovalDecision
   comment    String?
   onBehalfOf Boolean          @default(false)
+  // Set when a delegate decides at the level of the manager they act for (line-manager authority).
+  actingForEmployeeId Int?
+  actingFor           Employee? @relation("ApprovalActingFor", fields: [actingForEmployeeId], references: [id], onDelete: SetNull)
   createdAt  DateTime         @default(now())
 }
 
@@ -826,4 +948,73 @@ model Apikey {
   @@index([referenceId])
   @@index([key])
   @@map("apikey")
+}
+
+// ─── Workday org import & delegated access (docs/workday-org-import-spec.md) ───
+
+// "Grantee acts at the level of scopeManager": scopeManager's sub-tree minus the grantee,
+// optionally narrowed to one exact department and/or job family. A View grant only adds to
+// what the grantee can see. Stored and shown in Phase 1; drives authority from Phase 2.
+model DelegatedAccess {
+  id                     Int         @id @default(autoincrement())
+  granteeEmployeeId      Int
+  grantee                Employee    @relation("DelegateGrantee", fields: [granteeEmployeeId], references: [id], onDelete: Cascade)
+  scopeManagerEmployeeId Int
+  scopeManager           Employee    @relation("DelegateScopeManager", fields: [scopeManagerEmployeeId], references: [id], onDelete: Cascade)
+  departmentId           Int? // optional exact-department filter (children not included)
+  department             Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade) // never SetNull: that would silently widen the grant
+  jobFamilyId            Int? // optional job-family filter, combined with the department filter when both are set
+  jobFamily              JobFamily?  @relation(fields: [jobFamilyId], references: [id], onDelete: Cascade) // never SetNull, as above
+  level                  String      @default("Act") // Act: sees, approves and gets expiry emails as the manager | View: sees only
+  source                 String // Manual | WorkdayStructural | WorkdayTitle | MigratedDeptGrant
+  createdByUserId        String?
+  createdAt              DateTime    @default(now())
+
+  // NULLs are distinct in SQLite, so unfiltered duplicates are checked in createGrantInTx.
+  @@unique([granteeEmployeeId, scopeManagerEmployeeId, departmentId, jobFamilyId])
+  @@index([scopeManagerEmployeeId])
+}
+
+// Remembered identity: normalised Workday name -> HRT employee. employeeId null = confirmed
+// "not in HRT". The export has no stable Workday id, so this is the only identity there is.
+model WorkdayLink {
+  id                Int       @id @default(autoincrement())
+  workdayNameKey    String    @unique // rowLinkKeys(): lower-case letters, plus "_manager[_title]" for shared names
+  workdayName       String // as last seen
+  employeeId        Int?
+  employee          Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  confirmedByUserId String?
+  confirmedAt       DateTime  @default(now())
+}
+
+// One uploaded export. Only the parsed rows are stored; suggestion lines are always
+// recomputed from rows + current HRT data so nothing is applied from a stale value.
+model WorkdayImport {
+  id               Int      @id @default(autoincrement())
+  fileName         String
+  uploadedByUserId String
+  uploadedAt       DateTime @default(now())
+  rowCount         Int
+  rows             String // JSON: WorkdayRow[]
+  problems         String? // JSON: tree-validation problems
+  status           String // Open | Superseded | Discarded
+  runs             String   @default("[]") // JSON: one entry per Apply
+
+  @@index([status])
+}
+
+// "Ignore forever". Value-specific: a different Workday value brings the line back.
+model WorkdayIgnoreRule {
+  id              Int       @id @default(autoincrement())
+  subjectKey      String // "emp:<employeeId>" or "wd:<workdayNameKey>"
+  employeeId      Int?
+  employee        Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workdayName     String? // display only
+  field           String // see lib/workday/types.ts LineField
+  value           String    @default("") // normalised suggested value; "" for person-level flags. Never null
+  note            String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+
+  @@unique([subjectKey, field, value])
 }

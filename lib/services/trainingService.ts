@@ -416,7 +416,7 @@ export class TrainingService {
         }
       }
 
-      let updatedTraining = await prisma.training.update({
+      const updatedTraining = await prisma.training.update({
         where: { id },
         data: {
           category: data.category,
@@ -522,6 +522,10 @@ export class TrainingService {
     if (trainingRecordsCount > 0) {
       throw new Error("TRAINING_HAS_RECORDS");
     }
+    const openSubmissions = await prisma.documentSubmission.count({
+      where: { trainingId: id, status: { in: ["Pending", "ChangesRequested"] } },
+    });
+    if (openSubmissions > 0) throw new Error("TRAINING_HAS_RECORDS");
 
     // SOP assessments are evidence: they block deletion even before any
     // TrainingRecords exist (started/submitted but not yet passed).

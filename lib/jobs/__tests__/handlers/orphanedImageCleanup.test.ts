@@ -14,6 +14,12 @@ const { mockPrisma } = vi.hoisted(() => {
     trainingRevision: {
       findMany: vi.fn(),
     },
+    appSetting: {
+      findMany: vi.fn(),
+    },
+    documentSubmissionFile: {
+      findMany: vi.fn(),
+    },
   };
   return { mockPrisma };
 });
@@ -41,6 +47,8 @@ beforeEach(() => {
   mockPrisma.trainingImage.deleteMany.mockResolvedValue({ count: 0 });
   mockPrisma.ticketImage.deleteMany.mockResolvedValue({ count: 0 });
   mockPrisma.trainingRevision.findMany.mockResolvedValue([]);
+  mockPrisma.appSetting.findMany.mockResolvedValue([]);
+  mockPrisma.documentSubmissionFile.findMany.mockResolvedValue([]);
 
   // Default: uploads dir does not exist (keeps tests isolated)
   vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -120,20 +128,79 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
 
   it("deletes disk files that are not referenced in the DB", async () => {
     const uploadsDir = path.join(process.cwd(), "uploads");
-    const orphanFile = "orphan.jpg";
-    const orphanFullPath = path.join(uploadsDir, orphanFile);
+    const trainingDir = path.join(uploadsDir, "training");
+    const orphanFullPath = path.join(trainingDir, "orphan.jpg");
 
     vi.mocked(fs.existsSync).mockImplementation((p) => {
       const str = p.toString();
-      // uploads dir exists; individual image files are absent from DB so we
-      // only need existsSync to return true for the uploads dir check
-      return str === uploadsDir;
+      return str === uploadsDir || str === trainingDir;
     });
-    mockedReaddirSync.mockReturnValue([makeFileDirent(orphanFile)]);
+    mockedReaddirSync.mockImplementation((dir) =>
+      dir.toString() === trainingDir ? [makeFileDirent("orphan.jpg")] : [],
+    );
 
     const result = await orphanedImageCleanupHandler({});
 
     expect(fs.unlinkSync).toHaveBeenCalledWith(orphanFullPath);
+    expect(result.orphanedFiles).toBe(1);
+  });
+
+  it("never scans uploads/ itself or folders it does not manage", async () => {
+    const uploadsDir = path.join(process.cwd(), "uploads");
+
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    mockedReaddirSync.mockImplementation((dir) => {
+      if (dir.toString() === uploadsDir) {
+        return [makeFileDirent("stray.pdf")];
+      }
+      if (dir.toString() === path.join(uploadsDir, "something-new")) {
+        return [makeFileDirent("keep.pdf")];
+      }
+      return [];
+    });
+
+    const result = await orphanedImageCleanupHandler({});
+
+    expect(fs.unlinkSync).not.toHaveBeenCalled();
+    expect(result.orphanedFiles).toBe(0);
+  });
+
+  it("does NOT delete compliance attachments referenced by onboarding settings", async () => {
+    mockPrisma.appSetting.findMany.mockResolvedValue([
+      {
+        value: JSON.stringify([
+          { path: "compliance/forms-a.pdf", name: "Forms A.pdf", size: 10 },
+          { path: "compliance/forms-b.pdf", name: "Forms B.pdf", size: 10 },
+        ]),
+      },
+      // Legacy single-path format for the police check slot
+      { value: "compliance/police.pdf" },
+    ]);
+
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    const complianceDir = path.join(uploadsDir, "compliance");
+
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
+      const str = p.toString();
+      return str === uploadsDir || str === complianceDir;
+    });
+    mockedReaddirSync.mockImplementation((dir) =>
+      dir.toString() === complianceDir
+        ? [
+            makeFileDirent("forms-a.pdf"),
+            makeFileDirent("forms-b.pdf"),
+            makeFileDirent("police.pdf"),
+            makeFileDirent("removed-long-ago.pdf"),
+          ]
+        : [],
+    );
+
+    const result = await orphanedImageCleanupHandler({});
+
+    expect(fs.unlinkSync).toHaveBeenCalledTimes(1);
+    expect(fs.unlinkSync).toHaveBeenCalledWith(
+      path.join(complianceDir, "removed-long-ago.pdf"),
+    );
     expect(result.orphanedFiles).toBe(1);
   });
 
@@ -147,7 +214,7 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
 
     vi.mocked(fs.existsSync).mockImplementation((p) => {
       const str = p.toString();
-      return str === uploadsDir || str === keepFullPath;
+      return str === uploadsDir || str === trainingDir || str === keepFullPath;
     });
     mockedReaddirSync.mockImplementation((dir) => {
       if (dir.toString() === uploadsDir) {
@@ -179,7 +246,7 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
 
     vi.mocked(fs.existsSync).mockImplementation((p) => {
       const str = p.toString();
-      return str === uploadsDir || str === legacyFullPath;
+      return str === uploadsDir || str === trainingDir || str === legacyFullPath;
     });
     vi.mocked(fs.readdirSync).mockImplementation(((dir: fs.PathLike) => {
       if (dir.toString() === uploadsDir) {
@@ -211,7 +278,7 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
 
     vi.mocked(fs.existsSync).mockImplementation((p) => {
       const str = p.toString();
-      return str === uploadsDir || str === keepFullPath;
+      return str === uploadsDir || str === sopDir || str === keepFullPath;
     });
     vi.mocked(fs.readdirSync).mockImplementation(((dir: fs.PathLike) => {
       if (dir.toString() === uploadsDir) {
@@ -232,6 +299,29 @@ describe("orphanedImageCleanupHandler — files on disk without DB records", () 
 
     expect(fs.unlinkSync).not.toHaveBeenCalledWith(keepFullPath);
     expect(fs.unlinkSync).toHaveBeenCalledWith(orphanFullPath);
+  });
+
+  it("manages submissions/: keeps files of live submissions or records, deletes the rest", async () => {
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    const subDir = path.join(uploadsDir, "submissions");
+    vi.mocked(fs.existsSync).mockImplementation((p) => [uploadsDir, subDir].includes(p.toString()) || p.toString().startsWith(subDir));
+    mockedReaddirSync.mockImplementation((dir) =>
+      dir.toString() === subDir
+        ? [makeFileDirent("live.jpg"), makeFileDirent("approved.jpg"), makeFileDirent("cancelled.jpg")]
+        : [],
+    );
+    mockPrisma.documentSubmissionFile.findMany.mockResolvedValue([{ filePath: "submissions/live.jpg" }]);
+    mockPrisma.ticketImage.findMany.mockResolvedValue([{ id: 1, imagePath: "submissions/approved.jpg" }]);
+
+    const result = await orphanedImageCleanupHandler({});
+
+    expect(mockPrisma.documentSubmissionFile.findMany).toHaveBeenCalledWith({
+      where: { submission: { status: { not: "Cancelled" } } },
+      select: { filePath: true },
+    });
+    expect(fs.unlinkSync).toHaveBeenCalledTimes(1);
+    expect(fs.unlinkSync).toHaveBeenCalledWith(path.join(subDir, "cancelled.jpg"));
+    expect(result.orphanedFiles).toBe(1);
   });
 });
 

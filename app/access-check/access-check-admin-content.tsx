@@ -35,6 +35,12 @@ function AccessorBadge({ reason }: { reason: AccessorInfo["accessReason"] }) {
     return (
       <Badge className="bg-orange-500 text-white shrink-0">Dept Manager</Badge>
     );
+  if (reason === "LineManager")
+    return <Badge className="bg-orange-500 text-white shrink-0">Line Manager</Badge>;
+  if (reason === "Delegate")
+    return <Badge className="bg-violet-500 text-white shrink-0">Delegated</Badge>;
+  if (reason === "Viewer")
+    return <Badge className="bg-violet-500/70 text-white shrink-0">View only</Badge>;
   return <Badge variant="secondary" className="shrink-0">Self</Badge>;
 }
 
@@ -145,7 +151,7 @@ export function AccessCheckAdminContent() {
     accessInfo?.accessors.filter((a) => a.accessReason === "Admin") ?? [];
   const managers =
     accessInfo?.accessors.filter(
-      (a) => a.accessReason === "DepartmentManager",
+      (a) => ["DepartmentManager", "LineManager", "Delegate", "Viewer"].includes(a.accessReason),
     ) ?? [];
   const self =
     accessInfo?.accessors.filter((a) => a.accessReason === "Self") ?? [];
@@ -153,7 +159,7 @@ export function AccessCheckAdminContent() {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8 space-y-6">
       {/* Page header */}
-      <div>
+      <div data-tour="access-header">
         <h1 className="text-xl md:text-2xl font-bold">Access Check</h1>
         <p className="text-muted-foreground mt-1">
           See who has access to a specific employee&apos;s data
@@ -164,7 +170,7 @@ export function AccessCheckAdminContent() {
       <Card>
         <CardContent className="pt-4 pb-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex-1">
+            <div className="flex-1" data-tour="access-employee-picker">
               <EmployeeCombobox
                 employees={filteredEmployees}
                 onSelect={handleSelect}
@@ -177,7 +183,7 @@ export function AccessCheckAdminContent() {
                 }
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-tour="access-include-inactive">
               <Switch
                 id="include-inactive"
                 checked={includeInactive}
@@ -231,7 +237,7 @@ export function AccessCheckAdminContent() {
       {accessInfo && !loading && (
         <div className="space-y-4">
           {/* Employee info summary */}
-          <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
+          <div className="rounded-lg bg-muted/50 border p-4 space-y-2" data-tour="access-summary">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="font-semibold text-base">
                 {accessInfo.legalFirstName} {accessInfo.legalLastName}
@@ -249,7 +255,7 @@ export function AccessCheckAdminContent() {
           </div>
 
           {/* Accessor cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour="access-cards">
             <AccessorCard
               title="Admins"
               accessors={admins}
@@ -257,10 +263,10 @@ export function AccessCheckAdminContent() {
               emptyLabel="No admins"
             />
             <AccessorCard
-              title="Department Managers"
+              title="Managers"
               accessors={managers}
               icon={Building2}
-              emptyLabel="No department managers"
+              emptyLabel="No managers"
             />
             <AccessorCard
               title="Self (linked user)"
@@ -273,7 +279,7 @@ export function AccessCheckAdminContent() {
       )}
 
       {/* Access reports section */}
-      <div className="space-y-3 pt-2 border-t">
+      <div className="space-y-3 pt-2 border-t" data-tour="access-reports">
         <div>
           <h2 className="text-lg font-semibold">Access Reports</h2>
           <p className="text-sm text-muted-foreground">

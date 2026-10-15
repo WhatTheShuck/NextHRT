@@ -41,6 +41,7 @@ const JOB_TYPE_LABELS: Record<string, string> = {
   TICKET_EXPIRY: "Ticket Expiry",
   REQUIREMENTS_CACHE_REBUILD: "Cache Rebuild",
   REQUIREMENTS_CACHE_INVALIDATE: "Cache Invalidate",
+  MISSING_DOCUMENT_REMINDER: "Missing Document Reminder",
   INACTIVE_EMPLOYEE_CHECK: "Inactive Check",
   ORPHANED_IMAGE_CLEANUP: "Image Cleanup",
   HISTORY_ARCHIVAL: "History Archival",
@@ -116,7 +117,7 @@ export function JobHistoryTable() {
   }
 
   return (
-    <Card>
+    <Card data-tour="jobs-history">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="flex items-center gap-2">

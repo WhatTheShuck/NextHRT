@@ -51,7 +51,7 @@ export default function NotesEditor({
   };
 
   return (
-    <Card>
+    <Card data-tour="employee-notes">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle>Employee Notes</CardTitle>
         {isAdmin ? (

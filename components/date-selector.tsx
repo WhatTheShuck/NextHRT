@@ -157,7 +157,7 @@ export function DateSelector(props: DateSelectorProps) {
             mode="single"
             selected={selectedDate || undefined}
             onSelect={handleCalendarSelect}
-            initialFocus
+            autoFocus
           />
         </PopoverContent>
       </Popover>

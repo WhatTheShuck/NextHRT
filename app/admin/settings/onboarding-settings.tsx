@@ -25,6 +25,11 @@ import {
 
 type Settings = Record<string, string>;
 
+interface StaleEmailsResponse {
+  emails: unknown[];
+  missingAttachments: Record<string, StoredAttachment[]>;
+}
+
 interface StoredAttachment {
   path: string;
   name: string;
@@ -107,13 +112,21 @@ export function OnboardingSettings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [stale, setStale] = useState<StaleEmailsResponse | null>(null);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const settingsRes = await api.get<Settings>("/api/settings");
+      const [settingsRes, staleRes] = await Promise.all([
+        api.get<Settings>("/api/settings"),
+        // Non-fatal: the page still works if the stale-email check fails.
+        api
+          .get<StaleEmailsResponse>("/api/onboarding-config/stale-emails")
+          .catch(() => null),
+      ]);
       setSettings(settingsRes.data);
+      setStale(staleRes?.data ?? null);
     } catch (err) {
       setError(
         err instanceof AxiosError && err.response?.status === 403
@@ -219,10 +232,10 @@ export function OnboardingSettings() {
             The wording of every automatic email — onboarding, ticket expiry, SOP
             and IT — is edited under{" "}
             <Link
-              href="/admin/email-templates"
+              href="/admin/email/templates"
               className="font-medium underline underline-offset-2"
             >
-              Admin &rsaquo; Email Templates
+              Admin &rsaquo; Email &rsaquo; Templates
             </Link>
             , with a live preview and a test send.
           </CardDescription>
@@ -230,7 +243,7 @@ export function OnboardingSettings() {
       </Card>
 
       {/* Compliance attachments */}
-      <Card>
+      <Card data-tour="settings-compliance">
         <CardHeader>
           <CardTitle className="text-base">Compliance attachments</CardTitle>
           <CardDescription>
@@ -248,10 +261,31 @@ export function OnboardingSettings() {
               label={a.label}
               multi={a.multi}
               value={settings[`onboarding.attachment.${a.slot}`] ?? ""}
+              missingPaths={
+                new Set(
+                  (stale?.missingAttachments[a.slot] ?? []).map((m) => m.path),
+                )
+              }
               onChanged={load}
             />
           ))}
           <CombinedSizeIndicator settings={settings} />
+          {stale && stale.emails.length > 0 && (
+            <p className="rounded-md border border-destructive/50 p-3 text-sm">
+              <span className="font-medium text-destructive">
+                {stale.emails.length} email{stale.emails.length !== 1 ? "s are" : " is"}{" "}
+                waiting on missing forms.
+              </span>{" "}
+              Re-upload any missing files above, then resend them from{" "}
+              <Link
+                href="/admin/email/attachments"
+                className="font-medium underline underline-offset-2"
+              >
+                Admin &rsaquo; Email &rsaquo; Missing Attachments
+              </Link>
+              .
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -271,12 +305,14 @@ function AttachmentRow({
   label,
   multi,
   value,
+  missingPaths,
   onChanged,
 }: {
   slot: string;
   label: string;
   multi: boolean;
   value: string;
+  missingPaths: Set<string>;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -379,6 +415,11 @@ function AttachmentRow({
                 {a.name}
               </a>
               <div className="flex shrink-0 items-center gap-2">
+                {missingPaths.has(a.path) && (
+                  <span className="text-xs font-medium text-destructive">
+                    File missing — remove and re-upload
+                  </span>
+                )}
                 {a.size > 0 && (
                   <span className="text-xs text-muted-foreground">
                     {formatFileSize(a.size)}

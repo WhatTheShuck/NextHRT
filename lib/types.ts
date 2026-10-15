@@ -53,6 +53,7 @@ export interface NavigationItem {
 export interface EmployeeWithRelations extends Employee {
   department: Department;
   location: Location;
+  reportsTo?: Pick<Employee, "id" | "legalFirstName" | "legalLastName" | "preferredFirstName" | "preferredLastName"> | null;
   trainingRecords?: TrainingRecords[];
   ticketRecords?: TicketRecords[];
   trainingTicketExemptions?: TrainingTicketExemption[];

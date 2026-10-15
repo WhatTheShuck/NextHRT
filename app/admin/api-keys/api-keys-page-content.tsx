@@ -41,6 +41,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Key, Plus, Trash2, Copy, Check } from "lucide-react";
+import { ConfirmAction } from "@/components/confirm-action";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -331,7 +332,7 @@ export function ApiKeysPageContent() {
             Create and manage bearer tokens for external service access.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button onClick={() => setCreateOpen(true)} data-tour="api-keys-create">
           <Plus className="mr-2 h-4 w-4" />
           Create key
         </Button>
@@ -358,7 +359,7 @@ export function ApiKeysPageContent() {
           </p>
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border" data-tour="api-keys-table">
           <Table>
             <TableHeader>
               <TableRow>
@@ -395,16 +396,27 @@ export function ApiKeysPageContent() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        disabled={revoking === k.id}
-                        onClick={() => handleRevoke(k.id)}
-                        title="Revoke key"
+                      <ConfirmAction
+                        title="Revoke this API key?"
+                        description={
+                          <>
+                            Anything using <strong>{k.name ?? "this key"}</strong> will stop working
+                            straight away. This can&apos;t be undone.
+                          </>
+                        }
+                        confirmLabel="Revoke key"
+                        onConfirm={() => handleRevoke(k.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          disabled={revoking === k.id}
+                          title="Revoke key"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </ConfirmAction>
                     </TableCell>
                   </TableRow>
                 );

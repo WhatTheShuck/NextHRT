@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MatchingSettings } from "./matching-settings";
 import { OnboardingSettings } from "./onboarding-settings";
@@ -8,34 +9,44 @@ import { TicketExpirySettings } from "./ticket-expiry-settings";
 import { SettingsHistory } from "./settings-history";
 import { ThemeSettings } from "./theme-settings";
 
+const TABS = ["matching", "onboarding", "training", "tickets", "history", "themes"];
+
 export function SettingsPageContent() {
+  // ?tab= lets other pages deep-link to a tab (e.g. the Email section → Onboarding).
+  const requested = useSearchParams().get("tab");
+  const defaultTab = requested && TABS.includes(requested) ? requested : "matching";
+
   return (
     <div className="container mx-auto px-4 sm:px-6 py-10">
       <h1 className="text-3xl font-bold mb-6">App Settings</h1>
 
-      <Tabs defaultValue="matching" className="w-full">
+      {/*
+        Tabs with a Save button stay mounted while hidden, so edits survive
+        switching tabs. Change History mounts fresh each time to show new saves.
+      */}
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 max-w-3xl">
-          <TabsTrigger value="matching">Matching</TabsTrigger>
-          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
-          <TabsTrigger value="training">Training</TabsTrigger>
-          <TabsTrigger value="tickets">Tickets</TabsTrigger>
-          <TabsTrigger value="history">Change History</TabsTrigger>
-          <TabsTrigger value="themes">Themes</TabsTrigger>
+          <TabsTrigger value="matching" data-tour="settings-tab-matching">Matching</TabsTrigger>
+          <TabsTrigger value="onboarding" data-tour="settings-tab-onboarding">Onboarding</TabsTrigger>
+          <TabsTrigger value="training" data-tour="settings-tab-training">Training</TabsTrigger>
+          <TabsTrigger value="tickets" data-tour="settings-tab-tickets">Tickets</TabsTrigger>
+          <TabsTrigger value="history" data-tour="settings-tab-history">Change History</TabsTrigger>
+          <TabsTrigger value="themes" data-tour="settings-tab-themes">Themes</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="matching" className="mt-6">
+        <TabsContent value="matching" forceMount className="mt-6 data-[state=inactive]:hidden">
           <MatchingSettings />
         </TabsContent>
 
-        <TabsContent value="onboarding" className="mt-6">
+        <TabsContent value="onboarding" forceMount className="mt-6 data-[state=inactive]:hidden">
           <OnboardingSettings />
         </TabsContent>
 
-        <TabsContent value="training" className="mt-6">
+        <TabsContent value="training" forceMount className="mt-6 data-[state=inactive]:hidden">
           <TrainingDeliverSettings />
         </TabsContent>
 
-        <TabsContent value="tickets" className="mt-6">
+        <TabsContent value="tickets" forceMount className="mt-6 data-[state=inactive]:hidden">
           <TicketExpirySettings />
         </TabsContent>
 
@@ -43,7 +54,7 @@ export function SettingsPageContent() {
           <SettingsHistory />
         </TabsContent>
 
-        <TabsContent value="themes" className="mt-6">
+        <TabsContent value="themes" forceMount className="mt-6 data-[state=inactive]:hidden">
           <ThemeSettings />
         </TabsContent>
       </Tabs>

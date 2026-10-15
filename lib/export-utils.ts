@@ -1,11 +1,11 @@
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, RowData } from "@/lib/table";
 
 // Helper function to safely get value from a column definition
 
-function getValueFromRow<T>(row: T, column: ColumnDef<T, any>): any {
+function getValueFromRow<T extends RowData>(row: T, column: ColumnDef<T, any>): any {
   // Case 1: Column has an accessorFn
   if ("accessorFn" in column && typeof column.accessorFn === "function") {
     return (column.accessorFn as (row: T) => any)(row);
@@ -64,7 +64,7 @@ function formatValueForExport(value: any): string {
   return String(value);
 }
 // Utility function to extract export-ready data from table data and columns
-function prepareExportData<T>(data: T[], columns: ColumnDef<T, any>[]) {
+function prepareExportData<T extends RowData>(data: T[], columns: ColumnDef<T, any>[]) {
   // Extract headers
   const headers = columns.map((col) => getHeaderText(col));
 
@@ -83,7 +83,7 @@ function prepareExportData<T>(data: T[], columns: ColumnDef<T, any>[]) {
 }
 
 // Excel export function
-export function exportToExcel<T>(
+export function exportToExcel<T extends RowData>(
   data: T[],
   columns: ColumnDef<T, any>[],
   filename: string,
@@ -105,7 +105,7 @@ export function exportToExcel<T>(
 }
 
 // PDF export function
-export function exportToPDF<T>(
+export function exportToPDF<T extends RowData>(
   data: T[],
   columns: ColumnDef<T, any>[],
   filename: string,

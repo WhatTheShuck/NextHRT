@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "usehooks-ts";
 import api from "@/lib/axios";
@@ -257,7 +257,9 @@ export function RevisionsSection({
 
   // Held in a ref so an inline parent callback can't retrigger the fetch.
   const notifyRef = useRef(onRevisionsChanged);
-  notifyRef.current = onRevisionsChanged;
+  useLayoutEffect(() => {
+    notifyRef.current = onRevisionsChanged;
+  });
 
   const currentRevisionIdOf = (rows: RevisionRow[]) =>
     currentRevision(

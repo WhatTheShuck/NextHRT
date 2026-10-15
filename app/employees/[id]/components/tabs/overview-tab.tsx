@@ -19,6 +19,7 @@ import {
   User,
 } from "lucide-react";
 import { format } from "date-fns";
+import Link from "next/link";
 import NotesEditor from "@/components/notes-editor";
 import api from "@/lib/axios";
 import type { PriorStint } from "@/lib/employment";
@@ -92,6 +93,17 @@ export function OverviewTab() {
               <span className="text-sm text-muted-foreground">Title</span>
               <span className="ml-auto">{employee.title}</span>
             </div>
+
+            {employee.reportsTo && (
+              <div className="flex items-center gap-2" data-tour="employee-reports-to">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Reports To</span>
+                <Link href={`/employees/${employee.reportsTo.id}`} className="ml-auto hover:underline">
+                  {employee.reportsTo.preferredFirstName || employee.reportsTo.legalFirstName}{" "}
+                  {employee.reportsTo.preferredLastName || employee.reportsTo.legalLastName}
+                </Link>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />

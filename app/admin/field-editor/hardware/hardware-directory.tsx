@@ -63,11 +63,9 @@ import {
   ColumnFiltersState,
   SortingState,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  appTableFeatures,
+  useTable,
+} from "@/lib/table";
 
 interface HardwareFormValues {
   name: string;
@@ -756,7 +754,8 @@ const HardwareDirectory = () => {
     [],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: items,
     columns,
     state: {
@@ -767,9 +766,6 @@ const HardwareDirectory = () => {
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     globalFilterFn: "includesString",
   });
 
@@ -813,6 +809,7 @@ const HardwareDirectory = () => {
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
+                data-tour="fe-hardware-sync"
                 variant="outline"
                 onClick={() => setIsSyncOpen(true)}
                 className="w-full sm:w-auto"
@@ -821,6 +818,7 @@ const HardwareDirectory = () => {
                 Sync from AssetCheckout
               </Button>
               <Button
+                data-tour="fe-add"
                 onClick={() => setIsAddOpen(true)}
                 className="w-full sm:w-auto"
               >
@@ -835,6 +833,7 @@ const HardwareDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search hardware..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -864,7 +863,7 @@ const HardwareDirectory = () => {
               Loading hardware items...
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

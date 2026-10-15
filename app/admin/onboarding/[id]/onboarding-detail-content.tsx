@@ -799,7 +799,7 @@ export function OnboardingDetailContent({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: editable core HR fields */}
         <div className="lg:col-span-2 space-y-6">
-          <Card>
+          <Card data-tour="onboarding-core">
             <CardHeader>
               <CardTitle>Core Employee Details</CardTitle>
               <CardDescription>
@@ -1108,7 +1108,7 @@ export function OnboardingDetailContent({
                   <Separator />
                   {/* Pending org requests — must be resolved before approval */}
                   {hasPendingOrgRequests && (
-                    <div className="space-y-3">
+                    <div className="space-y-3" data-tour="onboarding-org-requests">
                       <Alert>
                         <Clock className="h-4 w-4" />
                         <AlertTitle>Pending Org Requests</AlertTitle>
@@ -1184,7 +1184,7 @@ export function OnboardingDetailContent({
                     </div>
                   )}
                   {nameMatches.length > 0 && (
-                    <Alert variant="destructive">
+                    <Alert variant="destructive" data-tour="onboarding-name-match">
                       <AlertTriangle className="h-4 w-4" />
                       <AlertTitle>
                         {nameMatches.length === 1
@@ -1214,7 +1214,7 @@ export function OnboardingDetailContent({
                   {/* Wraps because the rehire path adds a third button and the
                       match-aware labels are long — without this the Reject button
                       spills out of the card. */}
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-tour="onboarding-actions">
                     {departedMatches.length > 0 && (
                       <Button
                         variant="secondary"
@@ -1259,7 +1259,7 @@ export function OnboardingDetailContent({
           </Card>
 
           {/* Payload */}
-          <Card>
+          <Card data-tour="onboarding-payload">
             <CardHeader>
               <CardTitle>Submission Payload</CardTitle>
               <CardDescription>
@@ -1280,7 +1280,7 @@ export function OnboardingDetailContent({
 
         {/* Right: metadata sidebar */}
         <div className="space-y-4">
-          <Card>
+          <Card data-tour="onboarding-info">
             <CardHeader>
               <CardTitle className="text-base">Request Info</CardTitle>
             </CardHeader>

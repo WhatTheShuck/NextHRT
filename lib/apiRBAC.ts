@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getLineScopeForUser } from "@/lib/services/authorityService";
 import { auth } from "@/lib/auth";
 import { UserRole } from "@/generated/prisma_client/client";
 
@@ -29,6 +30,10 @@ export async function hasAccessToEmployee(
   if (canViewAll.success) {
     return true;
   }
+
+  // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+  const lineScope = await getLineScopeForUser(userId, { includeSelf: true });
+  if (lineScope) return lineScope.includes(employeeId);
 
   // Check if user can view department employees
   const canViewDepartment = await auth.api.userHasPermission({

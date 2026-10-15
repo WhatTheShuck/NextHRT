@@ -1,15 +1,6 @@
-import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { EmailTemplatesPageContent } from "./email-templates-page-content";
 
-export default async function EmailTemplatesPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (session === null) return redirect("/auth");
-
-  if (session.user?.role !== "Admin") {
-    redirect("/");
-  }
-
-  return <EmailTemplatesPageContent />;
+// Templates moved under the Email section; keep old bookmarks working.
+export default function EmailTemplatesRedirect() {
+  redirect("/admin/email/templates");
 }

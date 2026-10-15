@@ -32,6 +32,7 @@ export async function GET(
         "Content-Type": contentType,
         "Content-Length": buffer.length.toString(),
         "Cache-Control": "private, max-age=3600",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error) {

@@ -177,7 +177,7 @@ export async function DELETE(
           return NextResponse.json(
             {
               error:
-                "Cannot delete training course with existing training records",
+                "Cannot delete training course: it has training records or uploads waiting for review",
             },
             { status: 400 },
           );

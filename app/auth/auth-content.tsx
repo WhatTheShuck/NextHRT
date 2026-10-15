@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { signIn } from "@/lib/auth-client";
 import { companyDetails } from "@/lib/data";
 import { Loader2 } from "lucide-react";
+import { devAuthEnabled } from "@/lib/dev-auth";
+import { DevSignIn } from "./dev-sign-in";
+import { safeReturnPath } from "@/lib/auth-return";
 
 const MicrosoftLogo = () => (
   <svg
@@ -53,6 +56,7 @@ export function LoginPageContent() {
   const redirectParam = searchParams.get("redirect");
   const validRedirect =
     redirectParam && isAllowedRedirect(redirectParam) ? redirectParam : null;
+  const returnTo = safeReturnPath(searchParams.get("returnTo"));
   const redirectHost = validRedirect ? getRedirectHost(validRedirect) : null;
 
   const [autoSignInFailed, setAutoSignInFailed] = useState(false);
@@ -64,13 +68,13 @@ export function LoginPageContent() {
 
   // Auto-trigger SSO when arriving via a Caddy redirect
   useEffect(() => {
-    if (!validRedirect || triggered.current) return;
+    if (!validRedirect || devAuthEnabled || triggered.current) return;
     triggered.current = true;
     doSignIn(validRedirect).catch(() => setAutoSignInFailed(true));
   }, [validRedirect]);
 
   const handleMicrosoftSignIn = async () => {
-    await doSignIn(validRedirect ?? "/");
+    await doSignIn(validRedirect ?? returnTo ?? "/");
   };
 
   const logo = (
@@ -82,7 +86,7 @@ export function LoginPageContent() {
   );
 
   // Auto-redirect loading screen
-  if (validRedirect && !autoSignInFailed) {
+  if (validRedirect && !devAuthEnabled && !autoSignInFailed) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-background">
         <div className="w-full max-w-md px-4">
@@ -137,6 +141,7 @@ export function LoginPageContent() {
               <MicrosoftLogo />
               Sign in with Microsoft
             </Button>
+            {devAuthEnabled && <DevSignIn callbackURL={validRedirect ?? returnTo ?? "/"} />}
           </CardFooter>
         </Card>
       </div>

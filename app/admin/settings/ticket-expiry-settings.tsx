@@ -138,9 +138,9 @@ export function TicketExpirySettings() {
       <CardHeader>
         <CardTitle className="text-base">Ticket Expiry Reminders</CardTitle>
         <CardDescription>
-          A renewal reminder email is sent once at each milestone below. The
-          largest value also sets how far ahead expiries are looked at — nothing
-          expiring beyond it is reported at all.
+          The employee is emailed a renewal reminder once at each milestone
+          below. Their managers are emailed nearer the date (30 days out by
+          default) and once it has expired.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

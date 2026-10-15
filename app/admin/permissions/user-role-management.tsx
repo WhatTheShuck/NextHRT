@@ -213,6 +213,7 @@ export function UserRoleManagement() {
                         size="sm"
                         onClick={() => handleEditUser(user)}
                         disabled={loading}
+                        data-tour="roles-edit"
                       >
                         Edit Role
                       </Button>

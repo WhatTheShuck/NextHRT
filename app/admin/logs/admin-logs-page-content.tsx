@@ -92,7 +92,7 @@ export function AdminLogsPageContent() {
 
         <div className="flex items-center gap-3">
           <Select value={severityFilter} onValueChange={handleFilterChange}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40" data-tour="logs-severity">
               <SelectValue placeholder="Filter severity" />
             </SelectTrigger>
             <SelectContent>
@@ -119,7 +119,7 @@ export function AdminLogsPageContent() {
           <p className="text-muted-foreground">No log entries found.</p>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="logs-list">
           {logs.map((log) => (
             <div
               key={log.id}

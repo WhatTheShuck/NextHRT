@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getLineScopeForUser } from "@/lib/services/authorityService";
 import { auth } from "@/lib/auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { UserRole } from "@/generated/prisma_client/client";
@@ -29,6 +30,10 @@ export class RequirementService {
       },
     });
     if (canViewDepartment.success) {
+      // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+      const lineScope = await getLineScopeForUser(userId, { includeSelf: true });
+      if (lineScope) return lineScope;
+
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -58,7 +63,11 @@ export class RequirementService {
     return [user.employeeId];
   }
 
-  async getEmployeeRequirements(employeeId: number) {
+  /**
+   * `override.departmentId` runs it as a dry run for a department the employee isn't in yet
+   * (the Workday import's training impact, docs/workday-org-import-spec.md §7.4).
+   */
+  async getEmployeeRequirements(employeeId: number, override: { departmentId?: number } = {}) {
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
     });
@@ -66,15 +75,16 @@ export class RequirementService {
     if (!employee) {
       throw new Error("EMPLOYEE_NOT_FOUND");
     }
+    const departmentId = override.departmentId ?? employee.departmentId;
 
     const whereClause = {
       OR: [
         {
-          departmentId: employee.departmentId,
+          departmentId,
           locationId: employee.locationId,
         },
         { departmentId: -1, locationId: employee.locationId },
-        { departmentId: employee.departmentId, locationId: -1 },
+        { departmentId, locationId: -1 },
         { departmentId: -1, locationId: -1 },
       ],
     };

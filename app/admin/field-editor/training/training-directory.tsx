@@ -46,11 +46,9 @@ import {
   ColumnFiltersState,
   SortingState,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  appTableFeatures,
+  useTable,
+} from "@/lib/table";
 
 const RequirementsCell = ({
   training,
@@ -139,7 +137,7 @@ const ExemptionsCell = ({
   );
 };
 
-const TrainingDirectory = () => {
+const TrainingDirectory = ({ initialQuery = "" }: { initialQuery?: string }) => {
   const [trainings, setTrainings] = useState<TrainingWithRelations[]>([]);
   const [isTrainingAddDialogOpen, setIsTrainingAddDialogOpen] = useState(false);
   const [isTrainingEditDialogOpen, setIsTrainingEditDialogOpen] =
@@ -149,7 +147,7 @@ const TrainingDirectory = () => {
   const [selectedRecord, setSelectedRecord] =
     useState<TrainingWithRelations | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },
@@ -336,7 +334,8 @@ const TrainingDirectory = () => {
     [],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: trainings,
     columns,
     state: {
@@ -347,9 +346,6 @@ const TrainingDirectory = () => {
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     globalFilterFn: "includesString",
   });
 
@@ -387,7 +383,7 @@ const TrainingDirectory = () => {
                 .
               </CardDescription>
             </div>
-            <Button onClick={() => setIsTrainingAddDialogOpen(true)} className="w-full sm:w-auto">
+            <Button data-tour="fe-add" onClick={() => setIsTrainingAddDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Training Course
             </Button>
@@ -398,6 +394,7 @@ const TrainingDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search by title or category..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -447,7 +444,7 @@ const TrainingDirectory = () => {
               <span className="text-muted-foreground">Loading...</span>
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

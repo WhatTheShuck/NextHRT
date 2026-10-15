@@ -3,24 +3,78 @@ import { enqueue } from "@/lib/jobs/jobQueue";
 import { appSettingService } from "@/lib/services/appSettingService";
 import { emailTemplateService } from "@/lib/services/emailTemplateService";
 import { escapeHtml } from "@/lib/email-templates/tokens";
-import {
-  resolveExpiryRecipients,
-  ExpiryRecipients,
-} from "@/lib/services/expiryNotificationRecipients";
+import { resolveExpiryRecipients } from "@/lib/services/expiryNotificationRecipients";
 import { toCalendarDay } from "@/lib/dates";
+import { appLink } from "@/lib/appUrl";
+import {
+  EMPLOYEE_ADDRESS_SELECT,
+  UNLINKED_NOTE,
+  employeeAddress,
+  employeeDisplayName,
+} from "@/lib/services/employeeAddress";
+import {
+  DAY_MS,
+  DEFAULT_EMPLOYEE_MILESTONES,
+  DEFAULT_MANAGER_MILESTONES,
+  nextStage,
+  parseMilestones,
+  pickCurrentRecords,
+  type ExpiryState,
+} from "@/lib/services/ticketExpiryShared";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-// 90/60/30 days. A full year of notice was too far out to be actionable —
-// recipients ignored it and the reminder had lost its meaning by renewal time.
-// Override per-deployment via the `tickets.expiryReminderDays` setting.
-const DEFAULT_MILESTONES = [90, 60, 30];
+/**
+ * Two independent reminder tracks per current ticket record
+ * (docs/superpowers/specs/2026-10-09-document-upload-design.md "Jobs"):
+ *   employee: every milestone in tickets.expiryReminderDays, stage in expiryNotificationStage,
+ *             paused while a renewal upload is Pending;
+ *   manager:  tickets.managerExpiryReminderDays (default 30) + expired, stage in
+ *             managerExpiryNotificationStage.
+ * Admins are not emailed.
+ *
+ * A stage is recorded only once its email has been enqueued (or deliberately not sent: template
+ * switched off, or no manager to tell), so a failed send is retried on the next run.
+ *
+ * Delivery is at-least-once: if the run fails after an email is enqueued but before its stage is
+ * written (e.g. the stage flush itself fails), that email is sent again on the next run.
+ */
 
-interface NotificationItem {
+type StageData = { expiryNotificationStage?: string; managerExpiryNotificationStage?: string };
+
+/** Stage writes confirmed by a send, merged per record and flushed at the end of the run. */
+class StageWrites {
+  private byRecord = new Map<number, StageData>();
+  confirm(recordId: number, data: StageData): void {
+    this.byRecord.set(recordId, { ...this.byRecord.get(recordId), ...data });
+  }
+  async flush(): Promise<void> {
+    for (const [id, data] of this.byRecord) {
+      await prisma.ticketRecords.update({ where: { id }, data });
+    }
+  }
+}
+
+interface EmployeeItem {
+  recordId: number;
+  stage: string;
+  employeeId: number;
+  address: string;
+  employeeName: string;
+  unlinked: boolean;
+  ticketId: number;
+  ticketName: string;
+  expiryDate: string;
+  days: number;
+  expired: boolean;
+}
+
+interface ManagerItem {
+  recordId: number;
+  stage: string;
   employeeName: string;
   ticketName: string;
   expiryDate: string;
   days: number;
-  recipients: ExpiryRecipients;
+  to: string[];
 }
 
 export async function ticketExpiryHandler(
@@ -28,17 +82,13 @@ export async function ticketExpiryHandler(
 ): Promise<Record<string, unknown>> {
   const now = new Date();
   const settings = await appSettingService.getSettings();
-  const milestones = parseMilestones(settings["tickets.expiryReminderDays"]);
-  // Only look as far ahead as the furthest reminder milestone — this is what
-  // stops reminders firing for tickets that expire years out.
-  const maxMilestone = milestones[0] ?? DEFAULT_MILESTONES[0];
-  const warnCutoff = new Date(now.getTime() + maxMilestone * DAY_MS);
+  const employeeMilestones = parseMilestones(settings["tickets.expiryReminderDays"], DEFAULT_EMPLOYEE_MILESTONES);
+  const managerMilestones = parseMilestones(settings["tickets.managerExpiryReminderDays"], DEFAULT_MANAGER_MILESTONES);
+  // Only look as far ahead as the furthest milestone on either track.
+  const warnCutoff = new Date(now.getTime() + Math.max(employeeMilestones[0], managerMilestones[0]) * DAY_MS);
 
-  // All records that have an expiry and could matter (expired or expiring soon).
-  // Departed employees and deactivated ("legacy") ticket types are excluded —
-  // neither has a compliance obligation left to chase, so notifying on them is
-  // noise. A rehire re-activates the employee and their stage is untouched, so
-  // the reminders resume from wherever they left off.
+  // Departed employees and deactivated ticket types have nothing left to chase. A rehire
+  // re-activates the employee with their stages untouched, so reminders resume where they stopped.
   const records = await prisma.ticketRecords.findMany({
     where: {
       expiryDate: { not: null, lte: warnCutoff },
@@ -47,188 +97,171 @@ export async function ticketExpiryHandler(
     },
     include: {
       ticket: { select: { ticketName: true } },
-      ticketHolder: { select: { legalFirstName: true, legalLastName: true } },
+      ticketHolder: { select: EMPLOYEE_ADDRESS_SELECT },
     },
   });
+  if (records.length === 0) return { employeeNotified: 0, managerWarned: 0, managerExpired: 0 };
 
-  // Determine the CURRENT record per (employeeId, ticketId): latest expiryDate,
-  // tie dateIssued, tie id. We also need to know whether any *newer valid* record
-  // exists, so fetch all records for affected pairs (a renewal supersedes an expiry).
-  const pairKeys = new Set(records.map((r) => `${r.employeeId}:${r.ticketId}`));
+  // A renewal supersedes an expiry, so the current record is chosen across all of each pair's records.
+  const pairs = [...new Set(records.map((r) => `${r.employeeId}:${r.ticketId}`))].map((k) => {
+    const [employeeId, ticketId] = k.split(":").map(Number);
+    return { employeeId, ticketId };
+  });
   const allForPairs = await prisma.ticketRecords.findMany({
-    where: {
-      OR: [...pairKeys].map((k) => {
-        const [e, t] = k.split(":");
-        return { employeeId: Number(e), ticketId: Number(t) };
-      }),
-    },
+    where: { OR: pairs },
     select: { id: true, employeeId: true, ticketId: true, expiryDate: true, dateIssued: true },
   });
+  const currentIds = new Set(pickCurrentRecords(allForPairs).map((r) => r.id));
 
-  const currentIdByPair = new Map<string, number>();
-  for (const r of allForPairs) {
-    const key = `${r.employeeId}:${r.ticketId}`;
-    const cur = allForPairs.find((x) => x.id === currentIdByPair.get(key));
-    if (!cur || isNewer(r, cur)) currentIdByPair.set(key, r.id);
-  }
+  const pending = await prisma.documentSubmission.findMany({
+    where: { status: "Pending", kind: "Ticket", employeeId: { in: pairs.map((p) => p.employeeId) } },
+    select: { employeeId: true, ticketId: true },
+  });
+  const pendingRenewal = new Set(pending.map((p) => `${p.employeeId}:${p.ticketId}`));
 
-  // Collect the notifications first, then send them consolidated per-recipient
-  // below. This keeps managers of technician-heavy departments from receiving
-  // one email per employee.
-  const warnings: NotificationItem[] = [];
-  const expiries: NotificationItem[] = [];
-  let warned = 0;
-  let expired = 0;
+  const employeeItems: EmployeeItem[] = [];
+  const managerWarnings: ManagerItem[] = [];
+  const managerExpiries: ManagerItem[] = [];
+  const writes = new StageWrites();
 
   for (const rec of records) {
-    const key = `${rec.employeeId}:${rec.ticketId}`;
-    if (currentIdByPair.get(key) !== rec.id) continue; // not the current record — skip (renewed)
+    if (!currentIds.has(rec.id)) continue;
+    const expired = rec.expiryDate!.getTime() <= now.getTime();
+    const days = expired ? 0 : Math.ceil((rec.expiryDate!.getTime() - now.getTime()) / DAY_MS);
+    const state: ExpiryState = expired ? { expired: true } : { expired: false, days };
 
-    const isExpired = rec.expiryDate!.getTime() <= now.getTime();
-    const empName = `${rec.ticketHolder.legalFirstName} ${rec.ticketHolder.legalLastName}`;
-    // Expiry dates descend from a local-midnight `dateIssued`, so slicing the
-    // ISO string would report the previous day from a UTC container.
-    const expiryStr = toCalendarDay(rec.expiryDate!);
-    const stage = rec.expiryNotificationStage;
+    const employeeStage = pendingRenewal.has(`${rec.employeeId}:${rec.ticketId}`)
+      ? null
+      : nextStage(rec.expiryNotificationStage, state, employeeMilestones);
+    const managerStage = nextStage(rec.managerExpiryNotificationStage, state, managerMilestones);
+    if (!employeeStage && !managerStage) continue;
 
-    if (isExpired) {
-      if (stage === "ExpiredSent") continue; // already notified — idempotent
+    // The manager track is never paused, so its first ExpiredSent marks "newly expired".
+    if (managerStage === "ExpiredSent") {
       await enqueue("REQUIREMENTS_CACHE_INVALIDATE", { employeeId: rec.employeeId });
-      const recipients = await resolveExpiryRecipients(rec.employeeId);
-      if (recipients.to.length > 0) {
-        expiries.push({
-          employeeName: empName, ticketName: rec.ticket.ticketName,
-          expiryDate: expiryStr, days: 0, recipients,
-        });
-      }
-      await prisma.ticketRecords.update({
-        where: { id: rec.id },
-        data: { expiryNotificationStage: "ExpiredSent" },
+    }
+
+    const employeeName = employeeDisplayName(rec.ticketHolder);
+    // Expiry dates descend from a local-midnight dateIssued; read the day in the app zone.
+    const expiryDate = toCalendarDay(rec.expiryDate!);
+
+    if (employeeStage) {
+      employeeItems.push({
+        recordId: rec.id,
+        stage: employeeStage,
+        employeeId: rec.employeeId,
+        address: employeeAddress(rec.ticketHolder),
+        employeeName,
+        unlinked: !rec.ticketHolder.User?.email,
+        ticketId: rec.ticketId,
+        ticketName: rec.ticket.ticketName,
+        expiryDate,
+        days,
+        expired,
       });
-      expired++;
-    } else {
-      const days = Math.ceil((rec.expiryDate!.getTime() - now.getTime()) / DAY_MS);
-      const milestone = applicableMilestone(days, milestones);
-      if (milestone === null) continue; // beyond the furthest reminder — nothing to send yet
-      // Stage stores the days-value of the last milestone reminder sent. Send
-      // only when we've reached a nearer (smaller) milestone than last time.
-      // Legacy stages ("WarnSent") parse to null and re-warn once at the
-      // correct milestone.
-      const lastSent = /^\d+$/.test(stage ?? "") ? Number(stage) : null;
-      if (lastSent !== null && milestone >= lastSent) continue;
-      const recipients = await resolveExpiryRecipients(rec.employeeId);
-      if (recipients.to.length > 0) {
-        warnings.push({
-          employeeName: empName, ticketName: rec.ticket.ticketName,
-          expiryDate: expiryStr, days, recipients,
+    }
+    if (managerStage) {
+      const { to } = await resolveExpiryRecipients(rec.employeeId);
+      if (to.length > 0) {
+        (expired ? managerExpiries : managerWarnings).push({
+          recordId: rec.id, stage: managerStage, employeeName, ticketName: rec.ticket.ticketName, expiryDate, days, to,
         });
+      } else {
+        // Nobody to tell: advance anyway so the item doesn't re-qualify every night.
+        writes.confirm(rec.id, { managerExpiryNotificationStage: managerStage });
       }
-      await prisma.ticketRecords.update({
-        where: { id: rec.id },
-        data: { expiryNotificationStage: String(milestone) },
-      });
-      warned++;
     }
   }
 
-  await sendConsolidated("ticket.expiryWarning", warnings, false);
-  await sendConsolidated("ticket.expired", expiries, true);
-
-  return { warned, expired };
-}
-
-// Smallest milestone that still covers `days` (i.e. the tightest applicable
-// reminder). `null` when `days` is beyond the furthest milestone.
-function applicableMilestone(days: number, milestones: number[]): number | null {
-  let result: number | null = null;
-  for (const m of milestones) {
-    if (days <= m) result = m; // milestones descending — keep tightening
+  // Whatever was sent before a failure keeps its stage; the rest is retried next run.
+  let sendFailed = false;
+  try {
+    await sendEmployeeDigests(employeeItems, writes);
+    await sendManagerConsolidated("ticket.expiryWarning", managerWarnings, false, writes);
+    await sendManagerConsolidated("ticket.expired", managerExpiries, true, writes);
+  } catch (err) {
+    sendFailed = true;
+    throw err;
+  } finally {
+    try {
+      await writes.flush();
+    } catch (flushErr) {
+      console.error("[ticketExpiry] writing reminder stages failed:", flushErr);
+      // Don't mask the send error; with clean sends, the flush failure is the run's failure.
+      if (!sendFailed) throw flushErr;
+    }
   }
-  return result;
+
+  return {
+    employeeNotified: new Set(employeeItems.map((i) => i.employeeId)).size,
+    managerWarned: managerWarnings.length,
+    managerExpired: managerExpiries.length,
+  };
 }
 
-function parseMilestones(raw: string | undefined): number[] {
-  const parsed = (raw ?? "")
-    .split(",")
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  const list = parsed.length > 0 ? parsed : DEFAULT_MILESTONES;
-  return [...new Set(list)].sort((a, b) => b - a); // descending, deduped
+// One email per employee covering every ticket of theirs due a reminder this run.
+async function sendEmployeeDigests(items: EmployeeItem[], writes: StageWrites): Promise<void> {
+  const byEmployee = new Map<number, EmployeeItem[]>();
+  for (const i of items) byEmployee.set(i.employeeId, [...(byEmployee.get(i.employeeId) ?? []), i]);
+
+  for (const group of byEmployee.values()) {
+    const first = group[0];
+    const rows = [...group]
+      .sort((a, b) => a.days - b.days)
+      .map((i) => ({
+        itemName: escapeHtml(i.ticketName),
+        expiryDate: i.expiryDate,
+        daysText: i.expired ? "expired" : `expires in ${i.days} day${i.days === 1 ? "" : "s"}`,
+        uploadUrl: appLink(`/forms/document-upload?employeeId=${i.employeeId}&kind=Ticket&itemId=${i.ticketId}`),
+      }));
+    const itemList = await emailTemplateService.renderList("document.employeeExpiry", rows);
+    const rendered = await emailTemplateService.render("document.employeeExpiry", {
+      employeeName: escapeHtml(first.employeeName),
+      itemList,
+      count: group.length,
+      pageUrl: appLink("/expiring"),
+      unlinkedNote: first.unlinked ? UNLINKED_NOTE : "",
+    });
+    // Switched off in the template editor: no send, but the stage is still recorded.
+    if (rendered) {
+      await enqueue("SEND_EMAIL", { to: first.address, subject: rendered.subject, html: rendered.body });
+    }
+    for (const i of group) writes.confirm(i.recordId, { expiryNotificationStage: i.stage });
+  }
 }
 
-// Group notifications by identical recipient set and send one email per group,
-// each listing every affected employee/ticket.
-async function sendConsolidated(
+// Group by identical recipient set and send one email per group, as before.
+async function sendManagerConsolidated(
   templateKey: string,
-  items: NotificationItem[],
+  items: ManagerItem[],
   expiredMode: boolean,
+  writes: StageWrites,
 ): Promise<void> {
-  if (items.length === 0) return;
-
-  const groups = new Map<
-    string,
-    { recipients: ExpiryRecipients; items: NotificationItem[] }
-  >();
+  const groups = new Map<string, { to: string[]; items: ManagerItem[] }>();
   for (const item of items) {
-    const to = [...item.recipients.to].sort();
-    const cc = [...item.recipients.cc].sort();
-    const sig = JSON.stringify([to, cc]);
-    let group = groups.get(sig);
-    if (!group) {
-      group = { recipients: { to, cc }, items: [] };
-      groups.set(sig, group);
-    }
+    const to = [...item.to].sort();
+    const sig = JSON.stringify(to);
+    const group = groups.get(sig) ?? { to, items: [] };
     group.items.push(item);
+    groups.set(sig, group);
   }
 
   for (const group of groups.values()) {
-    const ticketList = await renderList(templateKey, group.items, expiredMode);
-    const rendered = await emailTemplateService.render(templateKey, {
-      ticketList,
-      count: group.items.length,
-    });
-    // Template switched off in the admin editor — an explicit "don't send this".
-    if (!rendered) return;
-
-    await enqueue("SEND_EMAIL", {
-      to: group.recipients.to,
-      cc: group.recipients.cc,
-      subject: rendered.subject,
-      html: rendered.body,
-    });
+    const rows = [...group.items]
+      .sort((a, b) => a.days - b.days)
+      .map((i) => ({
+        employeeName: escapeHtml(i.employeeName),
+        ticketName: escapeHtml(i.ticketName),
+        expiryDate: i.expiryDate,
+        days: i.days,
+        daysText: expiredMode ? "" : `${i.days} day${i.days === 1 ? "" : "s"}`,
+      }));
+    const ticketList = await emailTemplateService.renderList(templateKey, rows);
+    const rendered = await emailTemplateService.render(templateKey, { ticketList, count: group.items.length });
+    // Switched off: skip this send only, still recording the stage.
+    if (rendered) {
+      await enqueue("SEND_EMAIL", { to: group.to, subject: rendered.subject, html: rendered.body });
+    }
+    for (const i of group.items) writes.confirm(i.recordId, { managerExpiryNotificationStage: i.stage });
   }
-}
-
-// The row markup lives in an admin-editable fragment template
-// (`<key>.row`), so the per-row wording is authorable rather than hardcoded.
-// Values are escaped here because the fragment interpolates them into HTML.
-async function renderList(
-  templateKey: string,
-  items: NotificationItem[],
-  expiredMode: boolean,
-): Promise<string> {
-  const rows = [...items]
-    .sort((a, b) => a.days - b.days) // most urgent first
-    .map((i) => ({
-      employeeName: escapeHtml(i.employeeName),
-      ticketName: escapeHtml(i.ticketName),
-      expiryDate: i.expiryDate,
-      days: i.days,
-      daysText: expiredMode
-        ? ""
-        : `${i.days} day${i.days === 1 ? "" : "s"}`,
-    }));
-
-  return emailTemplateService.renderList(templateKey, rows);
-}
-
-function isNewer(
-  a: { expiryDate: Date | null; dateIssued: Date; id: number },
-  b: { expiryDate: Date | null; dateIssued: Date; id: number },
-): boolean {
-  const ae = a.expiryDate?.getTime() ?? Infinity; // null expiry = never expires = newest
-  const be = b.expiryDate?.getTime() ?? Infinity;
-  if (ae !== be) return ae > be;
-  if (a.dateIssued.getTime() !== b.dateIssued.getTime()) return a.dateIssued > b.dateIssued;
-  return a.id > b.id;
 }

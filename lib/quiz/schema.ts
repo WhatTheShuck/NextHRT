@@ -81,11 +81,14 @@ const SectionSchema = z.strictObject({
   items: z.array(QuizItemSchema).min(1),
 });
 
-export const QuizDocumentSchema = z
-  .strictObject({
-    version: z.literal(1),
-    sections: z.array(SectionSchema).min(1),
-  })
+// Structure only — what the visual editor needs to render a document. Every
+// write goes through QuizDocumentSchema, which adds the cross-field rules.
+export const QuizDocumentShapeSchema = z.strictObject({
+  version: z.literal(1),
+  sections: z.array(SectionSchema).min(1),
+});
+
+export const QuizDocumentSchema = QuizDocumentShapeSchema
   .superRefine((doc, ctx) => {
     // Walk items in document order, tracking a global index so "earlier" is
     // well-defined for showIf.

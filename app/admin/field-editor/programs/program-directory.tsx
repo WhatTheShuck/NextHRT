@@ -37,11 +37,9 @@ import {
   ColumnFiltersState,
   SortingState,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  appTableFeatures,
+  useTable,
+} from "@/lib/table";
 
 const ProgramsDirectory = () => {
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -177,7 +175,8 @@ const ProgramsDirectory = () => {
     },
   ];
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: programs,
     columns,
     state: {
@@ -188,9 +187,6 @@ const ProgramsDirectory = () => {
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     globalFilterFn: "includesString",
   });
 
@@ -214,6 +210,7 @@ const ProgramsDirectory = () => {
               </CardDescription>
             </div>
             <Button
+              data-tour="fe-add"
               onClick={() => setIsProgramAddDialogOpen(true)}
               className="w-full sm:w-auto"
             >
@@ -227,6 +224,7 @@ const ProgramsDirectory = () => {
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                data-tour="fe-search"
                 placeholder="Search programs..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -256,7 +254,7 @@ const ProgramsDirectory = () => {
               Loading programs...
             </div>
           ) : (
-            <Table>
+            <Table data-tour="fe-table">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

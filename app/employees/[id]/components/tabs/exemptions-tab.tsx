@@ -247,15 +247,17 @@ export function ExemptionTab() {
           )}
         </CardContent>
       </Card>
-      <AddTrainingTicketExemptionDialog
-        open={isExemptionAddDialogOpen}
-        onOpenChange={setIsExemptionAddDialogOpen}
-        employeeId={employee?.id!}
-        onTrainingTicketExemptionAdded={() => {
-          setIsExemptionAddDialogOpen(false);
-          refreshData();
-        }}
-      />
+      {employee && (
+        <AddTrainingTicketExemptionDialog
+          open={isExemptionAddDialogOpen}
+          onOpenChange={setIsExemptionAddDialogOpen}
+          employeeId={employee.id}
+          onTrainingTicketExemptionAdded={() => {
+            setIsExemptionAddDialogOpen(false);
+            refreshData();
+          }}
+        />
+      )}
       <EditTrainingTicketExemptionDialog
         open={isExemptionEditDialogOpen}
         onOpenChange={setIsExemptionEditDialogOpen}

@@ -91,7 +91,7 @@ export function QuizResultDetail({ responseId }: { responseId: number }) {
       </div>
 
       {summary.gate.length > 0 && (
-        <Card>
+        <Card data-tour="response-setup">
           <CardHeader>
             <CardTitle className="text-base">Work setup</CardTitle>
           </CardHeader>
@@ -107,7 +107,7 @@ export function QuizResultDetail({ responseId }: { responseId: number }) {
       )}
 
       {summary.coachingTopics.length > 0 && (
-        <Card>
+        <Card data-tour="response-topics">
           <CardHeader>
             <CardTitle className="text-base">Suggested things to cover</CardTitle>
           </CardHeader>
@@ -124,7 +124,7 @@ export function QuizResultDetail({ responseId }: { responseId: number }) {
       )}
 
       {summary.flagged.length > 0 && (
-        <Card>
+        <Card data-tour="response-flagged">
           <CardHeader>
             <CardTitle className="text-base">Where a tip would help</CardTitle>
           </CardHeader>
@@ -149,7 +149,7 @@ export function QuizResultDetail({ responseId }: { responseId: number }) {
       )}
 
       {summary.selfAssessment.length > 0 && (
-        <Card>
+        <Card data-tour="response-self">
           <CardHeader>
             <CardTitle className="text-base">Self-assessment</CardTitle>
           </CardHeader>
@@ -165,7 +165,7 @@ export function QuizResultDetail({ responseId }: { responseId: number }) {
       )}
 
       {summary.freeText.length > 0 && (
-        <Card>
+        <Card data-tour="response-text">
           <CardHeader>
             <CardTitle className="text-base">In their words</CardTitle>
           </CardHeader>

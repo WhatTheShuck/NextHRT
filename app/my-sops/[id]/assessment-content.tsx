@@ -283,7 +283,7 @@ export function AssessmentContent({ assessmentId }: { assessmentId: number }) {
           <ArrowLeft className="h-4 w-4 mr-1" />
           My SOPs
         </Button>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2" data-tour="sop-assess-header">
           <h1 className="text-xl md:text-2xl font-bold">
             {exportData.sopTitle}
           </h1>
@@ -294,7 +294,7 @@ export function AssessmentContent({ assessmentId }: { assessmentId: number }) {
 
       {!assessment.onCurrentRevision &&
         NON_TERMINAL.includes(assessment.status) && (
-          <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          <div data-tour="sop-assess-new-revision" className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span className="flex-1 min-w-48">
               A newer revision of this SOP is now current. You can restart on
@@ -315,12 +315,13 @@ export function AssessmentContent({ assessmentId }: { assessmentId: number }) {
       {/* Procedure viewer */}
       {assessment.revision.documentPath ? (
         <iframe
+          data-tour="sop-assess-pdf"
           src={`/api/images/${assessment.revision.documentPath}`}
           className="w-full h-[70vh] rounded border"
           title="SOP procedure"
         />
       ) : (
-        <Card>
+        <Card data-tour="sop-assess-pdf">
           <CardContent className="pt-6">
             <p className="text-muted-foreground text-sm">
               No procedure PDF is attached to this revision.
@@ -330,7 +331,7 @@ export function AssessmentContent({ assessmentId }: { assessmentId: number }) {
       )}
 
       {/* Read acknowledgement */}
-      <div className="flex items-center gap-3 rounded-md border p-4">
+      <div className="flex items-center gap-3 rounded-md border p-4" data-tour="sop-assess-read">
         <Checkbox
           id="read-ack"
           checked={acknowledged}
@@ -351,7 +352,7 @@ export function AssessmentContent({ assessmentId }: { assessmentId: number }) {
       </div>
 
       {/* Questions */}
-      <div className="space-y-4">
+      <div className="space-y-4" data-tour="sop-assess-questions">
         <h2 className="text-lg font-semibold">Assessment questions</h2>
         {assessment.revision.sopQuestions.map((question, index) => {
           const answer = answerByQuestion.get(question.id);
@@ -403,7 +404,7 @@ export function AssessmentContent({ assessmentId }: { assessmentId: number }) {
 
       {/* Actions */}
       {anyEditable && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2" data-tour="sop-assess-actions">
           <Button
             type="button"
             variant="outline"
@@ -436,7 +437,7 @@ export function AssessmentContent({ assessmentId }: { assessmentId: number }) {
       )}
 
       {assessment.status === "Passed" && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-tour="sop-assess-export">
           <AssessmentExportButton data={exportData} />
         </div>
       )}

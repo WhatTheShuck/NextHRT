@@ -8,8 +8,10 @@
 export type TemplateGroup =
   | "Onboarding"
   | "Tickets"
+  | "Documents"
   | "SOP"
   | "IT"
+  | "Accounts"
   | "Advanced";
 
 /**
@@ -60,11 +62,28 @@ export const TOKEN_DESCRIPTIONS: Record<string, string> = {
   expiryDate: "The ticket's expiry date",
   days: "Whole days until expiry, e.g. 30",
   daysText: 'Days until expiry with its unit, e.g. "30 days" or "1 day"',
+  // --- Documents ---
+  itemList: "The list of tickets/training, built from the row template below",
+  itemName: "Name of the ticket or training",
+  itemKind: 'What it is, e.g. "Ticket", "Training" or "Training — retraining required"',
+  uploadUrl: "Deep link that opens the upload form for this item",
+  pageUrl: "Link to the Expiring & Missing page in HRT",
+  unlinkedNote: "Extra line for people whose HRT login isn't linked yet; empty otherwise",
+  submissionUrl: "Link to the submission in HRT",
+  reason: "The administrator's reason for sending it back",
   // --- SOP ---
   sopTitle: "Title of the SOP assessment",
   trainerName: "The designated trainer's name",
   // --- IT quiz ---
   summaryUrl: "Deep link to the questionnaire results",
+  // --- Accounts ---
+  userList: "The people waiting, built from the row template below",
+  userCount: "How many people are waiting",
+  userName: "Name on the Microsoft account that signed in",
+  userEmail: "Email address of the Microsoft account that signed in",
+  waitingFor: 'How long since they first signed in, e.g. "3 days"',
+  suggestedMatch: "Best-guess employee record for the account, if any",
+  linkUrl: "Deep link into HRT for the next step",
   // --- Programs row ---
   programName: "Name of the requested program",
   ticketUrl: "Link to the IT service-catalogue request, if the program has one",
@@ -111,10 +130,23 @@ export const SAMPLE_TOKEN_VALUES: Record<string, string> = {
   sopTitle: "Pump Teardown & Inspection",
   trainerName: "Dana Example",
   summaryUrl: "https://hrt.example.com/it-induction/responses/123",
+  userCount: "2",
+  userName: "Jono Sample",
+  userEmail: "jono.sample@example.com",
+  waitingFor: "3 days",
+  suggestedMatch: "Jono Sample — Service Technician, Service (Brisbane)",
+  linkUrl: "https://hrt.example.com/admin/permissions?tab=suggestions",
   programName: "AutoCAD",
   ticketUrl: "https://itsp.example.com/serviceOfferings/1234",
   infoRequired: "Licence seat type",
   referenceUserName: "Alex Existing",
+  itemName: "Forklift Licence",
+  itemKind: "Ticket",
+  uploadUrl: "https://hrt.example.com/forms/document-upload?employeeId=1&kind=Ticket&itemId=3",
+  pageUrl: "https://hrt.example.com/expiring",
+  unlinkedNote: "You can also give a copy to your manager to upload for you.",
+  submissionUrl: "https://hrt.example.com/forms/document-upload?submission=42",
+  reason: "The photo is blurry — please retake it in better light.",
 };
 
 /**
@@ -252,6 +284,42 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     blurb: "One row of the {ticketList} in the already-expired email.",
     tokens: ["employeeName", "ticketName", "expiryDate"],
   },
+  "document.employeeExpiry": {
+    group: "Documents",
+    kind: "email",
+    blurb: "Sent to the employee at each expiry milestone and on expiry. One email per employee listing every affected ticket.",
+    tokens: ["employeeName", "itemList", "count", "pageUrl", "unlinkedNote"],
+  },
+  "document.employeeExpiry.row": {
+    group: "Advanced",
+    kind: "fragment",
+    blurb: "One row of the {itemList} in the employee expiry email.",
+    tokens: ["itemName", "expiryDate", "daysText", "uploadUrl"],
+  },
+  "document.missing": {
+    group: "Documents",
+    kind: "email",
+    blurb: "Sent to the employee when a required ticket or External training is first missing, then monthly while it stays missing.",
+    tokens: ["employeeName", "itemList", "count", "pageUrl", "unlinkedNote"],
+  },
+  "document.missing.row": {
+    group: "Advanced",
+    kind: "fragment",
+    blurb: "One row of the {itemList} in the missing-documents email.",
+    tokens: ["itemName", "itemKind", "uploadUrl"],
+  },
+  "document.approved": {
+    group: "Documents",
+    kind: "email",
+    blurb: "Tells the submitter (and the employee, if someone else submitted) that an upload was accepted.",
+    tokens: ["employeeName", "itemName", "submissionUrl"],
+  },
+  "document.changesRequested": {
+    group: "Documents",
+    kind: "email",
+    blurb: "Tells the submitter an administrator sent an upload back, with the reason.",
+    tokens: ["employeeName", "itemName", "reason", "submissionUrl"],
+  },
   "sop.submitted": {
     group: "SOP",
     kind: "email",
@@ -276,6 +344,27 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     blurb:
       "Sends IT the summary of a completed induction questionnaire before the session.",
     tokens: ["employeeName", "summaryUrl"],
+  },
+  "account.waitingDigest": {
+    group: "Accounts",
+    kind: "email",
+    blurb:
+      "Weekly summary to admins of everyone who signed in more than a day ago and still isn't linked to an employee record. Not sent when nobody is waiting.",
+    tokens: ["userList", "userCount", "linkUrl"],
+  },
+  "account.waitingDigest.row": {
+    group: "Advanced",
+    kind: "fragment",
+    blurb:
+      "One person in the {userList} of the weekly waiting-for-access email. Wrap optional parts in {#token}…{/token}.",
+    tokens: ["userName", "userEmail", "waitingFor", "suggestedMatch"],
+  },
+  "account.linked": {
+    group: "Accounts",
+    kind: "email",
+    blurb:
+      "Tells the person their account is linked to their employee record and ready to use.",
+    tokens: ["preferredFirstName", "employeeName", "linkUrl"],
   },
   "email.layout": {
     group: "Advanced",
@@ -314,6 +403,13 @@ export const LIST_TOKENS: Record<string, ListTokenSource> = {
     rowKey: "ticket.expired.row",
     wrapper: "<ul>{rows}</ul>",
   },
+  "document.employeeExpiry": { token: "itemList", rowKey: "document.employeeExpiry.row", wrapper: "<ul>{rows}</ul>" },
+  "document.missing": { token: "itemList", rowKey: "document.missing.row", wrapper: "<ul>{rows}</ul>" },
+  "account.waitingDigest": {
+    token: "userList",
+    rowKey: "account.waitingDigest.row",
+    wrapper: "<ul>{rows}</ul>",
+  },
   "it.programs": {
     token: "programs",
     rowKey: "it.programs.row",
@@ -331,7 +427,9 @@ export const GROUP_ORDER: readonly TemplateGroup[] = [
   "Onboarding",
   "IT",
   "Tickets",
+  "Documents",
   "SOP",
+  "Accounts",
   "Advanced",
 ];
 

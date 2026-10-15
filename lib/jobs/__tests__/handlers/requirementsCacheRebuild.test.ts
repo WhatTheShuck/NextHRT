@@ -20,6 +20,9 @@ const { mockPrisma } = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: mockPrisma }));
 
+const { enqueue } = vi.hoisted(() => ({ enqueue: vi.fn() }));
+vi.mock("@/lib/jobs/jobQueue", () => ({ enqueue }));
+
 import { requirementsCacheRebuildHandler } from "@/lib/jobs/handlers/requirementsCacheRebuild";
 
 // Shorthand builders
@@ -295,5 +298,17 @@ describe("requirementsCacheRebuildHandler — training revisions", () => {
     const result = await requirementsCacheRebuildHandler({});
 
     expect(result.totalEntries).toBe(0);
+  });
+});
+
+describe("chaining the missing-document reminder", () => {
+  it("enqueues MISSING_DOCUMENT_REMINDER only when the nightly cron asked for it", async () => {
+    // The file's beforeEach already sets empty fixtures for every prisma call.
+    await requirementsCacheRebuildHandler({ thenRemindMissing: true });
+    expect(enqueue).toHaveBeenCalledWith("MISSING_DOCUMENT_REMINDER");
+
+    enqueue.mockClear();
+    await requirementsCacheRebuildHandler({});
+    expect(enqueue).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef } from "@/lib/table";
 import { Badge } from "@/components/ui/badge";
 import { EmployeeTrainingRow } from "../record-rows";
 import { formatDate, sortableHeader } from "../column-helpers";

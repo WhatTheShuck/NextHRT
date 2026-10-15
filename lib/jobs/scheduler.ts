@@ -13,7 +13,7 @@ export function startScheduler(): void {
 
   // Nightly at 1am — full requirements cache rebuild for freshness
   cron.schedule("0 1 * * *", async () => {
-    await enqueue("REQUIREMENTS_CACHE_REBUILD");
+    await enqueue("REQUIREMENTS_CACHE_REBUILD", { thenRemindMissing: true });
     console.log("[Scheduler] Enqueued nightly cache rebuild");
   });
 
@@ -27,6 +27,13 @@ export function startScheduler(): void {
   cron.schedule("0 3 * * *", async () => {
     await enqueue("SNIPE_PHONE_SYNC");
     console.log("[Scheduler] Enqueued Snipe phone sync");
+  });
+
+  // Weekly Monday at 8am — one digest of everyone still waiting to be linked,
+  // rather than an email per sign-in when a whole team comes online at once
+  cron.schedule("0 8 * * 1", async () => {
+    await enqueue("ACCOUNT_LINK_DIGEST");
+    console.log("[Scheduler] Enqueued account link digest");
   });
 
   console.log("[Scheduler] Started");

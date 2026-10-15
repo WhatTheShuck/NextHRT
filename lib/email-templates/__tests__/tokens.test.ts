@@ -116,3 +116,11 @@ describe("escapeHtml", () => {
     expect(escapeHtml('<b>&"')).toBe("&lt;b&gt;&amp;&quot;");
   });
 });
+
+describe("document.approved default", () => {
+  it('says "approved", matching the review page and the Submitted badge', () => {
+    const t = TEMPLATE_DEFAULTS.find((d) => d.key === "document.approved")!;
+    expect(t.name).toBe("Upload approved (to the submitter)");
+    expect(t.subject).toBe("Document approved: {itemName}");
+  });
+});

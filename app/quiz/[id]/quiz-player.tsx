@@ -74,7 +74,14 @@ function InfoBody({ body }: { body: string }) {
   );
 }
 
-export function QuizPlayer({ responseId }: { responseId: number }) {
+export function QuizPlayer({
+  responseId,
+  startAt = "resume",
+}: {
+  responseId: number;
+  /** "resume" jumps to the first unanswered item; "start" opens at the top. */
+  startAt?: "resume" | "start";
+}) {
   const router = useRouter();
   const [data, setData] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,15 +100,25 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
     setLoadError("");
     try {
       const res = await api.get<ResponseData>(`/api/quiz-responses/${responseId}`);
+      const loadedAnswers = res.data.answers ?? {};
       setData(res.data);
-      setAnswers(res.data.answers ?? {});
+      setAnswers(loadedAnswers);
       setReveals(res.data.reveals ?? {});
+      // Opening position: the first visible item without a saved answer (every
+      // forward step saves, so that's where the employee left off), or the
+      // last item when only Submit remains. Reloads after submit are no longer
+      // InProgress, so they never move the employee.
+      if (startAt === "resume" && res.data.status === "InProgress") {
+        const items = visibleItems(res.data.document, loadedAnswers);
+        const firstOpen = items.findIndex((v) => loadedAnswers[v.item.id] === undefined);
+        setIndex(firstOpen === -1 ? Math.max(items.length - 1, 0) : firstOpen);
+      }
     } catch (err) {
       setLoadError(apiError(err, "Failed to load questionnaire"));
     } finally {
       setLoading(false);
     }
-  }, [responseId]);
+  }, [responseId, startAt]);
 
   useEffect(() => {
     load();
@@ -276,7 +293,7 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
           <CheckCircle2 className="h-6 w-6 text-green-600" />
           <h1 className="text-xl font-semibold">{data.trainingTitle}</h1>
         </div>
-        <Card>
+        <Card data-tour="quiz-done">
           <CardContent className="pt-6 space-y-3 text-sm">
             <p className="font-medium">Thanks — that's everything we need.</p>
             <p className="text-muted-foreground">
@@ -320,7 +337,7 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
     return (
       <div className="mx-auto max-w-2xl p-4 space-y-4">
         <h1 className="text-xl font-semibold">{data.trainingTitle}</h1>
-        <Card>
+        <Card data-tour="quiz-restart">
           <CardContent className="pt-6 space-y-3 text-sm">
             <p>
               A newer version of this questionnaire is now available. Restart to
@@ -341,7 +358,7 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
 
   return (
     <div className="mx-auto max-w-2xl p-4 space-y-4">
-      <div className="space-y-1">
+      <div className="space-y-1" data-tour="quiz-intro">
         <h1 className="text-xl font-semibold">{data.trainingTitle}</h1>
         <p className="text-sm text-muted-foreground">
           Not a test — honest answers get you a tailored intro. You'll pick up tips
@@ -349,7 +366,7 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
         </p>
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-1" data-tour="quiz-progress">
         <Progress value={progress} />
         <p className="text-xs text-muted-foreground text-right">
           {answeredRequired} / {requiredVisible.length} answered
@@ -357,7 +374,7 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
       </div>
 
       {current && (
-        <Card>
+        <Card data-tour="quiz-question">
           <CardHeader>
             {currentSection && (
               <Badge variant="outline" className="w-fit text-xs mb-1">
@@ -474,7 +491,7 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
             {itemError && <p className="text-sm text-red-700">{itemError}</p>}
 
             {/* ── Navigation ── */}
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between pt-2" data-tour="quiz-nav">
               <Button
                 type="button"
                 variant="ghost"
@@ -501,7 +518,7 @@ export function QuizPlayer({ responseId }: { responseId: number }) {
 
       {/* Submit affordance when all required items are answered mid-quiz. */}
       {allComplete && !isLastItem && (
-        <div className="flex justify-end">
+        <div className="flex justify-end" data-tour="quiz-submit-early">
           <Button type="button" variant="secondary" onClick={handleSubmit} disabled={busy}>
             {busy ? "Submitting..." : "Submit questionnaire"}
           </Button>

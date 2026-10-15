@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
+import { getLineScopeForUser } from "@/lib/services/authorityService";
 import { UserRole } from "@/generated/prisma_client/client";
 import { fileUploadService } from "./fileUploadService";
+import { resolveTicketExpiry } from "./ticketExpiryDate";
 import { auth } from "../auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
 import { enqueue } from "@/lib/jobs/jobQueue";
@@ -99,6 +101,16 @@ export class TicketRecordService {
     });
 
     if (canViewDepartment.success) {
+      // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+      const lineScope = await getLineScopeForUser(userId, { includeSelf: true });
+      if (lineScope) {
+        return await prisma.ticketRecords.findMany({
+          where: { employeeId: { in: lineScope }, ...whereClause },
+          include: includeClause,
+          orderBy,
+        });
+      }
+
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -239,23 +251,13 @@ export class TicketRecordService {
       throw new Error("TICKET_NOT_FOUND");
     }
 
+    const finalExpiryDate = resolveTicketExpiry(
+      issuedDate,
+      ticket.renewal,
+      data.manualExpiryOverride && data.expiryDate ? new Date(data.expiryDate) : null,
+    );
+
     const savedImages = await fileUploadService.saveFiles(images, "tickets");
-
-    let finalExpiryDate: Date | null = null;
-
-    if (data.manualExpiryOverride && data.expiryDate) {
-      finalExpiryDate = new Date(data.expiryDate);
-
-      if (finalExpiryDate <= issuedDate) {
-        throw new Error("INVALID_EXPIRY_DATE");
-      }
-    } else {
-      finalExpiryDate = this.calculateExpiryDate(issuedDate, ticket.renewal);
-    }
-
-    if (ticket.renewal !== null && !finalExpiryDate) {
-      throw new Error("EXPIRY_DATE_REQUIRED");
-    }
 
     const ticketRecord = await prisma.ticketRecords.create({
       data: {

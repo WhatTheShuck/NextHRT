@@ -1,9 +1,10 @@
 import prisma from "@/lib/prisma";
+import { enqueue } from "@/lib/jobs/jobQueue";
 import { isTicketRecordValid } from "@/lib/services/ticketCompliance";
 import { isTrainingSatisfied, type TrainingLite } from "@/lib/services/trainingCompliance";
 
 export async function requirementsCacheRebuildHandler(
-  _payload: Record<string, unknown>,
+  payload: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const [
     allEmployees,
@@ -139,6 +140,9 @@ export async function requirementsCacheRebuildHandler(
     prisma.requirementsCacheEntry.deleteMany({}),
     prisma.requirementsCacheEntry.createMany({ data: entries }),
   ]);
+
+  // Only the 1am cron asks for this — boot and manual rebuilds must not mail anyone.
+  if (payload?.thenRemindMissing === true) await enqueue("MISSING_DOCUMENT_REMINDER");
 
   return {
     totalEntries: entries.length,

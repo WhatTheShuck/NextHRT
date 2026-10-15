@@ -50,6 +50,8 @@ interface UserForApprover {
   name: string | null;
   employeeId: number | null;
   employee?: { id: number; legalFirstName: string; legalLastName: string } | null;
+  /** Why they're suggested, e.g. "Manager" or "On behalf of Joshua Noakes". */
+  note?: string;
 }
 
 function approverDisplayName(u: UserForApprover): string {
@@ -83,6 +85,7 @@ function SuggestedApproverList({ approvers, selectedUserId, onSelect }: Suggeste
                 }`}
               />
               <span className="font-medium">{approverDisplayName(user)}</span>
+              {user.note && <span className="ml-2 text-xs text-muted-foreground">{user.note}</span>}
             </CommandItem>
           ))}
         </CommandGroup>
@@ -218,7 +221,6 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
   // --- Employee ---
   const [ownEmployee, setOwnEmployee] = useState<Employee | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const [selectedEmployeeDeptId, setSelectedEmployeeDeptId] = useState<number | null>(null);
   const [isOnBehalf, setIsOnBehalf] = useState(false);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
 
@@ -275,7 +277,6 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         if (linkedEmployee) {
           setOwnEmployee(linkedEmployee);
           setSelectedEmployeeId(linkedEmployee.id.toString());
-          setSelectedEmployeeDeptId(linkedEmployee.departmentId);
         }
       } catch (err) {
         console.error("Error loading form data:", err);
@@ -297,17 +298,18 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
       .catch((err) => console.error("Error loading employees:", err));
   }, [isOnBehalf, allEmployees.length]);
 
-  // Load suggested approvers when the selected employee's department changes
+  // Load suggested approvers when the selected employee changes (department managers, or their
+  // line managers under line-manager authority).
   useEffect(() => {
-    if (!selectedEmployeeDeptId) {
+    if (!selectedEmployeeId) {
       setSuggestedApprovers([]);
       return;
     }
     api
-      .get<UserForApprover[]>(`/api/departments/${selectedEmployeeDeptId}/managers`)
+      .get<UserForApprover[]>(`/api/employees/${selectedEmployeeId}/approvers`)
       .then((res) => setSuggestedApprovers(res.data))
-      .catch((err) => console.error("Error loading managers:", err));
-  }, [selectedEmployeeDeptId]);
+      .catch((err) => console.error("Error loading approvers:", err));
+  }, [selectedEmployeeId]);
 
   // Load all users when override mode is activated (lazy, load once) — used for
   // the "no user account" warning check.
@@ -342,12 +344,6 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
 
   const handleEmployeeSelect = (employeeId: string) => {
     setSelectedEmployeeId(employeeId);
-    const emp = allEmployees.find((e) => e.id.toString() === employeeId);
-    if (emp) {
-      setSelectedEmployeeDeptId(emp.departmentId);
-    } else {
-      setSelectedEmployeeDeptId(null);
-    }
     // Reset approver when employee changes
     setSelectedApproverUserId(null);
     setSelectedApproverEmployeeId(null);
@@ -392,7 +388,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
     (u) => u.id === selectedApproverUserId,
   );
 
-  const SuggestedApproverCombobox = () => {
+  const renderSuggestedApproverCombobox = () => {
     const trigger = (
       <Button
         variant="outline"
@@ -410,7 +406,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
           <span className="text-muted-foreground flex items-center gap-2">
             <Search className="h-4 w-4" />
             {suggestedApprovers.length === 0
-              ? "No managers found for this department"
+              ? "No managers found for this employee"
               : "Select an approver..."}
           </span>
         )}
@@ -505,7 +501,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         )}
 
         {/* Employee */}
-        <div className="space-y-3">
+        <div className="space-y-3" data-tour="training-request-employee">
           <Label>Employee *</Label>
           <EmployeeCombobox
             employees={isOnBehalf ? allEmployees : ownEmployee ? [ownEmployee] : []}
@@ -524,7 +520,6 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
                 setIsOnBehalf(!!checked);
                 if (!checked && ownEmployee) {
                   setSelectedEmployeeId(ownEmployee.id.toString());
-                  setSelectedEmployeeDeptId(ownEmployee.departmentId);
                   setSelectedApproverUserId(null);
                   setSelectedApproverEmployeeId(null);
                   setOverrideApproverEmployeeId(null);
@@ -539,7 +534,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Training Course */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-course">
           <Label>Training Course *</Label>
           {selectedCourseRequestId ? (
             <div className="flex gap-2">
@@ -582,7 +577,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Justification */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-justification">
           <Label htmlFor="justification">Justification *</Label>
           <Input
             id="justification"
@@ -594,7 +589,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Cost */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-cost">
           <Label htmlFor="cost">Estimated Cost ($) *</Label>
           <Input
             id="cost"
@@ -613,7 +608,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Hours */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-hours">
           <Label htmlFor="hours">Duration (Hours) *</Label>
           <Input
             id="hours"
@@ -628,7 +623,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Approver */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-approver">
           <div className="flex items-center justify-between">
             <Label>Approver</Label>
             {approverMode === "suggested" ? (
@@ -657,15 +652,15 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
           {approverMode === "suggested" ? (
             <>
               <p className="text-xs text-muted-foreground">
-                Showing department managers for the selected employee&apos;s department.
+                Showing the selected employee&apos;s managers.
               </p>
-              <SuggestedApproverCombobox />
+              {renderSuggestedApproverCombobox()}
             </>
           ) : (
             <>
               <p className="text-xs text-muted-foreground">
-                Select any employee to nominate as approver. Any department manager can still
-                approve on their behalf.
+                Select any employee to nominate as approver. The selected employee&apos;s
+                managers can still approve on their behalf.
               </p>
               <EmployeeCombobox
                 employees={allEmployees}
@@ -677,8 +672,8 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    This employee does not have a user account. Any department manager can
-                    approve on their behalf instead.
+                    This employee does not have a user account. The selected employee&apos;s
+                    managers can approve on their behalf instead.
                   </AlertDescription>
                 </Alert>
               )}
@@ -687,7 +682,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         </div>
 
         {/* Training Date */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="training-request-dates">
           <Label>Training Date</Label>
           <DateSelector selectedDate={trainingDate} onDateSelect={setTrainingDate} />
         </div>
@@ -704,6 +699,7 @@ export function TrainingRequestForm({ onSuccess }: TrainingRequestFormProps) {
         <Button
           type="submit"
           className="w-full"
+          data-tour="training-request-submit"
           disabled={
             isSubmitting ||
             !selectedEmployeeId ||

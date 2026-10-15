@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getLineScopeForUser } from "@/lib/services/authorityService";
 import { ExemptionStatus, UserRole } from "@/generated/prisma_client/client";
 import { auth } from "../auth";
 import { getChildDepartmentIds } from "@/lib/apiRBAC";
@@ -47,6 +48,13 @@ export class ExemptionService {
     });
 
     if (canViewDepartment.success) {
+      // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+      const lineScope = await getLineScopeForUser(userId, { includeSelf: true });
+      if (lineScope) {
+        whereClause.employeeId = { in: lineScope };
+        return await prisma.trainingTicketExemption.findMany({ where: whereClause, include: includeClause });
+      }
+
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },
@@ -130,6 +138,13 @@ export class ExemptionService {
     });
 
     if (canViewDepartment.success) {
+      // Line-manager authority: scope comes from the reporting line, not departments (spec §9.1).
+      const lineScope = await getLineScopeForUser(userId, { includeSelf: true });
+      if (lineScope) {
+        if (!lineScope.includes(exemption.employeeId)) throw new Error("NOT_AUTHORISED");
+        return exemption;
+      }
+
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { managedDepartments: true },

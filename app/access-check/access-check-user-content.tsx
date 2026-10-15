@@ -15,6 +15,12 @@ function AccessorBadge({ reason }: { reason: AccessorInfo["accessReason"] }) {
     return (
       <Badge className="bg-orange-500 text-white shrink-0">Dept Manager</Badge>
     );
+  if (reason === "LineManager")
+    return <Badge className="bg-orange-500 text-white shrink-0">Line Manager</Badge>;
+  if (reason === "Delegate")
+    return <Badge className="bg-violet-500 text-white shrink-0">Delegated</Badge>;
+  if (reason === "Viewer")
+    return <Badge className="bg-violet-500/70 text-white shrink-0">View only</Badge>;
   return <Badge variant="secondary" className="shrink-0">Self</Badge>;
 }
 
@@ -81,7 +87,7 @@ export function AccessCheckUserContent({ userId }: { userId: string }) {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 py-4 md:py-8 space-y-6">
-      <div>
+      <div data-tour="access-header">
         <h1 className="text-xl md:text-2xl font-bold">Who Can See My Data</h1>
         <p className="text-muted-foreground mt-1">
           The users and roles that currently have access to your employee record.
@@ -119,7 +125,7 @@ export function AccessCheckUserContent({ userId }: { userId: string }) {
       )}
 
       {!loading && !error && !accessInfo?.linked && (
-        <Card>
+        <Card data-tour="access-not-linked">
           <CardContent className="pt-6">
             <p className="text-muted-foreground">
               Your account is not linked to an employee record. Contact an
@@ -132,7 +138,7 @@ export function AccessCheckUserContent({ userId }: { userId: string }) {
       {!loading && !error && accessInfo?.linked && (
         <div className="space-y-4">
           {/* Employee info summary */}
-          <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
+          <div className="rounded-lg bg-muted/50 border p-4 space-y-2" data-tour="access-summary">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="font-semibold text-base">
                 {accessInfo.legalFirstName} {accessInfo.legalLastName}
@@ -149,7 +155,7 @@ export function AccessCheckUserContent({ userId }: { userId: string }) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour="access-cards">
             <AccessorCard
               title="Admins"
               accessors={accessInfo.accessors.filter(
@@ -159,12 +165,12 @@ export function AccessCheckUserContent({ userId }: { userId: string }) {
               emptyLabel="No admins"
             />
             <AccessorCard
-              title="Department Managers"
+              title="Managers"
               accessors={accessInfo.accessors.filter(
-                (a) => a.accessReason === "DepartmentManager",
+                (a) => ["DepartmentManager", "LineManager", "Delegate", "Viewer"].includes(a.accessReason),
               )}
               icon={Building2}
-              emptyLabel="No department managers"
+              emptyLabel="No managers"
             />
             <AccessorCard
               title="Self (your account)"

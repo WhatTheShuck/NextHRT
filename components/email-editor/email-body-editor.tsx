@@ -339,7 +339,7 @@ export function EmailBodyEditor({
             disabled={disabled}
             open={brace.open}
             onOpenChange={brace.onOpenChange}
-            onSelect={brace.wrapSelect(insertToken)}
+            onSelect={(token) => brace.wrapSelect(insertToken)(token)}
           />
 
           {mode === "html" && (
